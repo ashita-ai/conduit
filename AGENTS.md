@@ -2,7 +2,7 @@
 
 **Purpose**: Quick reference for working on Conduit
 **Last Updated**: 2025-11-18
-**Status**: Initial setup
+**Status**: Phase 1 complete, strategic direction defined
 
 ---
 
@@ -11,6 +11,10 @@
 **Conduit**: ML-powered LLM routing system for cost/latency/quality optimization
 **Stack**: Python 3.10+, PydanticAI, FastAPI, Contextual Bandit (Thompson Sampling)
 **Goal**: Learn optimal model selection from usage patterns vs static rules
+
+**Positioning**: Intelligent LLM infrastructure (not cost tool)
+**Value Prop**: Learn which LLM to use for YOUR workload, reducing costs 30-50% while maintaining quality
+**Competitive Moat**: Self-improving Thompson Sampling algorithm creates data network effect
 
 ### Directory Structure
 
@@ -27,8 +31,37 @@ conduit/
 │   ├── integration/        # Integration tests
 │   └── fixtures/           # Test data
 ├── examples/               # Usage examples
-└── docs/                   # Design documentation
+├── docs/                   # Design documentation
+└── notes/                  # Strategic decisions & analysis (dated)
 ```
+
+---
+
+## Strategic Decisions (2025-11-18)
+
+**Full analysis**: See `notes/2025-11-18_business_panel_analysis.md`
+
+### Core Principles
+1. **Positioning**: Infrastructure (essential) not tool (optional)
+2. **Quality Guarantees**: Probabilistic (95%+) not deterministic (100%)
+3. **Feedback Design**: Dual system (explicit + implicit signals)
+4. **Pricing Model**: Usage-based (per-call) not SaaS (per-seat)
+
+### Success Metrics (To Be Documented)
+- **Technical**: Model parameters converge within 1,000 queries
+- **Customer**: >30% cost savings within first month
+- **Quality**: 95% of queries meet or exceed baseline
+- **System**: p99 latency < 200ms for routing decisions
+
+### Phase 2 Priorities
+1. Implement implicit feedback system (retry behavior, latency, errors)
+2. Add query result caching (Redis) and batch processing
+3. Document success metrics and quality baselines
+4. Create demo showing 30% cost reduction on real workload
+
+### Communication Guidelines
+**Say**: "Saves 30-50% costs", "95% quality guarantee", "Gets smarter with use"
+**Avoid**: "Thompson Sampling", "contextual bandits", "100% optimal"
 
 ---
 
@@ -123,6 +156,8 @@ black conduit/           # Formatting applied
 2. **ML Selection**: Contextual bandit predicts optimal model
 3. **Execution**: Call selected model via PydanticAI
 4. **Feedback Loop**: Update ML model with results
+   - **Explicit**: User ratings (quality_score, met_expectations)
+   - **Implicit**: System signals (retry, latency, errors) [Phase 2]
 
 ### PydanticAI Integration Benefits
 - Unified interface across all providers (no provider-specific code)
@@ -168,7 +203,9 @@ async def route_query(query: str) -> RoutingResult:
 - **Contextual Bandit**: ML algorithm for exploration/exploitation
 - **Thompson Sampling**: Bayesian approach to model selection
 - **Query Embedding**: Semantic representation for routing features
-- **Feedback Loop**: User ratings improve routing decisions
+- **Dual Feedback Loop**: Explicit (user ratings) + Implicit (system signals)
+- **Data Moat**: Learning algorithm improves with usage, creating competitive barrier
+- **Probabilistic Guarantees**: 95%+ quality confidence, not 100% promises
 
 ### Make Targets (To Be Created)
 ```bash

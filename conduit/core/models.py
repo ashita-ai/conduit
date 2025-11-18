@@ -70,13 +70,24 @@ class QueryFeatures(BaseModel):
 
 
 class RoutingDecision(BaseModel):
-    """ML-powered routing decision for a query."""
+    """ML-powered routing decision for a query.
+
+    Confidence Score Interpretation (Strategic Decision 2025-11-18):
+    - Probabilistic guarantee: 95%+ of queries should have confidence >= 0.6
+    - High confidence (>0.8): Strong historical evidence for this query type
+    - Medium confidence (0.5-0.8): Moderate evidence, reasonable prediction
+    - Low confidence (<0.5): Limited data, exploratory routing
+    - Zero confidence (0.0): Fallback/default routing (no ML prediction)
+
+    Note: We provide probabilistic guarantees, not deterministic promises.
+    See notes/2025-11-18_business_panel_analysis.md for strategic rationale.
+    """
 
     id: str = Field(default_factory=lambda: str(uuid4()), description="Decision ID")
     query_id: str = Field(..., description="Associated query ID")
     selected_model: str = Field(..., description="Selected LLM model")
     confidence: float = Field(
-        ..., description="Thompson sampling confidence", ge=0.0, le=1.0
+        ..., description="Thompson sampling confidence (0.0-1.0): >0.8=high, 0.5-0.8=medium, <0.5=low, 0.0=fallback", ge=0.0, le=1.0
     )
     features: QueryFeatures = Field(..., description="Extracted query features")
     reasoning: str = Field(..., description="Explanation of routing decision")
@@ -106,7 +117,12 @@ class Response(BaseModel):
 
 
 class Feedback(BaseModel):
-    """User feedback on response quality."""
+    """Explicit user feedback on response quality.
+
+    Part of dual feedback system:
+    - Explicit: User-provided ratings (this model)
+    - Implicit: System-observed signals (ImplicitFeedback) [Phase 2]
+    """
 
     id: str = Field(
         default_factory=lambda: str(uuid4()), description="Unique feedback ID"
@@ -124,6 +140,56 @@ class Feedback(BaseModel):
     comments: str | None = Field(None, description="Optional user comments")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC), description="Feedback timestamp"
+    )
+
+
+class ImplicitFeedback(BaseModel):
+    """Implicit feedback signals from system observation.
+
+    Part of dual feedback system - captures user behavior signals
+    without requiring explicit feedback submission. Improves antifragility
+    of learning algorithm by reducing dependency on user participation.
+
+    Phase: 2+ (not yet implemented)
+    Strategic rationale: See notes/2025-11-18_business_panel_analysis.md
+    """
+
+    id: str = Field(
+        default_factory=lambda: str(uuid4()), description="Unique signal ID"
+    )
+    response_id: str = Field(..., description="Associated response ID")
+    query_id: str = Field(..., description="Associated query ID")
+
+    # Behavioral signals
+    retry_detected: bool = Field(
+        default=False, description="User re-submitted same/similar query"
+    )
+    retry_delay_seconds: float | None = Field(
+        None, description="Time between original and retry", ge=0.0
+    )
+    task_abandoned: bool = Field(
+        default=False, description="User abandoned task before completion"
+    )
+    latency_accepted: bool = Field(
+        default=True, description="User waited for response vs timeout"
+    )
+
+    # Error signals
+    error_occurred: bool = Field(
+        default=False, description="Model returned error or invalid response"
+    )
+    error_type: str | None = Field(None, description="Type of error if occurred")
+
+    # Engagement signals
+    response_used: bool = Field(
+        default=True, description="Response appears to have been used"
+    )
+    followup_queries: int = Field(
+        default=0, description="Number of related followup queries", ge=0
+    )
+
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC), description="Signal capture timestamp"
     )
 
 
