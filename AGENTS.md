@@ -236,4 +236,22 @@ make all           # All quality checks
 
 ---
 
+## Working with AI Agents
+
+**Recognize audience immediately**: Engineers get technical tone, no marketing. Business gets value/ROI focus.
+
+**Separate materials**: Code examples stay clean (no narratives). Presentation materials (openers, talking points) live in separate files.
+
+**Test output quality**: Run code AND verify output is actually useful, not just functional.
+
+**Iterate fast**: Ship → test → get feedback → fix → commit. Don't perfect upfront.
+
+**Direct feedback works**: "This reads like marketing" > "This could be improved"
+
+**Track tasks**: Use TodoWrite for 3+ steps to ensure nothing gets forgotten.
+
+**Commit hygiene**: Each meaningful change gets own commit with clear message (what + why).
+
+---
+
 **Last Updated**: 2025-11-18
