@@ -307,3 +307,31 @@ class TestErrorHandling:
         response = client.get("/v1/models")
 
         assert response.status_code == 500
+
+    def test_complete_unexpected_error(self, client, mock_service):
+        """Test complete endpoint handles unexpected exceptions."""
+        mock_service.complete = AsyncMock(side_effect=RuntimeError("Unexpected error"))
+
+        response = client.post(
+            "/v1/complete",
+            json={"prompt": "Test query"}
+        )
+
+        assert response.status_code == 500
+        assert "Internal server error" in response.json()["detail"]
+
+    def test_feedback_unexpected_error(self, client, mock_service):
+        """Test feedback endpoint handles unexpected exceptions."""
+        mock_service.submit_feedback = AsyncMock(side_effect=RuntimeError("Unexpected error"))
+
+        response = client.post(
+            "/v1/feedback",
+            json={
+                "response_id": "test-id",
+                "quality_score": 0.9,
+                "met_expectations": True
+            }
+        )
+
+        assert response.status_code == 500
+        assert "Internal server error" in response.json()["detail"]
