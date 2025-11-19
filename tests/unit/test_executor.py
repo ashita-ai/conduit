@@ -259,14 +259,14 @@ class TestModelExecutor:
             MockAgent.return_value = mock_agent
 
             response = await executor.execute(
-                model="claude-sonnet-4",
+                model="claude-3.5-sonnet",
                 prompt="Test",
                 result_type=TestResult,
                 query_id="test-alt-tokens",
             )
 
-            # claude-sonnet-4 pricing: input=0.003, output=0.015 per 1K tokens
-            # Cost = (500/1000 * 0.003) + (250/1000 * 0.015)
+            # claude-3.5-sonnet fallback pricing: input=3.00, output=15.00 per 1M tokens
+            # Cost = (500 * 3.00/1M) + (250 * 15.00/1M)
             # Cost = 0.0015 + 0.00375 = 0.00525
             assert response.cost == pytest.approx(0.00525, rel=0.01)
 

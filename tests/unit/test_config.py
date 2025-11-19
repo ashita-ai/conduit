@@ -91,7 +91,7 @@ class TestSettings:
 
         assert "gpt-4o-mini" in settings.default_models
         assert "gpt-4o" in settings.default_models
-        assert "claude-sonnet-4" in settings.default_models
+        assert "claude-3.5-sonnet" in settings.default_models
         assert "claude-opus-4" in settings.default_models
 
     def test_api_port_validation(self):

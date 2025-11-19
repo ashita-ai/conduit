@@ -191,8 +191,8 @@ class ModelExecutor:
                 logger.warning(f"Could not extract tokens from usage object: {usage}")
                 return 0.0
 
-        cost = (input_tokens / 1000) * model_pricing["input"] + (
-            output_tokens / 1000
-        ) * model_pricing["output"]
+        cost = (input_tokens * input_cost_per_token) + (
+            output_tokens * output_cost_per_token
+        )
 
         return float(cost)

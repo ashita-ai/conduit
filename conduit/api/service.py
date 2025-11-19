@@ -1,19 +1,16 @@
 """Service layer for routing operations."""
 
-import json
 import logging
 from typing import Any
 
 from pydantic import BaseModel
 
 from conduit.core.database import Database
-from conduit.core.exceptions import ExecutionError, RoutingError
+from conduit.core.exceptions import ExecutionError
 from conduit.core.models import (
     Feedback,
     Query,
     QueryConstraints,
-    Response,
-    RoutingDecision,
     RoutingResult,
 )
 from conduit.engines.analyzer import QueryAnalyzer

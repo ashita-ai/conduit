@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 _service: RoutingService | None = None
 
 
-from typing import AsyncGenerator
 from collections.abc import AsyncIterator
 
 @asynccontextmanager

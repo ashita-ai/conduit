@@ -1,7 +1,6 @@
 """Factory for creating RoutingService instances."""
 
 import logging
-from typing import Any
 
 from pydantic import BaseModel
 

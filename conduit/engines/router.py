@@ -2,6 +2,7 @@
 
 import logging
 
+from conduit.core.config import settings
 from conduit.core.models import (
     Query,
     QueryConstraints,
@@ -281,12 +282,7 @@ class Router:
         """
         # Use default models if not specified
         if models is None:
-            models = [
-                "gpt-4o-mini",
-                "gpt-4o",
-                "claude-3-5-sonnet-20241022",
-                "claude-3-haiku-20240307",
-            ]
+            models = settings.default_models
 
         # Initialize components
         self.analyzer = QueryAnalyzer(embedding_model=embedding_model)

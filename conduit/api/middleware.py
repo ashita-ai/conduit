@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import Any, Awaitable, Callable
+from typing import Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware

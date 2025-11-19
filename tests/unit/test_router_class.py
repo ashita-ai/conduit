@@ -34,33 +34,44 @@ class TestRouter:
         assert router.routing_engine is not None
 
         # Check default models are set
-        expected_models = [
+        expected_models = {
             "gpt-4o-mini",
             "gpt-4o",
-            "claude-3-5-sonnet-20241022",
-            "claude-3-haiku-20240307",
-        ]
-        assert router.bandit.models == expected_models
+            "claude-3.5-sonnet",
+            "claude-opus-4",
+        }
+        assert set(router.bandit.model_states.keys()) == expected_models
 
     def test_router_initialization_custom_models(self):
         """Test Router initializes with custom models."""
-        custom_models = ["gpt-4o-mini", "claude-3-haiku-20240307"]
+        custom_models = ["gpt-4o-mini", "claude-3.5-sonnet"]
         router = Router(models=custom_models)
 
-        assert router.bandit.models == custom_models
+        assert set(router.bandit.model_states.keys()) == set(custom_models)
 
     @pytest.mark.asyncio
     async def test_route_method(self):
         """Test that route method delegates to routing engine."""
+        from conduit.core.models import QueryFeatures
+
         router = Router()
         query = Query(text="Test query")
+
+        # Create real QueryFeatures for the mock decision
+        mock_features = QueryFeatures(
+            token_count=10,
+            complexity_score=0.5,
+            domain="general",
+            domain_confidence=0.8,
+            embedding=[0.1] * 384
+        )
 
         # Mock the routing engine's route method
         mock_decision = RoutingDecision(
             query_id=query.id,
             selected_model="gpt-4o-mini",
             confidence=0.9,
-            features=MagicMock(),
+            features=mock_features,
             reasoning="Mock reasoning",
             metadata={}
         )

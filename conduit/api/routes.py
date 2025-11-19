@@ -1,7 +1,6 @@
 """FastAPI route handlers for Conduit API."""
 
 import logging
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 
