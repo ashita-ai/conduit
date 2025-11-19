@@ -22,6 +22,7 @@ from conduit.core.models import (
     Response,
     RoutingDecision,
 )
+from conduit.core.pricing import ModelPricing
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +129,7 @@ class Database:
 
     async def save_complete_interaction(
         self,
-        routing: RoutingDecision,
+        routing: RoutingDecision | None,
         response: Response,
         feedback: Feedback | None = None,
     ) -> None:
@@ -138,7 +139,7 @@ class Database:
         Note: For true atomicity, implement as database RPC function in future
 
         Args:
-            routing: Routing decision
+            routing: Routing decision (optional - for feedback-only saves)
             response: LLM response
             feedback: Optional user feedback
 
@@ -149,17 +150,18 @@ class Database:
             raise DatabaseError("Database not connected")
 
         try:
-            # Save routing decision
-            routing_data = {
-                "id": routing.id,
-                "query_id": routing.query_id,
-                "selected_model": routing.selected_model,
-                "confidence": routing.confidence,
-                "features": json.dumps(routing.features.model_dump()),
-                "reasoning": routing.reasoning,
-                "created_at": routing.created_at.isoformat(),
-            }
-            await self.client.table("routing_decisions").insert(routing_data).execute()  # type: ignore[arg-type]
+            # Save routing decision (if provided)
+            if routing is not None:
+                routing_data = {
+                    "id": routing.id,
+                    "query_id": routing.query_id,
+                    "selected_model": routing.selected_model,
+                    "confidence": routing.confidence,
+                    "features": json.dumps(routing.features.model_dump()),
+                    "reasoning": routing.reasoning,
+                    "created_at": routing.created_at.isoformat(),
+                }
+                await self.client.table("routing_decisions").insert(routing_data).execute()  # type: ignore[arg-type]
 
             # Save response
             response_data = {
@@ -187,8 +189,9 @@ class Database:
                 }
                 await self.client.table("feedback").insert(feedback_data).execute()  # type: ignore[arg-type]
 
+            routing_id = routing.id if routing is not None else "none"
             logger.info(
-                f"Saved complete interaction: routing={routing.id}, response={response.id}"
+                f"Saved complete interaction: routing={routing_id}, response={response.id}"
             )
 
         except Exception as e:
@@ -270,6 +273,53 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to load model states: {e}")
             raise DatabaseError(f"Failed to load model states: {e}") from e
+
+    async def get_model_prices(self) -> dict[str, ModelPricing]:
+        """Load per-model pricing information.
+
+        Pricing is stored in the ``model_prices`` table with costs expressed
+        per one million tokens. This method converts the raw rows into
+        :class:`ModelPricing` instances keyed by ``model_id``.
+
+        Transaction: None (single SELECT via REST API)
+
+        Returns:
+            Dictionary mapping model_id to ModelPricing
+
+        Raises:
+            DatabaseError: If load fails or client is not connected
+        """
+        if not self.client:
+            raise DatabaseError("Database not connected")
+
+        try:
+            response = await self.client.table("model_prices").select("*").execute()
+
+            prices: dict[str, ModelPricing] = {}
+            for item in response.data or []:
+                row = cast(dict[str, Any], item)
+                # Supabase returns timestamps as ISO 8601 strings; Pydantic will
+                # handle conversion for the snapshot_at field.
+                pricing = ModelPricing(
+                    model_id=str(row["model_id"]),
+                    input_cost_per_million=float(row["input_cost_per_million"]),
+                    output_cost_per_million=float(row["output_cost_per_million"]),
+                    cached_input_cost_per_million=(
+                        float(row["cached_input_cost_per_million"])
+                        if row.get("cached_input_cost_per_million") is not None
+                        else None
+                    ),
+                    source=row.get("source"),
+                    snapshot_at=row.get("snapshot_at"),
+                )
+                prices[pricing.model_id] = pricing
+
+            logger.info(f"Loaded {len(prices)} model price entries")
+            return prices
+
+        except Exception as e:
+            logger.error(f"Failed to load model prices: {e}")
+            raise DatabaseError(f"Failed to load model prices: {e}") from e
 
     async def get_response_by_id(self, response_id: str) -> Response | None:
         """Get response by ID.

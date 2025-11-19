@@ -17,29 +17,35 @@ Conduit uses contextual bandits (Thompson Sampling) to intelligently route queri
 
 ## Quick Start
 
+**Phase 1**: Core routing engine with FastAPI service (current)
+
 ```python
-from conduit import Router
-from pydantic import BaseModel
+# Example 1: Using the routing engine directly
+from conduit.engines.router import Router
+from conduit.core.models import Query
 
-class AnalysisResult(BaseModel):
-    answer: str
-    confidence: float
+router = Router()
 
-router = Router(
-    models=["gpt-4o-mini", "gpt-4o", "claude-opus-4"],
-    optimize_for="cost_quality_balanced"
-)
+# Route query to optimal model
+query = Query(text="What is 2+2?")
+decision = await router.route(query)
 
-# Automatic intelligent routing
-response = await router.complete(
+print(f"Selected: {decision.selected_model}")
+print(f"Confidence: {decision.confidence}")
+```
+
+See `examples/` directory for complete usage examples including constraints and feedback.
+
+**Phase 2+**: Simplified client SDK (planned)
+
+```python
+# Future: High-level client API (not yet implemented)
+from conduit import ConduitClient
+
+client = ConduitClient()
+response = await client.complete(
     prompt="What's 2+2?",
-    result_type=AnalysisResult
-)
-
-# Provide feedback to improve routing
-await router.feedback(
-    response_id=response.id,
-    quality_score=0.95
+    constraints={"max_cost": 0.001}
 )
 ```
 
@@ -155,13 +161,38 @@ Query → Embedding → ML Routing Engine → LLM Provider → Response
 
 ## Documentation
 
-See `docs/` for detailed design specifications and implementation guides.
+- **Examples**: See `examples/` for usage patterns and working code
+- **Architecture**: See `docs/ARCHITECTURE.md` for system design
+- **Development**: See `AGENTS.md` for development guidelines
+- **Strategic Decisions**: See `notes/2025-11-18_business_panel_analysis.md`
+
+## Current Status
+
+**Phase**: 1 (Core Engine Complete)
+**Version**: 0.0.1-alpha
+
+### Completed
+- ✅ Core routing engine (ML-powered model selection)
+- ✅ Query analysis (embeddings, complexity, domain classification)
+- ✅ Thompson Sampling bandit algorithm
+- ✅ Database schema (PostgreSQL/Supabase)
+- ✅ Type safety (mypy strict mode passes)
+- ✅ Unit tests for core engine (96-100% coverage)
+
+### In Progress / Phase 2
+- ⏳ API layer testing (0% coverage - needs tests)
+- ⏳ Implicit feedback system (retry, latency, errors)
+- ⏳ Query result caching (Redis)
+- ⏳ Simplified client SDK
+- ⏳ Production deployment
+
+### Test Coverage (2025-11-18)
+- **Overall**: 54%
+- **Core Engine**: 96-100% (models, analyzer, bandit, router, executor)
+- **API Layer**: 0% (untested)
+- **Database**: 19%
+- **Target**: 80%+ before Phase 2
 
 ## License
 
 MIT License - see LICENSE file for details
-
-## Status
-
-**Phase**: Initial development
-**Version**: 0.0.1-alpha

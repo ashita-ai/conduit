@@ -11,6 +11,7 @@ from pydantic_ai import Agent
 
 from conduit.core.exceptions import ExecutionError
 from conduit.core.models import Response
+from conduit.core.pricing import ModelPricing
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +19,16 @@ logger = logging.getLogger(__name__)
 class ModelExecutor:
     """Execute LLM calls via PydanticAI."""
 
-    def __init__(self) -> None:
-        """Initialize executor with agent cache."""
+    def __init__(self, pricing: dict[str, ModelPricing] | None = None) -> None:
+        """Initialize executor with agent cache and pricing.
+
+        Args:
+            pricing: Optional mapping of model_id to ModelPricing loaded from
+                the database. If not provided, a built-in approximate pricing
+                table will be used as a fallback.
+        """
         self.clients: dict[str, Agent[Any, Any]] = {}
+        self.pricing: dict[str, ModelPricing] = pricing or {}
 
     async def execute(
         self,
@@ -125,21 +133,34 @@ class ModelExecutor:
         Returns:
             Cost in dollars
 
-        Note:
-            Phase 1 uses approximate pricing.
-            Phase 2+ will use actual provider pricing APIs.
+        Pricing strategy:
+            1. If database-backed pricing is available for the model, use it.
+            2. Otherwise, fall back to a built-in approximate pricing table.
         """
-        # Approximate pricing (per 1K tokens)
-        pricing = {
-            "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
-            "gpt-4o": {"input": 0.0025, "output": 0.01},
-            "claude-sonnet-4": {"input": 0.003, "output": 0.015},
-            "claude-opus-4": {"input": 0.015, "output": 0.075},
-        }
+        # Prefer database-backed pricing when available
+        db_pricing = self.pricing.get(model)
 
-        model_pricing = pricing.get(
-            model, {"input": 0.001, "output": 0.002}  # Default pricing
-        )
+        if db_pricing is not None:
+            input_cost_per_token = db_pricing.input_cost_per_token
+            output_cost_per_token = db_pricing.output_cost_per_token
+        else:
+            # Approximate pricing (per 1M tokens) as a safe fallback
+            # Note: These are approximate and may be outdated. Database pricing
+            # from llm-prices.com should be preferred when available.
+            fallback_pricing = {
+                "gpt-4o-mini": {"input": 0.150, "output": 0.600},
+                "gpt-4o": {"input": 2.50, "output": 10.00},
+                "claude-3.5-sonnet": {"input": 3.00, "output": 15.00},
+                "claude-opus-4": {"input": 15.00, "output": 75.00},
+            }
+
+            model_pricing = fallback_pricing.get(
+                model,
+                {"input": 1.00, "output": 3.00},  # Conservative default pricing
+            )
+
+            input_cost_per_token = model_pricing["input"] / 1_000_000.0
+            output_cost_per_token = model_pricing["output"] / 1_000_000.0
 
         # Handle Usage object (has attributes) or dict (has .get method)
         if hasattr(usage, "request_tokens") or hasattr(usage, "input_tokens"):

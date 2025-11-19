@@ -57,7 +57,7 @@ class QueryFeatures(BaseModel):
     """Extracted features from query for routing decision."""
 
     embedding: list[float] = Field(
-        ..., description="Semantic embedding (384-dim)", min_length=384, max_length=384
+        ..., description="Semantic embedding vector (dimension depends on model)"
     )
     token_count: int = Field(..., description="Approximate token count", ge=0)
     complexity_score: float = Field(

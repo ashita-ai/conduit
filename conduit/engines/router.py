@@ -253,3 +253,62 @@ class RoutingEngine:
             f"Model success rate: {success_rate:.2f} "
             f"(α={state.alpha:.1f}, β={state.beta:.1f})"
         )
+
+
+class Router:
+    """High-level router interface for ML-powered model selection.
+
+    This class provides a simple interface for routing queries to optimal LLM models
+    using machine learning. It automatically handles all the complex setup and wiring.
+
+    Example:
+        >>> router = Router()
+        >>> query = Query(text="What is 2+2?")
+        >>> decision = await router.route(query)
+        >>> print(f"Selected: {decision.selected_model}")
+    """
+
+    def __init__(
+        self,
+        models: list[str] | None = None,
+        embedding_model: str = "all-MiniLM-L6-v2",
+    ):
+        """Initialize router with default components.
+
+        Args:
+            models: List of available model IDs. If None, uses defaults.
+            embedding_model: Sentence transformer model for query analysis.
+        """
+        # Use default models if not specified
+        if models is None:
+            models = [
+                "gpt-4o-mini",
+                "gpt-4o",
+                "claude-3-5-sonnet-20241022",
+                "claude-3-haiku-20240307",
+            ]
+
+        # Initialize components
+        self.analyzer = QueryAnalyzer(embedding_model=embedding_model)
+        self.bandit = ContextualBandit(models=models)
+        self.routing_engine = RoutingEngine(
+            bandit=self.bandit,
+            analyzer=self.analyzer,
+            models=models,
+        )
+
+    async def route(self, query: Query) -> RoutingDecision:
+        """Route a query to the optimal model.
+
+        Args:
+            query: The query to route, including text and optional constraints.
+
+        Returns:
+            RoutingDecision with the selected model, confidence, and reasoning.
+
+        Example:
+            >>> query = Query(text="Explain quantum physics simply")
+            >>> decision = await router.route(query)
+            >>> print(f"Use {decision.selected_model} (confidence: {decision.confidence:.2f})")
+        """
+        return await self.routing_engine.route(query)

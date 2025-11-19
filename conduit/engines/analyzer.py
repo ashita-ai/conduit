@@ -1,8 +1,9 @@
 """Query analysis and feature extraction for routing decisions."""
 
+import asyncio
 import re
 
-from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
+from sentence_transformers import SentenceTransformer  # type: ignore[import-untyped,unused-ignore]
 
 from conduit.core.models import QueryFeatures
 
@@ -40,8 +41,10 @@ class QueryAnalyzer:
             >>> features.domain
             "science"
         """
-        # Generate embedding (384-dim vector)
-        embedding = self.embedder.encode(query).tolist()
+        # Generate embedding (offload CPU work to thread pool to avoid blocking event loop)
+        embedding_tensor = await asyncio.to_thread(self.embedder.encode, query)
+        # sentence_transformers returns numpy array-like objects
+        embedding_list: list[float] = embedding_tensor.tolist()
 
         # Estimate token count (rough approximation)
         token_count = self._estimate_tokens(query)
@@ -53,7 +56,7 @@ class QueryAnalyzer:
         domain, domain_confidence = self.domain_classifier.classify(query)
 
         return QueryFeatures(
-            embedding=embedding,
+            embedding=embedding_list,
             token_count=token_count,
             complexity_score=complexity_score,
             domain=domain,

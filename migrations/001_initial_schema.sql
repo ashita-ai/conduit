@@ -1,163 +1,109 @@
--- Migration: 001_initial_schema
--- Description: Initial database schema for Conduit routing system
--- Source: Alembic migration 9a6c8a59cb30
--- Apply: Run this SQL in Supabase SQL Editor
+-- Conduit Initial Database Schema
+-- Supabase PostgreSQL Migration
+-- Version: 001
+-- Date: 2025-11-18
 
--- ============================================================================
--- QUERIES TABLE
--- ============================================================================
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Queries table
 CREATE TABLE queries (
-    id TEXT PRIMARY KEY,
-    text TEXT NOT NULL CHECK (length(trim(text)) > 0),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    text TEXT NOT NULL,
     user_id TEXT,
     context JSONB,
     constraints JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_queries_user_id ON queries(user_id);
 CREATE INDEX idx_queries_created_at ON queries(created_at DESC);
 
--- ============================================================================
--- ROUTING_DECISIONS TABLE
--- ============================================================================
-
+-- Routing decisions table
 CREATE TABLE routing_decisions (
-    id TEXT PRIMARY KEY,
-    query_id TEXT NOT NULL REFERENCES queries(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    query_id UUID NOT NULL REFERENCES queries(id) ON DELETE CASCADE,
     selected_model TEXT NOT NULL,
-    confidence NUMERIC(3,2) NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    confidence FLOAT NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
     features JSONB NOT NULL,
     reasoning TEXT NOT NULL,
-    metadata JSONB DEFAULT '{}'::jsonb NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_routing_decisions_query_id ON routing_decisions(query_id);
 CREATE INDEX idx_routing_decisions_model ON routing_decisions(selected_model);
 CREATE INDEX idx_routing_decisions_created_at ON routing_decisions(created_at DESC);
-CREATE INDEX idx_routing_decisions_confidence ON routing_decisions(confidence DESC);
 
--- ============================================================================
--- RESPONSES TABLE
--- ============================================================================
-
+-- Responses table
 CREATE TABLE responses (
-    id TEXT PRIMARY KEY,
-    query_id TEXT NOT NULL REFERENCES queries(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    query_id UUID NOT NULL REFERENCES queries(id) ON DELETE CASCADE,
     model TEXT NOT NULL,
     text TEXT NOT NULL,
-    cost NUMERIC(10,6) NOT NULL CHECK (cost >= 0.0),
-    latency NUMERIC(10,3) NOT NULL CHECK (latency >= 0.0),
-    tokens INTEGER NOT NULL CHECK (tokens >= 0),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    cost FLOAT NOT NULL CHECK (cost >= 0.0),
+    latency FLOAT NOT NULL CHECK (latency >= 0.0),
+    tokens INT NOT NULL CHECK (tokens >= 0),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_responses_query_id ON responses(query_id);
 CREATE INDEX idx_responses_model ON responses(model);
 CREATE INDEX idx_responses_created_at ON responses(created_at DESC);
-CREATE INDEX idx_responses_cost ON responses(cost DESC);
-CREATE INDEX idx_responses_latency ON responses(latency DESC);
 
--- ============================================================================
--- FEEDBACK TABLE
--- ============================================================================
-
+-- Feedback table
 CREATE TABLE feedback (
-    id TEXT PRIMARY KEY,
-    response_id TEXT NOT NULL REFERENCES responses(id) ON DELETE CASCADE,
-    quality_score NUMERIC(3,2) NOT NULL CHECK (quality_score >= 0.0 AND quality_score <= 1.0),
-    user_rating INTEGER CHECK (user_rating IS NULL OR (user_rating >= 1 AND user_rating <= 5)),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    response_id UUID NOT NULL REFERENCES responses(id) ON DELETE CASCADE,
+    quality_score FLOAT NOT NULL CHECK (quality_score >= 0.0 AND quality_score <= 1.0),
+    user_rating INT CHECK (user_rating IS NULL OR (user_rating >= 1 AND user_rating <= 5)),
     met_expectations BOOLEAN NOT NULL,
     comments TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_feedback_response_id ON feedback(response_id);
 CREATE INDEX idx_feedback_created_at ON feedback(created_at DESC);
-CREATE INDEX idx_feedback_quality_score ON feedback(quality_score DESC);
-CREATE INDEX idx_feedback_met_expectations ON feedback(met_expectations);
 
--- ============================================================================
--- IMPLICIT_FEEDBACK TABLE (Phase 2+)
--- ============================================================================
-
-CREATE TABLE implicit_feedback (
-    id TEXT PRIMARY KEY,
-    response_id TEXT NOT NULL REFERENCES responses(id) ON DELETE CASCADE,
-    query_id TEXT NOT NULL REFERENCES queries(id) ON DELETE CASCADE,
-    retry_detected BOOLEAN DEFAULT FALSE NOT NULL,
-    retry_delay_seconds NUMERIC(10,3) CHECK (retry_delay_seconds IS NULL OR retry_delay_seconds >= 0.0),
-    task_abandoned BOOLEAN DEFAULT FALSE NOT NULL,
-    latency_accepted BOOLEAN DEFAULT TRUE NOT NULL,
-    error_occurred BOOLEAN DEFAULT FALSE NOT NULL,
-    error_type TEXT,
-    response_used BOOLEAN DEFAULT TRUE NOT NULL,
-    followup_queries INTEGER DEFAULT 0 NOT NULL CHECK (followup_queries >= 0),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_implicit_feedback_response_id ON implicit_feedback(response_id);
-CREATE INDEX idx_implicit_feedback_query_id ON implicit_feedback(query_id);
-CREATE INDEX idx_implicit_feedback_created_at ON implicit_feedback(created_at DESC);
-CREATE INDEX idx_implicit_feedback_retry_detected ON implicit_feedback(retry_detected);
-CREATE INDEX idx_implicit_feedback_error_occurred ON implicit_feedback(error_occurred);
-
--- ============================================================================
--- MODEL_STATES TABLE
--- ============================================================================
-
+-- Model states table (Thompson Sampling Beta parameters)
 CREATE TABLE model_states (
     model_id TEXT PRIMARY KEY,
-    alpha NUMERIC(20,10) NOT NULL CHECK (alpha > 0),
-    beta NUMERIC(20,10) NOT NULL CHECK (beta > 0),
-    total_requests INTEGER DEFAULT 0 NOT NULL CHECK (total_requests >= 0),
-    total_cost NUMERIC(10,6) DEFAULT 0.0 NOT NULL CHECK (total_cost >= 0.0),
-    avg_quality NUMERIC(3,2) DEFAULT 0.0 NOT NULL CHECK (avg_quality >= 0.0 AND avg_quality <= 1.0),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    alpha FLOAT NOT NULL DEFAULT 1.0 CHECK (alpha > 0.0),
+    beta FLOAT NOT NULL DEFAULT 1.0 CHECK (beta > 0.0),
+    total_requests INT NOT NULL DEFAULT 0 CHECK (total_requests >= 0),
+    total_cost FLOAT NOT NULL DEFAULT 0.0 CHECK (total_cost >= 0.0),
+    avg_quality FLOAT NOT NULL DEFAULT 0.0 CHECK (avg_quality >= 0.0 AND avg_quality <= 1.0),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_model_states_updated_at ON model_states(updated_at DESC);
-CREATE INDEX idx_model_states_avg_quality ON model_states(avg_quality DESC);
 
--- ============================================================================
--- VIEWS
--- ============================================================================
+-- Initialize default model states
+INSERT INTO model_states (model_id, alpha, beta, total_requests, total_cost, avg_quality)
+VALUES
+    ('gpt-4o-mini', 1.0, 1.0, 0, 0.0, 0.0),
+    ('gpt-4o', 1.0, 1.0, 0, 0.0, 0.0),
+    ('claude-sonnet-4', 1.0, 1.0, 0, 0.0, 0.0),
+    ('claude-opus-4', 1.0, 1.0, 0, 0.0, 0.0)
+ON CONFLICT (model_id) DO NOTHING;
 
-CREATE OR REPLACE VIEW recent_routing_performance AS
+-- Create view for analytics
+CREATE VIEW routing_analytics AS
 SELECT
-    rd.selected_model,
-    COUNT(*) as total_routes,
-    AVG(rd.confidence) as avg_confidence,
+    r.model,
+    COUNT(*) as total_requests,
     AVG(r.cost) as avg_cost,
     AVG(r.latency) as avg_latency,
-    AVG(CASE WHEN f.met_expectations THEN 1.0 ELSE 0.0 END) as success_rate
-FROM routing_decisions rd
-LEFT JOIN responses r ON r.query_id = rd.query_id
-LEFT JOIN feedback f ON f.response_id = r.id
-WHERE rd.created_at > NOW() - INTERVAL '7 days'
-GROUP BY rd.selected_model
-ORDER BY total_routes DESC;
+    AVG(r.tokens) as avg_tokens,
+    AVG(COALESCE(f.quality_score, 0.0)) as avg_quality,
+    COUNT(f.id) as feedback_count
+FROM responses r
+LEFT JOIN feedback f ON r.id = f.response_id
+GROUP BY r.model;
 
--- ============================================================================
--- ALEMBIC VERSION TRACKING (if using Alembic)
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS alembic_version (
-    version_num VARCHAR(32) NOT NULL,
-    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
-);
-
-INSERT INTO alembic_version (version_num) VALUES ('9a6c8a59cb30');
-
--- ============================================================================
--- MIGRATION COMPLETE
--- ============================================================================
-
--- Verify tables
-SELECT tablename
-FROM pg_tables
-WHERE schemaname = 'public'
-AND tablename IN ('queries', 'routing_decisions', 'responses', 'feedback', 'implicit_feedback', 'model_states')
-ORDER BY tablename;
+-- Comments for documentation
+COMMENT ON TABLE queries IS 'User queries submitted for LLM routing';
+COMMENT ON TABLE routing_decisions IS 'ML-powered routing decisions (Thompson Sampling)';
+COMMENT ON TABLE responses IS 'LLM responses with cost and latency tracking';
+COMMENT ON TABLE feedback IS 'User feedback for quality scoring and model updates';
+COMMENT ON TABLE model_states IS 'Thompson Sampling Beta distribution parameters per model';
+COMMENT ON VIEW routing_analytics IS 'Aggregated analytics for routing performance';

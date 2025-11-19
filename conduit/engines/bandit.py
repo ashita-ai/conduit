@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timezone
 
-import numpy as np  # type: ignore[import-not-found]
+import numpy as np  # type: ignore[import-untyped,unused-ignore]
 
 from conduit.core.models import ModelState, QueryFeatures
 

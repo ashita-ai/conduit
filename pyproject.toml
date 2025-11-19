@@ -47,6 +47,7 @@ dev = [
     "black>=25.0.0",
     "ruff>=0.14.0",
     "mypy>=1.18.0",
+    "types-redis>=4.6.0",
 ]
 
 [project.scripts]
@@ -97,6 +98,12 @@ no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
+
+# Ignore missing stubs for third-party libraries without type hints
+[[tool.mypy.overrides]]
+module = ["fastapi.*", "uvicorn.*", "sentence_transformers.*", "sklearn.*"]
+ignore_missing_imports = true
+disallow_untyped_decorators = false
 
 [tool.pytest.ini_options]
 minversion = "9.0"

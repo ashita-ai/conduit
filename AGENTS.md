@@ -53,6 +53,14 @@ conduit/
 - **Quality**: 95% of queries meet or exceed baseline
 - **System**: p99 latency < 200ms for routing decisions
 
+### Current Test Coverage (2025-11-18)
+- **Overall**: 54% coverage
+- **Core Engine**: 96-100% (models, analyzer, bandit, router, executor)
+- **API Layer**: 0% (routes, middleware, validation - not yet tested)
+- **Database**: 19% (basic operations tested)
+- **CLI**: 0% (not yet tested)
+- **Target**: 80%+ coverage before Phase 2
+
 ### Phase 2 Priorities
 1. Implement implicit feedback system (retry behavior, latency, errors)
 2. Add query result caching (Redis) and batch processing
