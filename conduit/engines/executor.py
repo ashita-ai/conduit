@@ -86,7 +86,8 @@ class ModelExecutor:
                 id=str(uuid4()),
                 query_id=query_id,
                 model=model,
-                text=result.data().model_dump_json(),  # type: ignore[attr-defined]
+                # PydanticAI v1.20+ uses .output instead of .data()
+                text=result.output.model_dump_json(),  # type: ignore[attr-defined]
                 cost=cost,
                 latency=latency,
                 tokens=total_tokens,
@@ -118,7 +119,8 @@ class ModelExecutor:
         cache_key = f"{model}_{result_type.__name__}"
 
         if cache_key not in self.clients:
-            self.clients[cache_key] = Agent(model=model, result_type=result_type)  # type: ignore[call-overload]
+            # PydanticAI v1.20+ uses output_type instead of result_type
+            self.clients[cache_key] = Agent(model=model, output_type=result_type)  # type: ignore[call-overload]
             logger.debug(f"Created new agent for {cache_key}")
 
         return self.clients[cache_key]
