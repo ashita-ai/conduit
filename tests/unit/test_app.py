@@ -126,6 +126,69 @@ class TestLifespan:
                                         # Verify info logged (empty states still logs success)
                                         assert any("Loaded 0 model states" in str(call) for call in mock_logger.info.call_args_list)
 
+    @pytest.mark.asyncio
+    async def test_lifespan_handles_model_price_load_failure(self):
+        """Test lifespan continues when model price loading fails."""
+        from fastapi import FastAPI
+
+        app = FastAPI()
+
+        with patch("conduit.api.app.Database") as MockDatabase:
+            with patch("conduit.api.app.QueryAnalyzer"):
+                with patch("conduit.api.app.ContextualBandit") as MockBandit:
+                    with patch("conduit.api.app.ModelExecutor") as MockExecutor:
+                        with patch("conduit.api.app.RoutingEngine"):
+                            with patch("conduit.api.app.RoutingService"):
+                                with patch("conduit.api.app.logger") as mock_logger:
+                                    mock_db = AsyncMock()
+                                    mock_db.connect = AsyncMock()
+                                    mock_db.get_model_prices = AsyncMock(side_effect=Exception("Database error"))
+                                    mock_db.get_model_states = AsyncMock(return_value={})
+                                    MockDatabase.return_value = mock_db
+
+                                    mock_bandit = MagicMock()
+                                    mock_bandit.load_states = MagicMock()
+                                    MockBandit.return_value = mock_bandit
+
+                                    mock_executor = MagicMock()
+                                    MockExecutor.return_value = mock_executor
+
+                                    async with lifespan(app):
+                                        # Verify warning was logged
+                                        assert any("Failed to load model prices" in str(call) for call in mock_logger.warning.call_args_list)
+                                        # Verify executor was created with empty pricing dict
+                                        MockExecutor.assert_called_once_with(pricing={})
+
+    @pytest.mark.asyncio
+    async def test_lifespan_handles_model_state_load_failure(self):
+        """Test lifespan continues when model state loading fails."""
+        from fastapi import FastAPI
+
+        app = FastAPI()
+
+        with patch("conduit.api.app.Database") as MockDatabase:
+            with patch("conduit.api.app.QueryAnalyzer"):
+                with patch("conduit.api.app.ContextualBandit") as MockBandit:
+                    with patch("conduit.api.app.ModelExecutor"):
+                        with patch("conduit.api.app.RoutingEngine"):
+                            with patch("conduit.api.app.RoutingService"):
+                                with patch("conduit.api.app.logger") as mock_logger:
+                                    mock_db = AsyncMock()
+                                    mock_db.connect = AsyncMock()
+                                    mock_db.get_model_prices = AsyncMock(return_value={})
+                                    mock_db.get_model_states = AsyncMock(side_effect=Exception("Database error"))
+                                    MockDatabase.return_value = mock_db
+
+                                    mock_bandit = MagicMock()
+                                    mock_bandit.load_states = MagicMock()
+                                    MockBandit.return_value = mock_bandit
+
+                                    async with lifespan(app):
+                                        # Verify warning was logged
+                                        assert any("Failed to load model states" in str(call) for call in mock_logger.warning.call_args_list)
+                                        # Verify bandit.load_states was NOT called due to exception
+                                        mock_bandit.load_states.assert_not_called()
+
 
 class TestCreateApp:
     """Tests for create_app factory function."""
@@ -155,3 +218,31 @@ class TestCreateApp:
         # Verify exception handler is registered
         assert app.exception_handlers is not None
         assert Exception in app.exception_handlers
+
+    @pytest.mark.asyncio
+    async def test_global_exception_handler_logs_and_returns_500(self):
+        """Test global exception handler logs exceptions and returns 500 response."""
+        app = create_app()
+
+        # Add a route that raises an exception
+        @app.get("/test-exception")
+        async def test_exception():
+            raise ValueError("Test exception message")
+
+        from fastapi.testclient import TestClient
+
+        with patch("conduit.api.app.logger") as mock_logger:
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.get("/test-exception")
+
+            # Verify 500 status code
+            assert response.status_code == 500
+
+            # Verify error message format
+            data = response.json()
+            assert data["error"] == "Internal server error"
+            assert "Test exception message" in data["detail"]
+
+            # Verify exception was logged
+            mock_logger.exception.assert_called_once()
+            assert "Test exception message" in str(mock_logger.exception.call_args)
