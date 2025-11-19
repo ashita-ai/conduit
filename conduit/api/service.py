@@ -1,0 +1,224 @@
+"""Service layer for routing operations."""
+
+import json
+import logging
+from typing import Any
+
+from pydantic import BaseModel
+
+from conduit.core.database import Database
+from conduit.core.exceptions import ExecutionError, RoutingError
+from conduit.core.models import (
+    Feedback,
+    Query,
+    QueryConstraints,
+    Response,
+    RoutingDecision,
+    RoutingResult,
+)
+from conduit.engines.analyzer import QueryAnalyzer
+from conduit.engines.bandit import ContextualBandit
+from conduit.engines.executor import ModelExecutor
+from conduit.engines.router import RoutingEngine
+
+logger = logging.getLogger(__name__)
+
+
+class RoutingService:
+    """Service for handling routing requests."""
+
+    def __init__(
+        self,
+        database: Database,
+        analyzer: QueryAnalyzer,
+        bandit: ContextualBandit,
+        executor: ModelExecutor,
+        router: RoutingEngine,
+        default_result_type: type[BaseModel] | None = None,
+    ):
+        """Initialize routing service.
+
+        Args:
+            database: Database interface
+            analyzer: Query analyzer
+            bandit: Contextual bandit for model selection
+            executor: LLM executor
+            router: Routing engine
+            default_result_type: Default Pydantic model for structured output
+        """
+        self.database = database
+        self.analyzer = analyzer
+        self.bandit = bandit
+        self.executor = executor
+        self.router = router
+        self.default_result_type = default_result_type
+
+    async def complete(
+        self,
+        prompt: str,
+        result_type: type[BaseModel] | None = None,
+        constraints: dict[str, Any] | None = None,
+        user_id: str | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> RoutingResult:
+        """Route and execute LLM query.
+
+        Args:
+            prompt: User query/prompt
+            result_type: Pydantic model for structured output
+            constraints: Optional routing constraints
+            user_id: User identifier
+            context: Additional context
+
+        Returns:
+            RoutingResult with response and metadata
+
+        Raises:
+            RoutingError: If routing fails
+            ExecutionError: If LLM execution fails
+        """
+        # Use default result type if not specified
+        if result_type is None:
+            result_type = self.default_result_type
+
+        if result_type is None:
+            # Create a simple default result type
+            from pydantic import BaseModel
+
+            class DefaultResult(BaseModel):
+                """Default result type for unstructured responses."""
+                content: str
+
+            result_type = DefaultResult
+
+        # Parse constraints
+        query_constraints = None
+        if constraints:
+            query_constraints = QueryConstraints(**constraints)
+
+        # Create query
+        query = Query(
+            text=prompt,
+            user_id=user_id,
+            context=context,
+            constraints=query_constraints,
+        )
+
+        # Save query to database
+        await self.database.save_query(query)
+
+        # Route query
+        routing = await self.router.route(query)
+
+        # Execute LLM call
+        try:
+            response = await self.executor.execute(
+                model=routing.selected_model,
+                prompt=prompt,
+                result_type=result_type,
+                query_id=query.id,
+            )
+        except ExecutionError as e:
+            logger.error(f"Execution failed for query {query.id}: {e}")
+            raise
+
+        # Save complete interaction
+        await self.database.save_complete_interaction(
+            routing=routing, response=response
+        )
+
+        # Update bandit with reward (simplified - use quality score from response)
+        # TODO: Use actual feedback when available
+        reward = 0.8  # Placeholder - should come from feedback
+        self.bandit.update(
+            model=routing.selected_model,
+            reward=reward,
+            query_id=query.id,
+        )
+
+        # Update model state in database
+        model_state = self.bandit.get_model_state(routing.selected_model)
+        await self.database.update_model_state(model_state)
+
+        # Return result
+        return RoutingResult.from_response(response, routing)
+
+    async def submit_feedback(
+        self,
+        response_id: str,
+        quality_score: float,
+        met_expectations: bool,
+        user_rating: int | None = None,
+        comments: str | None = None,
+    ) -> Feedback:
+        """Submit feedback for a response.
+
+        Args:
+            response_id: Response ID
+            quality_score: Quality score (0.0-1.0)
+            met_expectations: Whether response met expectations
+            user_rating: Optional user rating (1-5)
+            comments: Optional comments
+
+        Returns:
+            Feedback object
+
+        Raises:
+            ValueError: If response_id not found
+        """
+        # Get response to verify it exists
+        response = await self.database.get_response_by_id(response_id)
+        if response is None:
+            raise ValueError(f"Response {response_id} not found")
+
+        # Create feedback
+        feedback = Feedback(
+            response_id=response_id,
+            quality_score=quality_score,
+            user_rating=user_rating,
+            met_expectations=met_expectations,
+            comments=comments,
+        )
+
+        # Save feedback
+        await self.database.save_complete_interaction(
+            routing=None, response=response, feedback=feedback
+        )
+
+        # Update bandit with actual reward
+        self.bandit.update(
+            model=response.model,
+            reward=quality_score,
+            query_id=response.query_id,
+        )
+
+        # Update model state
+        model_state = self.bandit.get_model_state(response.model)
+        await self.database.update_model_state(model_state)
+
+        return feedback
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get routing statistics.
+
+        Returns:
+            Dictionary with statistics
+        """
+        # TODO: Implement actual stats from database
+        # For now, return placeholder
+        return {
+            "total_queries": 0,
+            "total_cost": 0.0,
+            "avg_latency": 0.0,
+            "model_distribution": {},
+            "quality_metrics": {"avg_quality": 0.0, "success_rate": 0.0},
+        }
+
+    async def get_models(self) -> list[str]:
+        """Get available models.
+
+        Returns:
+            List of model IDs
+        """
+        return self.router.models
+
