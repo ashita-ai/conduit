@@ -39,12 +39,12 @@ class Settings(BaseSettings):
     )
     default_models: list[str] = Field(
         default=[
-            "gpt-4o-mini",
-            "gpt-4o",
-            "claude-sonnet-4",
-            "claude-opus-4",
+            "gpt-4o-mini",       # OpenAI - cheap, fast, good quality
+            "gpt-4o",            # OpenAI - flagship, balanced
+            "claude-3.5-sonnet", # Anthropic - current popular
+            "claude-opus-4",     # Anthropic - premium quality
         ],
-        description="Available models for routing",
+        description="Available models for routing (must match pricing database IDs)",
     )
 
     # Thompson Sampling Parameters

@@ -7,6 +7,7 @@ import pytest
 from pydantic import BaseModel
 
 from conduit.core.exceptions import ExecutionError
+from conduit.core.pricing import ModelPricing
 from conduit.core.models import Response
 from conduit.engines.executor import ModelExecutor
 
@@ -296,6 +297,42 @@ class TestModelExecutor:
 
             # Should fallback to 0.0 cost
             assert response.cost == 0.0
+
+    @pytest.mark.asyncio
+    async def test_cost_calculation_uses_database_pricing_when_available(self):
+        """Test cost calculation prefers database-backed pricing over fallback table."""
+        # Database-backed pricing: 0.001 input, 0.004 output per 1M tokens
+        pricing = {
+            "custom-model": ModelPricing(
+                model_id="custom-model",
+                input_cost_per_million=0.001,
+                output_cost_per_million=0.004,
+                cached_input_cost_per_million=None,
+                source="test",
+                snapshot_at=None,
+            )
+        }
+        executor = ModelExecutor(pricing=pricing)
+
+        test_data = TestResult(answer="Answer", confidence=0.9)
+        mock_usage = MockUsage(request_tokens=1_000_000, response_tokens=500_000)
+        mock_result = MockAgentResult(data=test_data, usage=mock_usage)
+
+        with patch("conduit.engines.executor.Agent") as MockAgent:
+            mock_agent = AsyncMock()
+            mock_agent.run.return_value = mock_result
+            MockAgent.return_value = mock_agent
+
+            response = await executor.execute(
+                model="custom-model",
+                prompt="Test",
+                result_type=TestResult,
+                query_id="test-db-pricing",
+            )
+
+            # Cost per token: input=1e-9, output=4e-9
+            # Cost = 1_000_000 * 1e-9 + 500_000 * 4e-9 = 0.001 + 0.002 = 0.003
+            assert response.cost == pytest.approx(0.003, rel=0.01)
 
     @pytest.mark.asyncio
     async def test_latency_measurement(self):

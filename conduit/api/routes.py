@@ -45,8 +45,8 @@ def create_routes(service: RoutingService) -> APIRouter:
     async def complete(request: CompleteRequest) -> CompleteResponse:
         """Route and execute LLM query."""
         try:
-            # TODO: Resolve result_type from string to actual Pydantic model
-            # For now, use a simple dict-based result type
+            # Resolve result_type. For now, use a simple dict-based result type
+            # until a result type registry is implemented.
             from pydantic import BaseModel
 
             class DictResult(BaseModel):
@@ -55,12 +55,7 @@ def create_routes(service: RoutingService) -> APIRouter:
 
             # Use provided result_type or default
             result_type: type[BaseModel] | None = None
-            if request.result_type:
-                # TODO: Implement result_type registry/lookup
-                # For now, use default
-                result_type = DictResult
-            else:
-                result_type = DictResult
+            result_type = DictResult
 
             result = await service.complete(
                 prompt=request.prompt,

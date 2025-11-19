@@ -22,6 +22,7 @@ from conduit.core.models import (
     Response,
     RoutingDecision,
 )
+from conduit.core.pricing import ModelPricing
 
 logger = logging.getLogger(__name__)
 
@@ -272,6 +273,53 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to load model states: {e}")
             raise DatabaseError(f"Failed to load model states: {e}") from e
+
+    async def get_model_prices(self) -> dict[str, ModelPricing]:
+        """Load per-model pricing information.
+
+        Pricing is stored in the ``model_prices`` table with costs expressed
+        per one million tokens. This method converts the raw rows into
+        :class:`ModelPricing` instances keyed by ``model_id``.
+
+        Transaction: None (single SELECT via REST API)
+
+        Returns:
+            Dictionary mapping model_id to ModelPricing
+
+        Raises:
+            DatabaseError: If load fails or client is not connected
+        """
+        if not self.client:
+            raise DatabaseError("Database not connected")
+
+        try:
+            response = await self.client.table("model_prices").select("*").execute()
+
+            prices: dict[str, ModelPricing] = {}
+            for item in response.data or []:
+                row = cast(dict[str, Any], item)
+                # Supabase returns timestamps as ISO 8601 strings; Pydantic will
+                # handle conversion for the snapshot_at field.
+                pricing = ModelPricing(
+                    model_id=str(row["model_id"]),
+                    input_cost_per_million=float(row["input_cost_per_million"]),
+                    output_cost_per_million=float(row["output_cost_per_million"]),
+                    cached_input_cost_per_million=(
+                        float(row["cached_input_cost_per_million"])
+                        if row.get("cached_input_cost_per_million") is not None
+                        else None
+                    ),
+                    source=row.get("source"),
+                    snapshot_at=row.get("snapshot_at"),
+                )
+                prices[pricing.model_id] = pricing
+
+            logger.info(f"Loaded {len(prices)} model price entries")
+            return prices
+
+        except Exception as e:
+            logger.error(f"Failed to load model prices: {e}")
+            raise DatabaseError(f"Failed to load model prices: {e}") from e
 
     async def get_response_by_id(self, response_id: str) -> Response | None:
         """Get response by ID.

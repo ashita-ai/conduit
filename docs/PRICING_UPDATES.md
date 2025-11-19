@@ -133,6 +133,13 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 ```
 
+## Model ID Conventions
+
+Model IDs must match exactly between config.py and the pricing database:
+- Use the exact ID from llm-prices.com (e.g., `claude-3.5-sonnet`, not `claude-sonnet-4`)
+- Verify new models exist: `SELECT model_id FROM model_prices WHERE model_id = 'your-model';`
+- Update config.py default_models to match available pricing
+
 ## Data Source
 
 ### llm-prices.com API

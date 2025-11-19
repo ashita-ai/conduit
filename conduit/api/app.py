@@ -40,7 +40,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Initialize components
     analyzer = QueryAnalyzer(embedding_model=settings.embedding_model)
     bandit = ContextualBandit(models=settings.default_models)
-    executor = ModelExecutor()
+
+    # Load pricing information (if available) and pass to executor.
+    # If loading fails, the executor will fall back to built-in pricing.
+    try:
+        model_prices = await database.get_model_prices()
+        logger.info(f"Loaded {len(model_prices)} model prices from database")
+    except Exception as e:
+        logger.warning(f"Failed to load model prices, using fallback pricing: {e}")
+        model_prices = {}
+
+    executor = ModelExecutor(pricing=model_prices)
     router = RoutingEngine(
         bandit=bandit,
         analyzer=analyzer,
