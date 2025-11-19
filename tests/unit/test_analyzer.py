@@ -191,3 +191,37 @@ class TestQueryAnalyzer:
         """
         complex_query = await analyzer.analyze(complex_text)
         assert 0.0 <= complex_query.complexity_score <= 1.0
+
+    @pytest.mark.asyncio
+    async def test_complexity_with_many_technical_patterns(self):
+        """Test complexity calculation with many technical patterns."""
+        analyzer = QueryAnalyzer()
+
+        # Query with many technical patterns
+        technical_text = """
+        Write a function to implement a class-based algorithm for optimization of complexity
+        analysis. Use SQL queries via API with HTTP REST endpoints and JSON schema validation.
+        Include performance measurements and theorem proving capabilities with equation solving.
+        """
+        result = await analyzer.analyze(technical_text)
+
+        # Should have elevated complexity due to technical terms
+        assert result.complexity_score >= 0.4
+
+    @pytest.mark.asyncio
+    async def test_complexity_with_many_requirements(self):
+        """Test complexity calculation with many requirement indicators."""
+        analyzer = QueryAnalyzer()
+
+        # Query with many requirements
+        requirement_text = """
+        Write a function to implement a class-based algorithm for optimization of complexity
+        with SQL API HTTP REST JSON requirements. First, you must implement authentication.
+        Second, you should add logging. Third, you need to ensure security. You must verify
+        compliance. You should guarantee uptime. You need to require encryption. Step 1 is
+        design. Step 2 is implementation. Step 3 is testing. Step 4 is deployment.
+        """
+        result = await analyzer.analyze(requirement_text)
+
+        # Should have high complexity due to requirements
+        assert result.complexity_score >= 0.6

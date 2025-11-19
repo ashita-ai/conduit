@@ -299,6 +299,43 @@ class TestModelExecutor:
             assert response.cost == 0.0
 
     @pytest.mark.asyncio
+    async def test_cost_calculation_handles_model_dump_exception(self):
+        """Test cost calculation handles exception when model_dump() fails."""
+        executor = ModelExecutor()
+
+        test_data = TestResult(answer="Answer", confidence=0.9)
+
+        # Create usage object that raises exception on model_dump()
+        class BrokenUsage:
+            def model_dump(self):
+                raise RuntimeError("model_dump failed")
+
+        mock_result = MagicMock()
+        mock_result.data.return_value = test_data
+        mock_result.output_text.return_value = '{"answer": "Answer", "confidence": 0.9}'
+        mock_result.usage.return_value = BrokenUsage()
+
+        with patch("conduit.engines.executor.Agent") as MockAgent:
+            with patch("conduit.engines.executor.logger") as mock_logger:
+                mock_agent = AsyncMock()
+                mock_agent.run.return_value = mock_result
+                MockAgent.return_value = mock_agent
+
+                response = await executor.execute(
+                    model="gpt-4o-mini",
+                    prompt="Test",
+                    result_type=TestResult,
+                    query_id="test-exception",
+                )
+
+                # Should fallback to 0.0 cost
+                assert response.cost == 0.0
+
+                # Verify warning was logged
+                mock_logger.warning.assert_called_once()
+                assert "Could not extract tokens" in str(mock_logger.warning.call_args)
+
+    @pytest.mark.asyncio
     async def test_cost_calculation_uses_database_pricing_when_available(self):
         """Test cost calculation prefers database-backed pricing over fallback table."""
         # Database-backed pricing: 0.001 input, 0.004 output per 1M tokens
