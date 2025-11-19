@@ -38,19 +38,14 @@ def upgrade() -> None:
     )
     op.create_index('idx_model_prices_snapshot_at', 'model_prices', [sa.text('snapshot_at DESC')])
 
-    # Seed with default pricing data (source: llm-prices.com, snapshot: 2025-11-18)
-    # Prices in USD per 1M tokens
-    op.execute("""
-        INSERT INTO model_prices (model_id, input_cost_per_million, output_cost_per_million, cached_input_cost_per_million, source, snapshot_at)
-        VALUES
-            ('gpt-4o-mini', 0.150, 0.600, 0.075, 'llm-prices.com', '2025-11-18'),
-            ('gpt-4o', 2.50, 10.00, 1.25, 'llm-prices.com', '2025-11-18'),
-            ('gpt-4o-2024-11-20', 2.50, 10.00, 1.25, 'llm-prices.com', '2025-11-18'),
-            ('claude-sonnet-4-20250514', 3.00, 15.00, 0.30, 'llm-prices.com', '2025-11-18'),
-            ('claude-opus-4-20250514', 15.00, 75.00, 1.50, 'llm-prices.com', '2025-11-18'),
-            ('claude-3-5-sonnet-20241022', 3.00, 15.00, 0.30, 'llm-prices.com', '2025-11-18')
-        ON CONFLICT (model_id) DO NOTHING
-    """)
+    # NOTE: Initial pricing data should be loaded using scripts/sync_pricing.py
+    # Run: python scripts/sync_pricing.py
+    # This fetches current pricing from llm-prices.com API (~90 models)
+    #
+    # For reference, here are the default models that should be available:
+    # - gpt-4o-mini, gpt-4o, gpt-4o-2024-11-20
+    # - claude-3.5-sonnet, claude-3-opus, claude-3-haiku
+    # - Many more from Amazon, Google, Anthropic, xAI, etc.
 
 
 def downgrade() -> None:
