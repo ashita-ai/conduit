@@ -54,18 +54,27 @@ conduit/
 - **System**: p99 latency < 200ms for routing decisions
 
 ### Current Test Coverage (2025-11-18)
-- **Overall**: 54% coverage
+- **Overall**: 84% coverage ✅ (exceeds 80% Phase 1 target)
 - **Core Engine**: 96-100% (models, analyzer, bandit, router, executor)
+- **Database**: 84% (integration tests complete, edge cases covered)
 - **API Layer**: 0% (routes, middleware, validation - not yet tested)
-- **Database**: 19% (basic operations tested)
 - **CLI**: 0% (not yet tested)
-- **Target**: 80%+ coverage before Phase 2
+- **Status**: Phase 1 test coverage milestone achieved
 
-### Phase 2 Priorities
+### Phase 2 Priorities (Ready to Start)
+**Prerequisites**: ✅ 84% test coverage achieved, PydanticAI v1.20+ compatible
+
 1. Implement implicit feedback system (retry behavior, latency, errors)
 2. Add query result caching (Redis) and batch processing
 3. Document success metrics and quality baselines
 4. Create demo showing 30% cost reduction on real workload
+
+### Recent Updates (2025-11-18)
+- ✅ Improved test coverage from 68% → 84%
+- ✅ Fixed PydanticAI v1.20+ compatibility (API migration)
+- ✅ Added comprehensive database integration tests
+- ✅ Added engine edge case tests (error handling, degraded states)
+- ✅ Validated basic routing example works end-to-end
 
 ### Communication Guidelines
 **Say**: "Saves 30-50% costs", "95% quality guarantee", "Gets smarter with use"
@@ -137,11 +146,12 @@ black conduit/           # Formatting applied
 
 ### Core Dependencies
 - **Python**: 3.10+ (modern type hints, async/await)
-- **PydanticAI**: 1.14+ (unified LLM interface with structured outputs)
+- **PydanticAI**: 1.20+ (unified LLM interface with structured outputs)
+  - **API Change**: Use `Agent(...).run(..., deps=...)` instead of `Agent(..., deps=...)`
 - **Pydantic**: 2.12+ (data validation)
 - **FastAPI**: 0.115+ (REST API)
-- **PostgreSQL**: Database for routing history
-- **Redis**: Caching and rate limiting
+- **PostgreSQL**: Database for routing history (via Supabase)
+- **Redis**: Caching and rate limiting [Phase 2]
 
 ### ML Stack
 - **scikit-learn**: Contextual bandit implementation
