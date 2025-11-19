@@ -157,29 +157,21 @@ class ImplicitFeedback(BaseModel):
     without requiring explicit feedback submission. Improves antifragility
     of learning algorithm by reducing dependency on user participation.
 
-    Phase: 2+ (not yet implemented)
+    Implements "Observability Trinity":
+    - Error detection: Model failures and quality issues
+    - Latency tracking: Response times and user patience
+    - Retry detection: Repeated queries indicating dissatisfaction
+
+    Phase: 2 (implemented)
     Strategic rationale: See notes/2025-11-18_business_panel_analysis.md
     """
 
     id: str = Field(
         default_factory=lambda: str(uuid4()), description="Unique signal ID"
     )
-    response_id: str = Field(..., description="Associated response ID")
     query_id: str = Field(..., description="Associated query ID")
-
-    # Behavioral signals
-    retry_detected: bool = Field(
-        default=False, description="User re-submitted same/similar query"
-    )
-    retry_delay_seconds: float | None = Field(
-        None, description="Time between original and retry", ge=0.0
-    )
-    task_abandoned: bool = Field(
-        default=False, description="User abandoned task before completion"
-    )
-    latency_accepted: bool = Field(
-        default=True, description="User waited for response vs timeout"
-    )
+    model_id: str = Field(..., description="Model that generated response")
+    timestamp: float = Field(..., description="Unix timestamp of signal capture", ge=0.0)
 
     # Error signals
     error_occurred: bool = Field(
@@ -187,17 +179,30 @@ class ImplicitFeedback(BaseModel):
     )
     error_type: str | None = Field(None, description="Type of error if occurred")
 
-    # Engagement signals
-    response_used: bool = Field(
-        default=True, description="Response appears to have been used"
+    # Latency signals
+    latency_seconds: float = Field(
+        ..., description="Actual response time in seconds", ge=0.0
     )
-    followup_queries: int = Field(
-        default=0, description="Number of related followup queries", ge=0
+    latency_accepted: bool = Field(
+        default=True, description="User waited for response (did not timeout)"
+    )
+    latency_tolerance: str = Field(
+        default="high",
+        description="Categorized user patience (high/medium/low)",
     )
 
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        description="Signal capture timestamp",
+    # Retry signals
+    retry_detected: bool = Field(
+        default=False, description="User re-submitted semantically similar query"
+    )
+    retry_delay_seconds: float | None = Field(
+        None, description="Time between original and retry query", ge=0.0
+    )
+    similarity_score: float | None = Field(
+        None, description="Cosine similarity to previous query (0-1)", ge=0.0, le=1.0
+    )
+    original_query_id: str | None = Field(
+        None, description="ID of query being retried (if retry detected)"
     )
 
 

@@ -86,23 +86,31 @@ class ContextualBandit:
         return selected_model
 
     def update(
-        self, model: str, reward: float, query_id: str, success_threshold: float = 0.7
+        self,
+        model: str,
+        reward: float,
+        features: QueryFeatures | None = None,
+        query_id: str | None = None,
+        success_threshold: float = 0.7,
     ) -> None:
         """Update model's Beta distribution using Thompson Sampling.
 
         Args:
             model: Model that was used
             reward: Observed reward (0.0-1.0)
-            query_id: For audit trail
+            features: Query features (for contextual learning - Phase 2+)
+            query_id: For audit trail (optional)
             success_threshold: Reward threshold to count as success (default 0.7)
 
         Note:
             Thompson Sampling requires binary success/failure updates.
             We convert continuous reward to binary outcome using threshold.
+            Features parameter reserved for Phase 2+ contextual learning.
 
         Example:
             >>> bandit = ContextualBandit(["gpt-4o-mini"])
-            >>> bandit.update("gpt-4o-mini", reward=0.85, query_id="q123")
+            >>> features = QueryFeatures(...)
+            >>> bandit.update("gpt-4o-mini", reward=0.85, features=features)
             >>> bandit.model_states["gpt-4o-mini"].alpha > 1.0
             True
         """
@@ -122,10 +130,14 @@ class ContextualBandit:
         state.total_requests += 1
         state.updated_at = datetime.now(timezone.utc)
 
-        logger.info(
+        log_msg = (
             f"Updated {model}: α={state.alpha:.2f}, β={state.beta:.2f}, "
-            f"reward={reward:.2f}, success={success}, query={query_id}"
+            f"reward={reward:.2f}, success={success}"
         )
+        if query_id:
+            log_msg += f", query={query_id}"
+
+        logger.info(log_msg)
 
     def _predict_reward(self, model: str, features: QueryFeatures) -> float:
         """Predict expected reward for model on this query.

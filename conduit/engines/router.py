@@ -1,7 +1,9 @@
 """Routing engine for ML-powered model selection."""
 
 import logging
+from typing import Any
 
+from conduit.cache import CacheConfig, CacheService
 from conduit.core.config import settings
 from conduit.core.models import (
     Query,
@@ -273,25 +275,50 @@ class Router:
         self,
         models: list[str] | None = None,
         embedding_model: str = "all-MiniLM-L6-v2",
+        cache_enabled: bool | None = None,
     ):
         """Initialize router with default components.
 
         Args:
             models: List of available model IDs. If None, uses defaults.
             embedding_model: Sentence transformer model for query analysis.
+            cache_enabled: Override cache enabled setting. If None, uses config default.
         """
         # Use default models if not specified
         if models is None:
             models = settings.default_models
 
+        # Initialize cache service if enabled
+        cache_service: CacheService | None = None
+        if cache_enabled is None:
+            cache_enabled = settings.redis_cache_enabled
+
+        if cache_enabled:
+            cache_config = CacheConfig(
+                enabled=True,
+                redis_url=settings.redis_url,
+                ttl=settings.redis_cache_ttl,
+                max_retries=settings.redis_max_retries,
+                timeout=settings.redis_timeout,
+                circuit_breaker_threshold=settings.redis_circuit_breaker_threshold,
+                circuit_breaker_timeout=settings.redis_circuit_breaker_timeout,
+            )
+            cache_service = CacheService(cache_config)
+            logger.info("Router initialized with caching enabled")
+        else:
+            logger.info("Router initialized with caching disabled")
+
         # Initialize components
-        self.analyzer = QueryAnalyzer(embedding_model=embedding_model)
+        self.analyzer = QueryAnalyzer(
+            embedding_model=embedding_model, cache_service=cache_service
+        )
         self.bandit = ContextualBandit(models=models)
         self.routing_engine = RoutingEngine(
             bandit=self.bandit,
             analyzer=self.analyzer,
             models=models,
         )
+        self.cache = cache_service
 
     async def route(self, query: Query) -> RoutingDecision:
         """Route a query to the optimal model.
@@ -308,3 +335,40 @@ class Router:
             >>> print(f"Use {decision.selected_model} (confidence: {decision.confidence:.2f})")
         """
         return await self.routing_engine.route(query)
+
+    def get_cache_stats(self) -> dict[str, Any] | None:
+        """Get cache performance statistics.
+
+        Returns:
+            Dictionary with cache stats or None if caching disabled
+
+        Example:
+            >>> stats = router.get_cache_stats()
+            >>> print(f"Hit rate: {stats['hit_rate']:.1f}%")
+        """
+        if not self.cache:
+            return None
+
+        stats = self.cache.get_stats()
+        return {
+            "hits": stats.hits,
+            "misses": stats.misses,
+            "errors": stats.errors,
+            "hit_rate": stats.hit_rate,
+            "circuit_state": stats.circuit_state,
+        }
+
+    async def clear_cache(self) -> None:
+        """Clear all cached query features (admin operation).
+
+        Warning:
+            This is expensive and should only be used for maintenance.
+            Normal operation uses TTL-based expiry.
+        """
+        if self.cache:
+            await self.cache.clear()
+
+    async def close(self) -> None:
+        """Close resources gracefully (Redis connection, etc.)."""
+        if self.cache:
+            await self.cache.close()

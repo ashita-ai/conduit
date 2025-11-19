@@ -1,159 +1,201 @@
 # Conduit Examples
 
-Usage examples demonstrating Conduit's ML-powered routing capabilities.
+Demonstrations of Conduit's intelligent LLM routing capabilities.
 
-## Prerequisites
+## Getting Started
 
 ```bash
-# Set environment variables (at least one LLM provider required)
-export OPENAI_API_KEY=your_key_here
-# OR
-export ANTHROPIC_API_KEY=your_key_here
+# Install Conduit
+pip install -e .
 
-# Optional: Configure database for feedback loop (recommended)
-export SUPABASE_URL=https://your-project.supabase.co
-export SUPABASE_ANON_KEY=your_anon_key_here
+# Set API keys
+export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-..."
+
+# Optional: Install Redis for caching and implicit feedback
+brew install redis && redis-server
 ```
 
-## Quick Start with CLI
+## Example Structure
 
-The easiest way to try Conduit is using the CLI commands:
+### 01_quickstart/ - Get Started in 5 Minutes
+
+**hello_world.py** - Absolute minimum example (5 lines)
+- Shows basic routing in simplest form
+- Perfect first example to verify installation
+- No configuration or setup required
+
+**simple_router.py** - Basic routing with custom models
+- Define available models and route queries
+- See routing decisions and confidence scores
+- Introduction to Router API
+
+### 02_routing/ - Smart Model Selection
+
+**basic_routing.py** - Core routing functionality
+- Query analysis and feature extraction
+- Model selection with confidence scoring
+- Routing metadata and decision reasoning
+
+**with_constraints.py** - Cost, latency, and quality constraints
+- Budget-aware routing (max_cost constraint)
+- Quality-focused routing (min_quality constraint)
+- Latency-optimized routing (max_latency constraint)
+- Provider preferences (preferred_provider)
+
+### 03_optimization/ - Performance & Learning
+
+**caching.py** - 10-40x speedup with Redis caching
+- Query feature caching for repeated queries
+- Cache hit/miss statistics and performance metrics
+- Graceful fallback when Redis unavailable
+- Circuit breaker pattern for reliability
+
+**explicit_feedback.py** - User ratings and quality scores
+- Submit quality_score (0-1), user_rating (1-5), met_expectations (bool)
+- Updates Thompson Sampling for better routing
+- Weighted 70% (explicit) vs 30% (implicit)
+
+**implicit_feedback.py** - "Observability Trinity" (Errors + Latency + Retries)
+- Error detection (model failures, empty responses, error patterns)
+- Latency analysis (user patience tolerance categorization)
+- Retry detection (semantic similarity-based query matching)
+- Learn without explicit ratings from behavioral signals
+
+**combined_feedback.py** - Explicit + implicit feedback together
+- Demonstrates weighted feedback system (70% explicit, 30% implicit)
+- Shows how mixed signals are resolved
+- Real-world learning scenarios
+
+### 04_production/ - Production Deployment
+
+*Coming soon:*
+- fastapi_endpoint.py - REST API integration
+- batch_processing.py - High-throughput batch routing
+- monitoring.py - Observability and metrics
+
+## Feature Matrix
+
+| Feature | Example | Redis Required? |
+|---------|---------|-----------------|
+| Basic routing | hello_world.py | No |
+| Custom models | simple_router.py | No |
+| Constraints | with_constraints.py | No |
+| Caching | caching.py | Yes |
+| Explicit feedback | explicit_feedback.py | No |
+| Implicit feedback | implicit_feedback.py | Yes (retry detection) |
+| Combined feedback | combined_feedback.py | Yes (retry detection) |
+
+## Running Examples
+
+```bash
+# Quickstart
+python examples/01_quickstart/hello_world.py
+python examples/01_quickstart/simple_router.py
+
+# Routing
+python examples/02_routing/basic_routing.py
+python examples/02_routing/with_constraints.py
+
+# Optimization (Redis optional but recommended)
+redis-server  # Start Redis in another terminal
+python examples/03_optimization/caching.py
+python examples/03_optimization/explicit_feedback.py
+python examples/03_optimization/implicit_feedback.py
+python examples/03_optimization/combined_feedback.py
+```
+
+## Key Concepts
+
+### Thompson Sampling
+Bayesian bandit algorithm that balances exploration (trying models) with exploitation (using best performers). Updates model success rates based on feedback.
+
+### Query Features
+Semantic embeddings and extracted features (complexity, domain, sentiment) used for contextual routing decisions.
+
+### Feedback Loop
+- **Explicit**: User ratings (quality_score, user_rating, met_expectations)
+- **Implicit**: System signals (errors, latency, retries)
+- **Weighted**: 70% explicit, 30% implicit by default
+
+### Caching
+Redis-based caching of query features to dramatically improve routing performance on repeated or similar queries.
+
+### Graceful Degradation
+All features work without Redis - caching and retry detection are simply disabled if Redis is unavailable.
+
+## Learning Path
+
+**Recommended order for new users:**
+
+1. **Start**: hello_world.py - Verify installation (5 lines)
+2. **Routing**: basic_routing.py - Understand core concepts
+3. **Constraints**: with_constraints.py - Cost/quality control
+4. **Caching**: caching.py - Performance optimization
+5. **Explicit Feedback**: explicit_feedback.py - User ratings
+6. **Implicit Feedback**: implicit_feedback.py - Behavioral signals
+7. **Combined**: combined_feedback.py - Full feedback system
+
+## Redis Setup
+
+### macOS
+```bash
+brew install redis
+brew services start redis
+```
+
+### Linux
+```bash
+sudo apt-get install redis-server
+sudo systemctl start redis
+```
+
+### Docker
+```bash
+docker run -d -p 6379:6379 redis:alpine
+```
+
+## Troubleshooting
+
+### Redis Connection Errors
+Examples gracefully degrade without Redis:
+- **Caching**: Falls back to no caching (slower but functional)
+- **Feedback**: Retry detection disabled, error/latency still work
+
+### Model API Errors
+Set API keys in environment:
+```bash
+export OPENAI_API_KEY="your-key"
+export ANTHROPIC_API_KEY="your-key"
+```
+
+## Tips
+
+- **Start simple**: Begin with hello_world.py before advanced features
+- **Redis optional**: Core routing works without Redis
+- **Read output**: Examples show decision-making process
+- **Experiment**: Modify queries and constraints to see behavior changes
+
+## Additional Resources
+
+- **[Main README](../README.md)** - Project overview and installation
+- **[CLAUDE.md](../CLAUDE.md)** - Development guidelines and architecture
+- **[docs/](../docs/)** - Design documentation and decisions
+
+## CLI Alternative
+
+Prefer CLI? Try the built-in commands:
 
 ```bash
 # Run a single query
 conduit run --query "What is 2+2?"
 
 # Run with constraints
-conduit run --query "Write a poem" --max-cost 0.001 --min-quality 0.8
+conduit run --query "Write a poem" --max-cost 0.001
 
-# Run a demo (10 queries by default)
+# Run a demo (10 queries)
 conduit demo
-
-# Run demo with more queries
-conduit demo --queries 50
 
 # JSON output for scripting
 conduit run --query "Hello" --json
 ```
-
-## Examples
-
-### Simple Router (NEW)
-Basic usage of the Router class (as shown in README):
-
-```bash
-python examples/simple_router.py
-```
-
-**What it demonstrates**:
-- Simple Router() instantiation with defaults
-- Basic query routing without execution
-- RoutingDecision results and metadata
-- Feature extraction and confidence scores
-
-**Key Code**:
-```python
-from conduit.engines import Router
-from conduit.core.models import Query
-
-router = Router()
-query = Query(text="What is 2+2?")
-decision = await router.route(query)
-print(f"Model: {decision.selected_model}")
-print(f"Confidence: {decision.confidence:.2f}")
-```
-
-### Basic Routing
-Complete routing service with execution and feedback:
-
-```bash
-python examples/basic_routing.py
-```
-
-**What it demonstrates**:
-- Using `RoutingService` for complete routing + execution
-- ML-powered model selection
-- Feature extraction (embeddings, complexity, domain)
-- Routing confidence scores and execution metrics
-- Cost and latency tracking
-
-**Key Code**:
-```python
-from conduit.utils.service_factory import create_service
-
-service = await create_service()
-result = await service.complete(prompt="What is 2+2?")
-print(f"Model: {result.model}")
-print(f"Cost: ${result.metadata['cost']:.6f}")
-```
-
-### Constrained Routing
-Routing with cost, latency, and quality constraints:
-
-```bash
-python examples/with_constraints.py
-```
-
-**What it demonstrates**:
-- Cost optimization (prefer cheaper models)
-- Quality guarantees (minimum quality thresholds)
-- Latency constraints (fast response requirements)
-- Provider preferences (route to specific providers)
-
-**Key Code**:
-```python
-result = await service.complete(
-    prompt="Write a poem",
-    constraints={
-        "max_cost": 0.001,
-        "min_quality": 0.8,
-        "max_latency": 2.0,
-    }
-)
-```
-
-## Running Examples
-
-All examples are standalone Python scripts:
-
-```bash
-# From project root
-cd /path/to/conduit
-
-# Activate virtual environment
-source .venv/bin/activate
-
-# Ensure API keys are set
-export OPENAI_API_KEY=sk-...
-
-# Run any example
-python examples/basic_routing.py
-python examples/with_constraints.py
-```
-
-## Using the Service Factory
-
-All examples use `conduit.utils.service_factory.create_service()` which:
-- Initializes all components (analyzer, bandit, executor, router)
-- Connects to database (if configured)
-- Loads model states from database
-- Returns a ready-to-use `RoutingService` instance
-
-```python
-from conduit.utils.service_factory import create_service
-from pydantic import BaseModel
-
-class MyResult(BaseModel):
-    content: str
-
-service = await create_service(default_result_type=MyResult)
-result = await service.complete(prompt="Your query here")
-```
-
-## Next Steps
-
-1. **CLI Commands**: Try `conduit run --help` and `conduit demo --help`
-2. **API Integration**: See `conduit/api/` for FastAPI service usage
-3. **Architecture**: See `docs/ARCHITECTURE.md` for system design
-4. **Testing**: Run `pytest tests/` to see comprehensive test suite
-5. **Development**: See `AGENTS.md` for development guidelines

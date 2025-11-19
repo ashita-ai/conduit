@@ -1,8 +1,8 @@
 # AGENTS.md - Project Context
 
 **Purpose**: Quick reference for working on Conduit
-**Last Updated**: 2025-11-18
-**Status**: Phase 1 complete, strategic direction defined
+**Last Updated**: 2025-11-19
+**Status**: Phase 2 complete - Implicit feedback system + examples shipped
 
 ---
 
@@ -53,28 +53,53 @@ conduit/
 - **Quality**: 95% of queries meet or exceed baseline
 - **System**: p99 latency < 200ms for routing decisions
 
-### Current Test Coverage (2025-11-18)
-- **Overall**: 84% coverage ✅ (exceeds 80% Phase 1 target)
+### Current Test Coverage (2025-11-19)
+- **Overall**: 87% coverage ✅ (exceeds 80% Phase 1 target)
 - **Core Engine**: 96-100% (models, analyzer, bandit, router, executor)
+- **Feedback System**: 98-100% (signals, history, integration - 76 new tests)
 - **Database**: 84% (integration tests complete, edge cases covered)
 - **API Layer**: 0% (routes, middleware, validation - not yet tested)
 - **CLI**: 0% (not yet tested)
-- **Status**: Phase 1 test coverage milestone achieved
+- **Status**: Phase 2 feedback system fully tested and validated
 
-### Phase 2 Priorities (Ready to Start)
-**Prerequisites**: ✅ 84% test coverage achieved, PydanticAI v1.20+ compatible
+### Phase 2 Completion (2025-11-19)
+**Completed Features**: ✅ All implicit feedback components shipped
 
-1. Implement implicit feedback system (retry behavior, latency, errors)
-2. Add query result caching (Redis) and batch processing
-3. Document success metrics and quality baselines
-4. Create demo showing 30% cost reduction on real workload
+1. ✅ **Implicit Feedback System** - "Observability Trinity" (Errors + Latency + Retries)
+   - QueryHistoryTracker with Redis (5-min TTL, cosine similarity)
+   - ImplicitFeedbackDetector (orchestrates all signal detection)
+   - FeedbackIntegrator (weighted rewards: 70% explicit, 30% implicit)
+   - SignalDetector (error patterns, latency tolerance, retry detection)
+   - 76 comprehensive tests (100% coverage for core components)
 
-### Recent Updates (2025-11-18)
-- ✅ Improved test coverage from 68% → 84%
-- ✅ Fixed PydanticAI v1.20+ compatibility (API migration)
-- ✅ Added comprehensive database integration tests
-- ✅ Added engine edge case tests (error handling, degraded states)
-- ✅ Validated basic routing example works end-to-end
+2. ✅ **Redis Caching** - 10-40x performance improvement
+   - QueryFeatures caching with circuit breaker
+   - Cache hit/miss statistics
+   - Graceful degradation without Redis
+
+3. ✅ **Examples Suite** - Progressive learning path (7 examples)
+   - 01_quickstart/: hello_world.py (5 lines), simple_router.py
+   - 02_routing/: basic_routing.py, with_constraints.py
+   - 03_optimization/: caching.py, explicit_feedback.py, implicit_feedback.py, combined_feedback.py
+   - 04_production/: (planned - fastapi, batch, monitoring)
+
+4. ✅ **Database Migration** - Schema for implicit feedback storage
+
+### Phase 3 Priorities (Next)
+**Prerequisites**: ✅ Implicit feedback system complete, examples validated
+
+1. Document success metrics and quality baselines
+2. Create demo showing 30% cost reduction on real workload
+3. Production API examples (FastAPI endpoint, batch processing)
+4. Monitoring and observability tooling
+
+### Recent Updates (2025-11-19)
+- ✅ Implemented complete implicit feedback system (QueryHistoryTracker, Detector, Integrator)
+- ✅ Added 76 comprehensive tests for feedback components (98-100% coverage)
+- ✅ Created Redis caching with circuit breaker pattern
+- ✅ Reorganized examples into 4-folder progressive structure
+- ✅ Created combined_feedback.py showing explicit + implicit together
+- ✅ All examples tested and working (graceful Redis degradation)
 
 ### Communication Guidelines
 **Say**: "Saves 30-50% costs", "95% quality guarantee", "Gets smarter with use"
@@ -174,8 +199,9 @@ black conduit/           # Formatting applied
 2. **ML Selection**: Contextual bandit predicts optimal model
 3. **Execution**: Call selected model via PydanticAI
 4. **Feedback Loop**: Update ML model with results
-   - **Explicit**: User ratings (quality_score, met_expectations)
-   - **Implicit**: System signals (retry, latency, errors) [Phase 2]
+   - **Explicit**: User ratings (quality_score, user_rating, met_expectations)
+   - **Implicit**: System signals (errors, latency, retries) - weighted 30%
+   - **Integration**: FeedbackIntegrator combines both (70% explicit, 30% implicit)
 
 ### PydanticAI Integration Benefits
 - Unified interface across all providers (no provider-specific code)
@@ -219,11 +245,14 @@ async def route_query(query: str) -> RoutingResult:
 
 ### Key Concepts
 - **Contextual Bandit**: ML algorithm for exploration/exploitation
-- **Thompson Sampling**: Bayesian approach to model selection
-- **Query Embedding**: Semantic representation for routing features
+- **Thompson Sampling**: Bayesian approach to model selection (Beta distributions)
+- **Query Embedding**: Semantic representation for routing features (sentence-transformers)
 - **Dual Feedback Loop**: Explicit (user ratings) + Implicit (system signals)
+- **Observability Trinity**: Error detection + Latency tracking + Retry detection
+- **Weighted Feedback**: 70% explicit (user ratings) + 30% implicit (behavioral signals)
 - **Data Moat**: Learning algorithm improves with usage, creating competitive barrier
 - **Probabilistic Guarantees**: 95%+ quality confidence, not 100% promises
+- **Graceful Degradation**: Core routing works without Redis (caching/retry disabled)
 
 ### Make Targets (To Be Created)
 ```bash
@@ -239,11 +268,20 @@ make all           # All quality checks
 ## Working with AI Agents
 
 ### Task Management
-**Use TodoWrite for multi-step tasks**: When a task involves 3+ distinct steps, track progress with TodoWrite. This ensures nothing gets forgotten and provides visibility into progress.
+**TodoWrite enforcement (MANDATORY)**: For ANY task with 3+ distinct steps, use TodoWrite to track progress - even if the user doesn't request it explicitly. This ensures nothing gets forgotten and provides visibility into progress for everyone working on the project.
 
 **Plan before executing**: For complex tasks, create a plan first. Understand requirements, identify dependencies, then execute systematically.
 
+### Output Quality
+**Full data display**: Show complete data structures, not summaries or truncations. Examples should display real, useful output (not "[truncated]" or "...").
+
+**Debugging context**: When showing debug output, include enough detail to actually debug - full prompts, complete responses, actual data structures. Truncating output defeats the purpose.
+
+**Verify usefulness**: Before showing output, verify it's actually helpful for the user's goal. Test that examples demonstrate real functionality, not abstractions.
+
 ### Audience & Context Recognition
+**Auto-detect technical audiences**: Code examples, technical docs, developer presentations → eliminate ALL marketing language automatically. Engineering contexts get technical tone (no superlatives like "blazingly fast", "magnificent", "revolutionary").
+
 **Recognize audience immediately**: Engineers get technical tone, no marketing language. Business audiences get value/ROI focus. Academic audiences get methodology and rigor. Adapt tone and content immediately based on context.
 
 **Separate material types**: Code examples stay clean (no narratives or marketing). Presentation materials (openers, talking points) live in separate files. Documentation explains architecture and usage patterns.
@@ -274,4 +312,4 @@ make all           # All quality checks
 
 ---
 
-**Last Updated**: 2025-11-18
+**Last Updated**: 2025-11-19

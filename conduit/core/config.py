@@ -23,8 +23,23 @@ class Settings(BaseSettings):
 
     # Redis Cache
     redis_url: str = Field(default="redis://localhost:6379", description="Redis URL")
-    redis_ttl: int = Field(
-        default=3600, description="Cache TTL in seconds", ge=60, le=86400
+    redis_cache_enabled: bool = Field(
+        default=True, description="Enable query feature caching"
+    )
+    redis_cache_ttl: int = Field(
+        default=86400, description="Cache TTL in seconds (24 hours)", ge=60, le=86400
+    )
+    redis_max_retries: int = Field(
+        default=3, description="Redis operation max retries", ge=0, le=10
+    )
+    redis_timeout: int = Field(
+        default=5, description="Redis operation timeout seconds", ge=1, le=30
+    )
+    redis_circuit_breaker_threshold: int = Field(
+        default=5, description="Failures before opening circuit", ge=1, le=20
+    )
+    redis_circuit_breaker_timeout: int = Field(
+        default=300, description="Circuit breaker timeout seconds (5 min)", ge=60, le=3600
     )
 
     # LLM Provider API Keys
