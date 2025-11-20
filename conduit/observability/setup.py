@@ -123,16 +123,16 @@ def shutdown_telemetry() -> None:
 
     # Shutdown trace provider
     if settings.otel_traces_enabled:
-        provider = trace.get_tracer_provider()
-        if hasattr(provider, "shutdown"):
-            provider.shutdown()  # type: ignore
+        trace_provider = trace.get_tracer_provider()
+        if hasattr(trace_provider, "shutdown"):
+            trace_provider.shutdown()
             logger.info("OpenTelemetry trace provider shutdown")
 
     # Shutdown meter provider
     if settings.otel_metrics_enabled:
-        provider = metrics.get_meter_provider()
-        if hasattr(provider, "shutdown"):
-            provider.shutdown()  # type: ignore
+        meter_provider = metrics.get_meter_provider()
+        if hasattr(meter_provider, "shutdown"):
+            meter_provider.shutdown()
             logger.info("OpenTelemetry meter provider shutdown")
 
     logger.info("OpenTelemetry shutdown complete")

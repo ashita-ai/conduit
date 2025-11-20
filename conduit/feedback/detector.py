@@ -14,7 +14,7 @@ import time
 
 from conduit.core.models import ImplicitFeedback, QueryFeatures
 from conduit.feedback.history import QueryHistoryTracker
-from conduit.feedback.signals import SignalDetector
+from conduit.feedback.signals import RetrySignal, SignalDetector
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ class ImplicitFeedbackDetector:
         self,
         current_embedding: list[float],
         user_id: str,
-    ) -> "RetrySignal":
+    ) -> RetrySignal:
         """Detect retry behavior via semantic similarity.
 
         Args:
@@ -168,8 +168,6 @@ class ImplicitFeedbackDetector:
             2. If similarity >= threshold: retry detected
             3. Return RetrySignal with delay and similarity metrics
         """
-        from conduit.feedback.signals import RetrySignal
-
         similar_query = await self.history.find_similar_query(
             current_embedding=current_embedding,
             user_id=user_id,
@@ -178,7 +176,12 @@ class ImplicitFeedbackDetector:
         )
 
         if similar_query is None:
-            return RetrySignal(detected=False)
+            return RetrySignal(
+                detected=False,
+                delay_seconds=None,
+                similarity_score=None,
+                original_query_id=None,
+            )
 
         # Calculate time delta
         current_time = time.time()

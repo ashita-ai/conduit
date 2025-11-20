@@ -120,7 +120,7 @@ class ModelExecutor:
 
         if cache_key not in self.clients:
             # PydanticAI v1.20+ uses output_type instead of result_type
-            self.clients[cache_key] = Agent(model=model, output_type=result_type)  # type: ignore[call-overload]
+            self.clients[cache_key] = Agent(model=model, output_type=result_type)
             logger.debug(f"Created new agent for {cache_key}")
 
         return self.clients[cache_key]

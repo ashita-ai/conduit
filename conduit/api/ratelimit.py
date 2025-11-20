@@ -187,12 +187,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Execute pipeline
         results = await pipe.execute()
-        current_count = int(results[1])  # type: ignore
+        current_count = int(results[1])
 
         # Check if under limit
         if current_count < self.rate_limit:
             # Add current request with score = timestamp
-            await self.redis.zadd(key, {str(now): now})  # type: ignore
+            await self.redis.zadd(key, {str(now): now})
             # Set expiry to window + buffer (cleanup)
             await self.redis.expire(key, self.window_seconds + 10)
 
@@ -200,10 +200,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Over limit, calculate retry time
         # Get oldest request in window to determine when it expires
-        oldest_entries = await self.redis.zrange(key, 0, 0, withscores=True)  # type: ignore
+        oldest_entries = await self.redis.zrange(key, 0, 0, withscores=True)
 
         if oldest_entries:
-            oldest_timestamp = float(oldest_entries[0][1])  # type: ignore
+            oldest_timestamp = float(oldest_entries[0][1])
             retry_after = int(oldest_timestamp + self.window_seconds - now) + 1
         else:
             retry_after = self.window_seconds
@@ -246,5 +246,5 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def close(self) -> None:
         """Close Redis connection gracefully."""
         if self.redis:
-            await self.redis.aclose()
+            await self.redis.close()
             logger.info("Rate limiter Redis connection closed")

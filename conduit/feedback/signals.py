@@ -145,7 +145,7 @@ class SignalDetector:
                     model_id=model_id,
                 )
 
-        return ErrorSignal(occurred=False, model_id=model_id)
+        return ErrorSignal(occurred=False, error_type=None, model_id=model_id)
 
     @staticmethod
     def detect_latency(
@@ -205,7 +205,12 @@ class SignalDetector:
         """
         # Check if within time window
         if time_delta_seconds > time_window_seconds:
-            return RetrySignal(detected=False)
+            return RetrySignal(
+                detected=False,
+                delay_seconds=None,
+                similarity_score=None,
+                original_query_id=None,
+            )
 
         # Check similarity threshold
         if similarity_score >= similarity_threshold:
@@ -216,4 +221,9 @@ class SignalDetector:
                 original_query_id=previous_query_id,
             )
 
-        return RetrySignal(detected=False)
+        return RetrySignal(
+            detected=False,
+            delay_seconds=None,
+            similarity_score=None,
+            original_query_id=None,
+        )

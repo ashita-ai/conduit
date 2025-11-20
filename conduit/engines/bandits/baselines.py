@@ -123,7 +123,7 @@ class OracleBaseline(BanditAlgorithm):
         Returns:
             Optimal model arm for this query
         """
-        query_hash = hash(features.query_text or "")
+        query_hash = hash(tuple(features.embedding))
 
         # Check if we have oracle knowledge for this query
         best_reward = -float("inf")
@@ -157,7 +157,7 @@ class OracleBaseline(BanditAlgorithm):
             feedback: Feedback containing actual reward
             features: Query features from analyzer
         """
-        query_hash = hash(features.query_text or "")
+        query_hash = hash(tuple(features.embedding))
         key = (query_hash, feedback.model_id)
         self.oracle_rewards[key] = feedback.quality_score
 

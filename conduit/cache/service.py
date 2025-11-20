@@ -7,8 +7,8 @@ import time
 from typing import Any
 
 import msgpack  # type: ignore[import-untyped]
-from redis.asyncio import Redis  # type: ignore[import-untyped]
-from redis.exceptions import ConnectionError, TimeoutError  # type: ignore[import-untyped]
+from redis.asyncio import Redis
+from redis.exceptions import ConnectionError, TimeoutError
 
 from conduit.cache.models import CacheConfig, CacheStats
 from conduit.core.models import QueryFeatures
@@ -256,7 +256,7 @@ class CacheService:
     async def close(self) -> None:
         """Close Redis connection gracefully."""
         if self.redis:
-            await self.redis.aclose()
+            await self.redis.close()
             logger.info("Cache service closed")
 
     def get_stats(self) -> CacheStats:
