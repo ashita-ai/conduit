@@ -4,6 +4,17 @@ Comprehensive technical documentation for understanding and working with Conduit
 
 ## Core Concepts
 
+### [MODEL_DISCOVERY.md](MODEL_DISCOVERY.md) - Dynamic Pricing & Model Discovery
+
+**Key Topics**:
+- Auto-fetch 71+ models from llm-prices.com (24h cache)
+- `supported_models()` - see what Conduit can use
+- `available_models()` - see what YOU can use (auto-detects API keys)
+- Zero maintenance - no hard-coded pricing tables
+- Graceful degradation with fallback pricing
+
+**Read this first if**: You want to understand model availability and pricing
+
 ### [BANDIT_TRAINING.md](BANDIT_TRAINING.md) - How Learning Works
 
 **Key Topics**:
@@ -13,7 +24,7 @@ Comprehensive technical documentation for understanding and working with Conduit
 - Feedback signals: Explicit (ratings) + Implicit (behavior)
 - The "Data Moat" competitive advantage
 
-**Read this first if**: You want to understand how Conduit learns from usage
+**Read this if**: You want to understand how Conduit learns from usage
 
 ### [COLD_START.md](COLD_START.md) - The Cold Start Problem
 
@@ -68,6 +79,10 @@ Model pricing table and automated sync workflow.
 
 ### I want to understand...
 
+**...what models I can use**: → [MODEL_DISCOVERY.md](MODEL_DISCOVERY.md)
+
+**...how pricing stays current**: → [MODEL_DISCOVERY.md](MODEL_DISCOVERY.md) (Dynamic Pricing section)
+
 **...how Conduit learns**: → [BANDIT_TRAINING.md](BANDIT_TRAINING.md)
 
 **...why it doesn't need pre-training**: → [BANDIT_TRAINING.md](BANDIT_TRAINING.md) (Thompson Sampling ≠ LLM Fine-Tuning section)
@@ -81,6 +96,10 @@ Model pricing table and automated sync workflow.
 **...the overall system design**: → [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ### I want to implement...
+
+**...model discovery**: → [MODEL_DISCOVERY.md](MODEL_DISCOVERY.md) (API Reference)
+
+**...API key auto-detection**: → [MODEL_DISCOVERY.md](MODEL_DISCOVERY.md) (available_models)
 
 **...informed priors**: → [COLD_START.md](COLD_START.md) (Solution 1)
 
@@ -127,6 +146,7 @@ Model pricing table and automated sync workflow.
 
 | Document | Status | Last Updated |
 |----------|--------|--------------|
+| MODEL_DISCOVERY.md | ✅ Complete | 2025-11-20 |
 | BANDIT_TRAINING.md | ✅ Complete | 2025-11-19 |
 | COLD_START.md | ✅ Complete | 2025-11-19 |
 | BENCHMARK_STRATEGY.md | ✅ Complete | 2025-11-19 |
@@ -134,7 +154,7 @@ Model pricing table and automated sync workflow.
 | ARCHITECTURE.md | ✅ Complete | 2025-11-18 |
 | DESIGN_SPEC.md | ✅ Complete | 2025-11-18 |
 | success_metrics.md | ⏳ Needs Update | 2025-11-18 |
-| PRICING_UPDATES.md | ✅ Complete | 2025-11-18 |
+| PRICING_UPDATES.md | ⚠️ Deprecated | 2025-11-18 |
 
 ## Contributing
 

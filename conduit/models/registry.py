@@ -1,132 +1,116 @@
-"""Model registry with comprehensive PydanticAI model catalog.
+"""Model registry with dynamic pricing from llm-prices.com.
 
-Pricing data from:
-- OpenAI: https://openai.com/api/pricing/
-- Anthropic: https://www.anthropic.com/pricing
-- Google: https://ai.google.dev/pricing
-- Groq: https://groq.com/pricing/
-- Mistral: https://mistral.ai/technology/#pricing
-- Cohere: https://cohere.com/pricing
+Pricing data automatically fetched from https://www.llm-prices.com/current-v1.json
+- Cached for 24 hours in-memory
+- Falls back to static pricing if API unavailable
+- Supports all models listed on llm-prices.com (90+ models)
 
-Last updated: 2025-01-19
-Prices in USD per 1M tokens (converted to per-1K for storage).
+Source: https://github.com/simonw/llm-prices (community-maintained)
 """
 
+import logging
 from typing import Any
 
 from conduit.engines.bandits.base import ModelArm
+from conduit.models.pricing_fetcher import (
+    estimate_quality,
+    fetch_pricing_sync,
+    get_fallback_pricing,
+)
 
+logger = logging.getLogger(__name__)
 
-# Pricing constants (USD per 1M tokens → divide by 1000 for per-1K)
-PRICING = {
-    # OpenAI models
-    "openai": {
-        "gpt-4o": {"input": 2.50 / 1000, "output": 10.00 / 1000, "quality": 0.95},
-        "gpt-4o-mini": {"input": 0.15 / 1000, "output": 0.60 / 1000, "quality": 0.85},
-        "gpt-4-turbo": {"input": 10.00 / 1000, "output": 30.00 / 1000, "quality": 0.93},
-        "gpt-3.5-turbo": {"input": 0.50 / 1000, "output": 1.50 / 1000, "quality": 0.75},
-    },
-    # Anthropic models
-    "anthropic": {
-        "claude-3-5-sonnet-20241022": {
-            "input": 3.00 / 1000,
-            "output": 15.00 / 1000,
-            "quality": 0.96,
-        },
-        "claude-3-opus-20240229": {
-            "input": 15.00 / 1000,
-            "output": 75.00 / 1000,
-            "quality": 0.97,
-        },
-        "claude-3-haiku-20240307": {
-            "input": 0.25 / 1000,
-            "output": 1.25 / 1000,
-            "quality": 0.80,
-        },
-    },
-    # Google models
-    "google": {
-        "gemini-1.5-pro": {"input": 1.25 / 1000, "output": 5.00 / 1000, "quality": 0.92},
-        "gemini-1.5-flash": {"input": 0.075 / 1000, "output": 0.30 / 1000, "quality": 0.82},
-        "gemini-1.0-pro": {"input": 0.50 / 1000, "output": 1.50 / 1000, "quality": 0.78},
-    },
-    # Groq models (ultra-fast inference, competitive pricing)
-    "groq": {
-        "llama-3.1-70b-versatile": {
-            "input": 0.59 / 1000,
-            "output": 0.79 / 1000,
-            "quality": 0.88,
-        },
-        "llama-3.1-8b-instant": {
-            "input": 0.05 / 1000,
-            "output": 0.08 / 1000,
-            "quality": 0.72,
-        },
-        "mixtral-8x7b-32768": {
-            "input": 0.24 / 1000,
-            "output": 0.24 / 1000,
-            "quality": 0.85,
-        },
-    },
-    # Mistral models
-    "mistral": {
-        "mistral-large-latest": {
-            "input": 2.00 / 1000,
-            "output": 6.00 / 1000,
-            "quality": 0.91,
-        },
-        "mistral-medium-latest": {
-            "input": 0.70 / 1000,
-            "output": 2.10 / 1000,
-            "quality": 0.86,
-        },
-        "mistral-small-latest": {
-            "input": 0.20 / 1000,
-            "output": 0.60 / 1000,
-            "quality": 0.79,
-        },
-    },
-    # Cohere models
-    "cohere": {
-        "command-r-plus": {"input": 3.00 / 1000, "output": 15.00 / 1000, "quality": 0.90},
-        "command-r": {"input": 0.50 / 1000, "output": 1.50 / 1000, "quality": 0.83},
-    },
+# Providers supported by PydanticAI (filter llm-prices.com to these only)
+PYDANTIC_AI_PROVIDERS = {
+    "openai",
+    "anthropic",
+    "google",
+    "amazon",  # via bedrock
+    "mistral",
+    "cohere",
+    "groq",
+    "huggingface",
 }
 
 
-def create_model_registry() -> list[ModelArm]:
-    """Create comprehensive model registry from pricing data.
+# Legacy PRICING dict - DEPRECATED
+# Use create_model_registry() which fetches from llm-prices.com dynamically
+# This is kept for backwards compatibility only
+PRICING: dict[str, dict[str, dict[str, float]]] = {}
+
+
+def create_model_registry(use_cache: bool = True) -> list[ModelArm]:
+    """Create comprehensive model registry from llm-prices.com.
+
+    Fetches current pricing dynamically from https://www.llm-prices.com/current-v1.json
+    with 24-hour caching. Falls back to static pricing if API unavailable.
+
+    Args:
+        use_cache: Use cached pricing if available (default: True)
 
     Returns:
-        List of ModelArm instances for all supported models
+        List of ModelArm instances for all supported models (90+ models)
 
     Example:
         >>> registry = create_model_registry()
-        >>> len(registry)
-        17
+        >>> len(registry)  # 90+ models
         >>> registry[0].model_id
         "openai:gpt-4o"
     """
+    # Fetch pricing data (with caching)
+    try:
+        pricing_data = fetch_pricing_sync() if use_cache else get_fallback_pricing()
+    except Exception as e:
+        logger.warning(f"Failed to fetch pricing from llm-prices.com: {e}")
+        logger.info("Using fallback pricing")
+        pricing_data = get_fallback_pricing()
+
+    # Convert to ModelArm instances (filter to PydanticAI-supported providers only)
     models = []
+    skipped = 0
+    for model_data in pricing_data["prices"]:
+        model_id = model_data["id"]
+        provider = model_data["vendor"]
+        model_name = model_data["name"]
 
-    for provider, provider_models in PRICING.items():
-        for model_name, pricing in provider_models.items():
-            model_id = f"{provider}:{model_name}"
+        # Skip providers not supported by PydanticAI
+        if provider not in PYDANTIC_AI_PROVIDERS:
+            skipped += 1
+            continue
 
-            arm = ModelArm(
-                model_id=model_id,
-                provider=provider,
-                model_name=model_name,
-                cost_per_input_token=pricing["input"],
-                cost_per_output_token=pricing["output"],
-                expected_quality=pricing["quality"],
-                metadata={
-                    "pricing_last_updated": "2025-01-19",
-                    "quality_estimate_source": "vendor_benchmarks_and_community",
-                },
-            )
-            models.append(arm)
+        # Convert from per-million to per-1K tokens
+        input_cost = float(model_data["input"]) / 1000
+        output_cost = float(model_data["output"]) / 1000
 
+        # Estimate quality (llm-prices doesn't provide this)
+        quality = estimate_quality(model_id, model_name)
+
+        arm = ModelArm(
+            model_id=f"{provider}:{model_id}",
+            provider=provider,
+            model_name=model_id,  # Use ID not name for consistency
+            cost_per_input_token=input_cost,
+            cost_per_output_token=output_cost,
+            expected_quality=quality,
+            metadata={
+                "pricing_source": "llm-prices.com",
+                "pricing_updated": pricing_data["updated_at"],
+                "quality_estimate_source": "conduit_heuristics",
+                "display_name": model_name,
+            },
+        )
+        models.append(arm)
+
+    if skipped > 0:
+        logger.debug(
+            f"Skipped {skipped} models from unsupported providers "
+            f"(not in PydanticAI)"
+        )
+
+    logger.info(
+        f"Created registry with {len(models)} models "
+        f"(source: {pricing_data['updated_at']})"
+    )
     return models
 
 
@@ -254,6 +238,139 @@ def get_registry_stats(registry: list[ModelArm]) -> dict[str, Any]:
             "median": sorted(qualities)[len(qualities) // 2],
         },
     }
+
+
+# Provider API key environment variable mapping
+# Maps provider names to their environment variable names
+# Only includes providers with pricing data from llm-prices.com
+PROVIDER_ENV_VARS = {
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "google": "GOOGLE_API_KEY",  # Also works with GEMINI_API_KEY
+    "mistral": "MISTRAL_API_KEY",
+    "amazon": "AWS_ACCESS_KEY_ID",  # AWS Bedrock
+    # Commented out until llm-prices.com adds them:
+    # "groq": "GROQ_API_KEY",
+    # "cohere": "COHERE_API_KEY",
+    # "huggingface": "HUGGINGFACE_API_KEY",
+}
+
+
+def supported_models(
+    providers: list[str] | None = None,
+    min_quality: float | None = None,
+    max_cost: float | None = None,
+) -> list[ModelArm]:
+    """Get all models supported by Conduit.
+
+    Returns all models from the registry, optionally filtered by criteria.
+    This shows what Conduit CAN use, not what YOU can use (see available_models).
+
+    Args:
+        providers: Filter to specific providers (e.g., ["openai", "anthropic"])
+        min_quality: Minimum expected quality (0-1 scale)
+        max_cost: Maximum average cost per token
+
+    Returns:
+        List of ModelArm instances matching criteria
+
+    Example:
+        >>> # All models
+        >>> all_models = supported_models()
+        >>> len(all_models)
+        17
+
+        >>> # High-quality budget models
+        >>> good_cheap = supported_models(min_quality=0.85, max_cost=0.001)
+
+        >>> # OpenAI only
+        >>> openai = supported_models(providers=["openai"])
+    """
+    registry = create_model_registry()
+    return filter_models(registry, min_quality, max_cost, providers)
+
+
+def available_models(
+    dotenv_path: str = ".env",
+    providers: list[str] | None = None,
+    min_quality: float | None = None,
+    max_cost: float | None = None,
+) -> list[ModelArm]:
+    """Get models YOU can actually use based on API keys in environment.
+
+    Auto-detects API keys from .env file and returns only models you have
+    credentials for. This is what you should use to see your routing options.
+
+    Args:
+        dotenv_path: Path to .env file (default: ".env")
+        providers: Further filter to specific providers
+        min_quality: Minimum expected quality (0-1 scale)
+        max_cost: Maximum average cost per token
+
+    Returns:
+        List of ModelArm instances you can use
+
+    Example:
+        >>> # What can I use?
+        >>> my_models = available_models()
+
+        >>> # What high-quality models can I use?
+        >>> my_good = available_models(min_quality=0.90)
+    """
+    import os
+    from pathlib import Path
+
+    # Load .env file if it exists
+    env_path = Path(dotenv_path)
+    if env_path.exists():
+        from dotenv import load_dotenv
+        load_dotenv(env_path)
+
+    # Detect which providers have API keys set
+    available_providers = []
+    for provider, env_var in PROVIDER_ENV_VARS.items():
+        if os.getenv(env_var):
+            available_providers.append(provider)
+
+    # If user specified providers, intersect with available
+    if providers is not None:
+        available_providers = [p for p in providers if p in available_providers]
+
+    # Return models for available providers
+    return supported_models(
+        providers=available_providers if available_providers else None,
+        min_quality=min_quality,
+        max_cost=max_cost,
+    )
+
+
+def get_available_providers(dotenv_path: str = ".env") -> list[str]:
+    """Get list of providers you have API keys for.
+
+    Args:
+        dotenv_path: Path to .env file (default: ".env")
+
+    Returns:
+        List of provider names with configured API keys
+
+    Example:
+        >>> providers = get_available_providers()
+        >>> print(providers)
+        ['openai', 'anthropic', 'google']
+    """
+    import os
+    from pathlib import Path
+
+    env_path = Path(dotenv_path)
+    if env_path.exists():
+        from dotenv import load_dotenv
+        load_dotenv(env_path)
+
+    return [
+        provider
+        for provider, env_var in PROVIDER_ENV_VARS.items()
+        if os.getenv(env_var)
+    ]
 
 
 # Create default registry

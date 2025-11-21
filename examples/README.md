@@ -25,6 +25,13 @@ brew install redis && redis-server
 - Perfect first example to verify installation
 - No configuration or setup required
 
+**model_discovery.py** - See what models you can use
+- Lists all 71+ supported models across 5 providers
+- Shows which models YOU can use (based on .env API keys)
+- Filter by quality, cost, or provider
+- Dynamic detection of configured providers
+- Auto-fetches pricing from llm-prices.com (24h cache)
+
 **simple_router.py** - Basic routing with custom models
 - Define available models and route queries
 - See routing decisions and confidence scores
@@ -129,12 +136,13 @@ All features work without Redis - caching and retry detection are simply disable
 **Recommended order for new users:**
 
 1. **Start**: hello_world.py - Verify installation (5 lines)
-2. **Routing**: basic_routing.py - Understand core concepts
-3. **Constraints**: with_constraints.py - Cost/quality control
-4. **Caching**: caching.py - Performance optimization
-5. **Explicit Feedback**: explicit_feedback.py - User ratings
-6. **Implicit Feedback**: implicit_feedback.py - Behavioral signals
-7. **Combined**: combined_feedback.py - Full feedback system
+2. **Discover**: model_discovery.py - See what models you can use
+3. **Routing**: basic_routing.py - Understand core concepts
+4. **Constraints**: with_constraints.py - Cost/quality control
+5. **Caching**: caching.py - Performance optimization
+6. **Explicit Feedback**: explicit_feedback.py - User ratings
+7. **Implicit Feedback**: implicit_feedback.py - Behavioral signals
+8. **Combined**: combined_feedback.py - Full feedback system
 
 ## Redis Setup
 

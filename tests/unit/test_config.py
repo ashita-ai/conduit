@@ -93,8 +93,8 @@ class TestSettings:
 
         assert "gpt-4o-mini" in settings.default_models
         assert "gpt-4o" in settings.default_models
-        assert "claude-3.5-sonnet" in settings.default_models
-        assert "claude-opus-4" in settings.default_models
+        assert "claude-3-5-sonnet-20241022" in settings.default_models
+        assert "claude-3-opus-20240229" in settings.default_models
 
     def test_api_port_validation(self):
         """Test API port must be valid range."""

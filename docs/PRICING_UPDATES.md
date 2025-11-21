@@ -1,10 +1,20 @@
 # LLM Pricing Updates
 
-This document describes how to update LLM pricing data in Conduit.
+> **⚠️ DEPRECATED**: This document describes the old database-based pricing sync approach.
+>
+> **Current Approach** (as of 2025-11-20): Conduit now uses **dynamic pricing** that auto-fetches from llm-prices.com at runtime with 24-hour caching. No database sync required.
+>
+> **See instead**: [MODEL_DISCOVERY.md](MODEL_DISCOVERY.md) for current pricing architecture.
 
-## Overview
+---
 
-Conduit uses pricing data from the community-maintained [llm-prices.com](https://www.llm-prices.com/) project to calculate accurate LLM costs. This data is stored in the `model_prices` table and can be updated as providers change their pricing.
+## Historical Context
+
+This document describes how to update LLM pricing data in Conduit (deprecated approach).
+
+### Old Approach (Deprecated)
+
+Conduit used to store pricing data from [llm-prices.com](https://www.llm-prices.com/) in the `model_prices` database table and require manual sync.
 
 ## Quick Update
 

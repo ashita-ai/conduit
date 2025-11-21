@@ -1,7 +1,7 @@
 # AGENTS.md - Project Context
 
 **Purpose**: Quick reference for working on Conduit
-**Last Updated**: 2025-11-19
+**Last Updated**: 2025-11-20
 **Status**: Phase 2 complete - Implicit feedback system + examples shipped
 
 ---
@@ -56,9 +56,9 @@ conduit/
 - **System**: p99 latency < 200ms for routing decisions
 
 ### Current Test Coverage (2025-11-20)
-- **Overall**: 85% coverage ✅ (exceeds 80% Phase 1 target)
+- **Overall**: 87% coverage ✅ (exceeds 80% Phase 1 target)
 - **Core Engine**: 96-100% (models, analyzer, bandit, router, executor)
-- **Feedback System**: 98-100% (signals, history, integration, detector - 89 new tests)
+- **Feedback System**: 98-100% (signals, history, integration, detector - 76 comprehensive tests)
 - **Bandit Algorithms**: 52/61 tests passing (85% pass rate, up from 52%)
   - Epsilon-Greedy: 14/14 passing (100%) ✅
   - Thompson Sampling: 6/7 passing (86%)
@@ -84,8 +84,8 @@ conduit/
    - Cache hit/miss statistics
    - Graceful degradation without Redis
 
-3. ✅ **Examples Suite** - Progressive learning path (7 examples)
-   - 01_quickstart/: hello_world.py (5 lines), simple_router.py
+3. ✅ **Examples Suite** - Progressive learning path (8 examples)
+   - 01_quickstart/: hello_world.py (5 lines), simple_router.py, model_discovery.py
    - 02_routing/: basic_routing.py, with_constraints.py
    - 03_optimization/: caching.py, explicit_feedback.py, implicit_feedback.py, combined_feedback.py
    - 04_production/: (planned - fastapi, batch, monitoring)
@@ -101,6 +101,8 @@ conduit/
 4. Monitoring and observability tooling
 
 ### Recent Updates (2025-11-20)
+
+**Session 1: Test Suite Improvements**
 - ✅ **Test Suite Improvements**: Added 33 new tests (13 detector + 20 CLI)
 - ✅ **Detector Tests**: 100% coverage with normalized embedding fixes
 - ✅ **CLI Tests**: 98% coverage testing all commands (serve, run, demo, version)
@@ -109,7 +111,16 @@ conduit/
   - Fixed field name mismatches (counts→arm_pulls, values→mean_reward)
   - Added Pydantic validation for BanditFeedback
   - Epsilon-Greedy now 100% passing with reproducible random seed
-- ✅ **Overall Coverage**: 85% (up from ~52%), exceeds Phase 1 target
+- ✅ **Overall Coverage**: 87% (up from ~52%), exceeds Phase 1 target
+
+**Session 2: Dynamic Pricing & Model Discovery**
+- ✅ **Dynamic Pricing**: Fetch from llm-prices.com at runtime (24h cache, graceful fallback)
+- ✅ **Model Discovery API**: `supported_models()`, `available_models()`, `get_available_providers()`
+- ✅ **Auto-Detection**: Automatically detects which models YOU can use based on API keys in .env
+- ✅ **Provider Filtering**: Only expose 71 models where PydanticAI support AND pricing exist
+- ✅ **Model Name Fixes**: Fixed Anthropic names (claude-opus-4 → claude-3-opus-20240229)
+- ✅ **Documentation**: Created comprehensive MODEL_DISCOVERY.md
+- ✅ **Examples**: Created model_discovery.py example (8th example)
 
 **Previous Session (2025-11-19)**:
 - ✅ Implemented complete implicit feedback system (QueryHistoryTracker, Detector, Integrator)
@@ -189,7 +200,7 @@ black conduit/           # Formatting applied
 
 ### Core Dependencies
 - **Python**: 3.10+ (modern type hints, async/await)
-- **PydanticAI**: 1.20+ (unified LLM interface with structured outputs)
+- **PydanticAI**: 1.14+ (unified LLM interface with structured outputs)
   - **API Change**: Use `Agent(...).run(..., deps=...)` instead of `Agent(..., deps=...)`
 - **Pydantic**: 2.12+ (data validation)
 - **FastAPI**: 0.115+ (REST API)
@@ -271,6 +282,9 @@ async def route_query(query: str) -> RoutingResult:
 - **Data Moat**: Learning algorithm improves with usage, creating competitive barrier
 - **Probabilistic Guarantees**: 95%+ quality confidence, not 100% promises
 - **Graceful Degradation**: Core routing works without Redis (caching/retry disabled)
+- **Dynamic Pricing**: Auto-fetch 71+ models from llm-prices.com (24h cache, fallback)
+- **Model Discovery**: Auto-detects available models based on API keys in .env
+- **Provider Filtering**: Only expose models where PydanticAI support AND pricing exist
 
 ### Make Targets (To Be Created)
 ```bash
@@ -330,4 +344,4 @@ make all           # All quality checks
 
 ---
 
-**Last Updated**: 2025-11-19
+**Last Updated**: 2025-11-20

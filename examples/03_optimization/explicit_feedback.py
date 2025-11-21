@@ -17,7 +17,7 @@ async def main():
 
     # Setup
     analyzer = QueryAnalyzer()
-    bandit = ContextualBandit(models=["gpt-4o-mini", "gpt-4o", "claude-sonnet-4"])
+    bandit = ContextualBandit(models=["gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet-20241022"])
     integrator = FeedbackIntegrator(bandit)
 
     # Scenario 1: High Quality + Met Expectations
@@ -82,7 +82,7 @@ async def main():
     print("   - Weighted 70% (explicit) vs 30% (implicit)")
 
     print("\n📊 Final Model States:")
-    for model_id in ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4"]:
+    for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet-20241022"]:
         state = bandit.get_model_state(model_id)
         print(f"   {model_id}: {state.mean_success_rate:.0%} success rate")
 

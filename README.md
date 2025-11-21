@@ -10,12 +10,13 @@ Conduit uses contextual bandits (Thompson Sampling) to intelligently route queri
 
 - **ML-Driven Routing**: Learns from usage patterns vs static IF/ELSE rules
 - **Multi-Objective Optimization**: Balance cost, latency, and quality constraints
-- **Provider-Agnostic**: Works with OpenAI, Anthropic, Google, Groq via PydanticAI
+- **Provider-Agnostic**: Works with OpenAI, Anthropic, Google, Groq, Mistral, Cohere, AWS Bedrock, HuggingFace via PydanticAI
 - **Dual Feedback Loop**: Explicit (user ratings) + Implicit (errors, latency, retries)
 - **Redis Caching**: 10-40x performance improvement on repeated queries
 - **Graceful Degradation**: Core routing works without Redis
 - **7 Bandit Algorithms**: Thompson Sampling, UCB1, Epsilon-Greedy, + 4 baselines (all in `conduit.engines.bandits`)
-- **Model Registry**: 17 models across 6 providers with real pricing data (`conduit.models`)
+- **Dynamic Pricing**: 71+ models with auto-updated pricing from llm-prices.com (24h cache)
+- **Model Discovery**: Auto-detects available models based on your API keys (zero configuration)
 
 ## Quick Start
 
@@ -34,7 +35,7 @@ asyncio.run(main())
 ```
 
 **See `examples/` for complete usage:**
-- **01_quickstart/**: hello_world.py (5 lines), simple_router.py
+- **01_quickstart/**: hello_world.py (5 lines), simple_router.py, model_discovery.py
 - **02_routing/**: basic_routing.py, with_constraints.py
 - **03_optimization/**: caching.py, explicit_feedback.py, implicit_feedback.py, combined_feedback.py
 - **04_production/**: (coming soon - FastAPI, batch processing, monitoring)
@@ -168,7 +169,7 @@ All algorithms use `QueryFeatures` for contextual routing and share the `BanditA
 
 **Phase**: 2 Complete (Implicit Feedback + Examples)
 **Version**: 0.0.2-alpha
-**Last Updated**: 2025-11-19
+**Last Updated**: 2025-11-20
 
 ### Phase 2 Completed (2025-11-19)
 - ✅ **Implicit Feedback System** - "Observability Trinity"
@@ -204,13 +205,13 @@ All algorithms use `QueryFeatures` for contextual routing and share the `BanditA
 - ⏳ Monitoring and observability tooling
 - ⏳ API layer testing (currently 0% coverage)
 
-### Test Coverage (2025-11-19)
+### Test Coverage (2025-11-20)
 - **Overall**: 87% ✅ (exceeds 80% target)
 - **Core Engine**: 96-100% (models, analyzer, bandit, router, executor)
 - **Feedback System**: 98-100% (signals, history, integration - 76 tests)
 - **Database**: 84% (integration tests complete)
+- **CLI**: 98% ✅ (comprehensive command testing)
 - **API Layer**: 0% (untested - Phase 3 priority)
-- **CLI**: 0% (untested)
 
 ## License
 

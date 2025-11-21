@@ -82,8 +82,8 @@ INSERT INTO model_states (model_id, alpha, beta, total_requests, total_cost, avg
 VALUES
     ('gpt-4o-mini', 1.0, 1.0, 0, 0.0, 0.0),
     ('gpt-4o', 1.0, 1.0, 0, 0.0, 0.0),
-    ('claude-sonnet-4', 1.0, 1.0, 0, 0.0, 0.0),
-    ('claude-opus-4', 1.0, 1.0, 0, 0.0, 0.0)
+    ('claude-3-5-sonnet-20241022', 1.0, 1.0, 0, 0.0, 0.0),
+    ('claude-3-opus-20240229', 1.0, 1.0, 0, 0.0, 0.0)
 ON CONFLICT (model_id) DO NOTHING;
 
 -- Create view for analytics

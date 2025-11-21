@@ -42,11 +42,17 @@ class Settings(BaseSettings):
         default=300, description="Circuit breaker timeout seconds (5 min)", ge=60, le=3600
     )
 
-    # LLM Provider API Keys
+    # LLM Provider API Keys (all providers supported by PydanticAI)
     openai_api_key: str = Field(default="", description="OpenAI API key")
     anthropic_api_key: str = Field(default="", description="Anthropic API key")
-    google_api_key: str = Field(default="", description="Google API key")
+    google_api_key: str = Field(default="", description="Google/Gemini API key")
     groq_api_key: str = Field(default="", description="Groq API key")
+    mistral_api_key: str = Field(default="", description="Mistral API key")
+    cohere_api_key: str = Field(default="", description="Cohere API key")
+    aws_access_key_id: str = Field(default="", description="AWS Access Key (for Bedrock)")
+    aws_secret_access_key: str = Field(default="", description="AWS Secret Key (for Bedrock)")
+    aws_region: str = Field(default="us-east-1", description="AWS Region (for Bedrock)")
+    huggingface_api_key: str = Field(default="", description="HuggingFace API key")
 
     # ML Configuration
     embedding_model: str = Field(
@@ -54,10 +60,10 @@ class Settings(BaseSettings):
     )
     default_models: list[str] = Field(
         default=[
-            "gpt-4o-mini",       # OpenAI - cheap, fast, good quality
-            "gpt-4o",            # OpenAI - flagship, balanced
-            "claude-3.5-sonnet", # Anthropic - current popular
-            "claude-opus-4",     # Anthropic - premium quality
+            "gpt-4o-mini",                  # OpenAI - cheap, fast, good quality
+            "gpt-4o",                       # OpenAI - flagship, balanced
+            "claude-3-5-sonnet-20241022",   # Anthropic - current popular
+            "claude-3-opus-20240229",       # Anthropic - premium quality
         ],
         description="Available models for routing (must match pricing database IDs)",
     )
