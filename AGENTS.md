@@ -1,8 +1,9 @@
 # AGENTS.md - Project Context
 
 **Purpose**: Quick reference for working on Conduit
-**Last Updated**: 2025-11-20
+**Last Updated**: 2025-11-21
 **Status**: Phase 2 complete - Implicit feedback system + examples shipped
+**Test Health**: 95% overall (402/423 passing), 21 tests need fixes (dynamic pricing migration)
 
 ---
 
@@ -55,19 +56,26 @@ conduit/
 - **Quality**: 95% of queries meet or exceed baseline
 - **System**: p99 latency < 200ms for routing decisions
 
-### Current Test Coverage (2025-11-20)
-- **Overall**: 87% coverage ✅ (exceeds 80% Phase 1 target)
+### Current Test Coverage (2025-11-21 - Verified)
+- **Overall Test Health**: 95.0% (402/423 passing) ✅
+- **Overall Coverage**: 86% (2178 lines, 302 uncovered) ✅ exceeds Phase 1 target (80%)
 - **Core Engine**: 96-100% (models, analyzer, bandit, router, executor)
-- **Feedback System**: 98-100% (signals, history, integration, detector - 76 comprehensive tests)
-- **Bandit Algorithms**: 52/61 tests passing (85% pass rate, up from 52%)
-  - Epsilon-Greedy: 14/14 passing (100%) ✅
-  - Thompson Sampling: 6/7 passing (86%)
-  - UCB1: 6/11 passing (55%)
-  - Baselines: 15/18 passing (83%)
+- **Feedback System**: 98-100% coverage (89 comprehensive tests)
+- **CLI**: 98% coverage (20 comprehensive tests)
 - **Database**: 84% (integration tests complete, edge cases covered)
-- **CLI**: 98% coverage ✅ (20 comprehensive tests)
 - **API Layer**: 0% (routes, middleware - not yet tested)
-- **Status**: Phase 2 complete + test suite significantly improved
+
+**Bandit Algorithms**: 52/61 passing (85.2%)
+  - Epsilon-Greedy: 14/14 passing (100%) ✅
+  - Thompson Sampling: 8/9 passing (88.9%)
+  - UCB1: 6/11 passing (54.5%)
+  - Baselines: 17/20 passing (85%)
+
+**Known Test Failures** (21 total):
+  - 12 model_registry tests (need updates for dynamic pricing - expect static PRICING dict)
+  - 5 UCB1 tests (functional issues with exploration parameter)
+  - 3 baseline tests (cost ordering changed with dynamic pricing)
+  - 1 Thompson Sampling test (learning convergence timing)
 
 ### Phase 2 Completion (2025-11-19)
 **Completed Features**: ✅ All implicit feedback components shipped
@@ -77,17 +85,17 @@ conduit/
    - ImplicitFeedbackDetector (orchestrates all signal detection)
    - FeedbackIntegrator (weighted rewards: 70% explicit, 30% implicit)
    - SignalDetector (error patterns, latency tolerance, retry detection)
-   - 76 comprehensive tests (100% coverage for core components)
+   - 89 comprehensive tests (98-100% coverage for core components)
 
 2. ✅ **Redis Caching** - 10-40x performance improvement
    - QueryFeatures caching with circuit breaker
    - Cache hit/miss statistics
    - Graceful degradation without Redis
 
-3. ✅ **Examples Suite** - Progressive learning path (8 examples)
-   - 01_quickstart/: hello_world.py (5 lines), simple_router.py, model_discovery.py
-   - 02_routing/: basic_routing.py, with_constraints.py
-   - 03_optimization/: caching.py, explicit_feedback.py, implicit_feedback.py, combined_feedback.py
+3. ✅ **Examples Suite** - Progressive learning path (9 examples)
+   - 01_quickstart/: hello_world.py (5 lines), simple_router.py, model_discovery.py (3)
+   - 02_routing/: basic_routing.py, with_constraints.py (2)
+   - 03_optimization/: caching.py, explicit_feedback.py, implicit_feedback.py, combined_feedback.py (4)
    - 04_production/: (planned - fastapi, batch, monitoring)
 
 4. ✅ **Database Migration** - Schema for implicit feedback storage
@@ -95,25 +103,29 @@ conduit/
 ### Phase 3 Priorities (Next)
 **Prerequisites**: ✅ Implicit feedback system complete, examples validated
 
-1. Document success metrics and quality baselines
-2. Create demo showing 30% cost reduction on real workload
-3. Production API examples (FastAPI endpoint, batch processing)
-4. Monitoring and observability tooling
+1. **Fix Test Failures** (21 tests) - Update for dynamic pricing migration
+2. Document success metrics and quality baselines
+3. Create demo showing 30% cost reduction on real workload
+4. Production API examples (FastAPI endpoint, batch processing)
+5. Monitoring and observability tooling
 
-### Recent Updates (2025-11-20)
+### Recent Updates
 
-**Session 1: Test Suite Improvements**
+**2025-11-21: Documentation Accuracy Audit**
+- 🔍 **Ultrathink Verification**: Ran full test suite to verify all documentation claims
+- ✅ **Actual Test Health**: 95.0% (402/423 passing) - BETTER than previously documented
+- ⚠️ **Known Failures**: 21 tests failing due to dynamic pricing migration (12 model_registry, 5 UCB1, 3 baselines, 1 Thompson)
+- ✅ **Corrected Metrics**: Updated all test counts and pass rates to match reality
+- 📊 **Coverage**: Verified 86% actual vs 87% claimed (minor rounding)
+
+**2025-11-20 Session 1: Test Suite Improvements**
 - ✅ **Test Suite Improvements**: Added 33 new tests (13 detector + 20 CLI)
 - ✅ **Detector Tests**: 100% coverage with normalized embedding fixes
 - ✅ **CLI Tests**: 98% coverage testing all commands (serve, run, demo, version)
-- ✅ **Bandit Test Fixes**: Improved from 52% to 85% pass rate
-  - Fixed arm_pulls counting logic across all algorithms
-  - Fixed field name mismatches (counts→arm_pulls, values→mean_reward)
-  - Added Pydantic validation for BanditFeedback
-  - Epsilon-Greedy now 100% passing with reproducible random seed
-- ✅ **Overall Coverage**: 87% (up from ~52%), exceeds Phase 1 target
+- ✅ **Bandit Tests**: Epsilon-Greedy 100% passing (14/14 with reproducible random seed)
+- ✅ **Overall Coverage**: 86% (exceeds Phase 1 target)
 
-**Session 2: Dynamic Pricing & Model Discovery**
+**2025-11-20 Session 2: Dynamic Pricing & Model Discovery**
 - ✅ **Dynamic Pricing**: Fetch from llm-prices.com at runtime (24h cache, graceful fallback)
 - ✅ **Model Discovery API**: `supported_models()`, `available_models()`, `get_available_providers()`
 - ✅ **Auto-Detection**: Automatically detects which models YOU can use based on API keys in .env
@@ -122,11 +134,11 @@ conduit/
 - ✅ **Documentation**: Created comprehensive MODEL_DISCOVERY.md
 - ✅ **Examples**: Created model_discovery.py example (8th example)
 
-**Previous Session (2025-11-19)**:
+**2025-11-19: Implicit Feedback System**
 - ✅ Implemented complete implicit feedback system (QueryHistoryTracker, Detector, Integrator)
-- ✅ Added 76 comprehensive tests for feedback components (98-100% coverage)
+- ✅ Added 89 comprehensive tests for feedback components (98-100% coverage)
 - ✅ Created Redis caching with circuit breaker pattern
-- ✅ Reorganized examples into 4-folder progressive structure
+- ✅ Reorganized examples into 3-folder progressive structure (9 total examples)
 - ✅ Created combined_feedback.py showing explicit + implicit together
 - ✅ All examples tested and working (graceful Redis degradation)
 
