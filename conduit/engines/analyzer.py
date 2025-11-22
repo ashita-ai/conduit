@@ -1,6 +1,7 @@
 """Query analysis and feature extraction for routing decisions."""
 
 import asyncio
+import logging
 import pickle
 import re
 from pathlib import Path
@@ -12,6 +13,8 @@ from sklearn.decomposition import PCA  # type: ignore[import-untyped,unused-igno
 
 from conduit.cache import CacheService
 from conduit.core.models import QueryFeatures
+
+logger = logging.getLogger(__name__)
 
 
 class QueryAnalyzer:
@@ -257,7 +260,7 @@ class QueryAnalyzer:
                 return pca
         except Exception as e:
             # Log warning but don't fail - will create new PCA
-            print(f"Warning: Failed to load PCA model from {pca_path}: {e}")
+            logger.warning(f"Failed to load PCA model from {pca_path}: {e}")
             return None
 
     def _save_pca(self) -> None:
