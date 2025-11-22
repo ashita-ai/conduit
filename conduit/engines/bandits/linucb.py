@@ -13,11 +13,13 @@ Reference: https://arxiv.org/abs/1003.0146 (Li et al. 2010)
 Tutorial: https://kfoofw.github.io/contextual-bandits-linear-ucb-disjoint/
 """
 
-import numpy as np
 from collections import deque
-from typing import Any, Optional
+from typing import Any
+
+import numpy as np
 
 from conduit.core.models import QueryFeatures
+
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
 
 
@@ -53,7 +55,7 @@ class LinUCBBandit(BanditAlgorithm):
         arms: list[ModelArm],
         alpha: float = 1.0,
         feature_dim: int = 387,  # 384 embedding + 3 metadata
-        random_seed: Optional[int] = None,
+        random_seed: int | None = None,
         reward_weights: dict[str, float] | None = None,
         window_size: int = 0,
         success_threshold: float = 0.85,

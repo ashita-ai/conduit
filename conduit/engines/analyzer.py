@@ -1,11 +1,16 @@
 """Query analysis and feature extraction for routing decisions."""
 
 import asyncio
+import pickle
 import re
+from pathlib import Path
 
-from sentence_transformers import SentenceTransformer  # type: ignore[import-untyped,unused-ignore]
+from sentence_transformers import (
+    SentenceTransformer,  # type: ignore[import-untyped,unused-ignore]
+)
+from sklearn.decomposition import PCA  # type: ignore[import-untyped,unused-ignore]
 
-from conduit.cache import CacheConfig, CacheService
+from conduit.cache import CacheService
 from conduit.core.models import QueryFeatures
 
 
@@ -23,16 +28,42 @@ class QueryAnalyzer:
         self,
         embedding_model: str = "all-MiniLM-L6-v2",
         cache_service: CacheService | None = None,
+        use_pca: bool = False,
+        pca_dimensions: int = 64,
+        pca_model_path: str = "models/pca.pkl",
     ):
         """Initialize analyzer with embedding model and optional cache.
 
         Args:
             embedding_model: HuggingFace model for embeddings
             cache_service: Optional cache service for feature caching
+            use_pca: Enable PCA dimensionality reduction (default: False)
+            pca_dimensions: Target dimensions after PCA (default: 64)
+            pca_model_path: Path to fitted PCA model (default: models/pca.pkl)
+
+        Example:
+            >>> # Standard 384-dim embeddings
+            >>> analyzer = QueryAnalyzer()
+            >>>
+            >>> # Reduced 64-dim embeddings with PCA
+            >>> analyzer = QueryAnalyzer(use_pca=True, pca_dimensions=64)
         """
         self.embedder = SentenceTransformer(embedding_model)
         self.domain_classifier = DomainClassifier()
         self.cache = cache_service
+
+        # PCA configuration
+        self.use_pca = use_pca
+        self.pca_dimensions = pca_dimensions
+        self.pca_model_path = pca_model_path
+        self.pca: PCA | None = None
+
+        if use_pca:
+            # Try to load pre-fitted PCA model
+            self.pca = self._load_pca()
+            if self.pca is None:
+                # Create new PCA (needs fitting before use)
+                self.pca = PCA(n_components=pca_dimensions)
 
     async def analyze(self, query: str) -> QueryFeatures:
         """Extract features from query for routing decision.
@@ -65,6 +96,17 @@ class QueryAnalyzer:
         # Cache miss or no cache - compute features
         # Generate embedding (offload CPU work to thread pool to avoid blocking event loop)
         embedding_tensor = await asyncio.to_thread(self.embedder.encode, query)
+
+        # Apply PCA if enabled
+        if self.use_pca and self.pca is not None:
+            # Check if PCA is fitted
+            if not hasattr(self.pca, "components_"):
+                raise RuntimeError(
+                    "PCA is enabled but not fitted. Call fit_pca() with training data first."
+                )
+            # Transform to reduced dimensions
+            embedding_tensor = self.pca.transform([embedding_tensor])[0]
+
         # sentence_transformers returns numpy array-like objects
         embedding_list: list[float] = embedding_tensor.tolist()
 
@@ -163,6 +205,93 @@ class QueryAnalyzer:
                     break
 
         return min(1.0, max(0.0, complexity))
+
+    def fit_pca(self, queries: list[str]) -> None:
+        """Fit PCA on representative query set (one-time setup).
+
+        Args:
+            queries: Representative queries for PCA fitting (1000+ recommended)
+
+        Raises:
+            ValueError: If PCA not enabled or insufficient queries
+            RuntimeError: If embedding generation fails
+
+        Example:
+            >>> analyzer = QueryAnalyzer(use_pca=True, pca_dimensions=64)
+            >>> training_queries = [...]  # 1,000+ diverse queries
+            >>> analyzer.fit_pca(training_queries)
+            >>> # PCA is now fitted and saved to disk
+        """
+        if not self.use_pca or self.pca is None:
+            raise ValueError("PCA not enabled. Set use_pca=True in constructor.")
+
+        if len(queries) < 100:
+            raise ValueError(
+                f"Need at least 100 queries for PCA fitting, got {len(queries)}"
+            )
+
+        # Generate embeddings for all queries
+        embeddings = self.embedder.encode(queries)
+
+        # Fit PCA
+        self.pca.fit(embeddings)
+
+        # Save fitted model
+        self._save_pca()
+
+    def _load_pca(self) -> PCA | None:
+        """Load pre-fitted PCA model from disk.
+
+        Returns:
+            Fitted PCA model or None if file doesn't exist
+        """
+        pca_path = Path(self.pca_model_path)
+        if not pca_path.exists():
+            return None
+
+        try:
+            with open(pca_path, "rb") as f:
+                pca = pickle.load(f)
+                if not isinstance(pca, PCA):
+                    raise ValueError("Loaded object is not a PCA model")
+                return pca
+        except Exception as e:
+            # Log warning but don't fail - will create new PCA
+            print(f"Warning: Failed to load PCA model from {pca_path}: {e}")
+            return None
+
+    def _save_pca(self) -> None:
+        """Save fitted PCA model to disk."""
+        if self.pca is None:
+            return
+
+        pca_path = Path(self.pca_model_path)
+        pca_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(pca_path, "wb") as f:
+            pickle.dump(self.pca, f)
+
+    @property
+    def feature_dim(self) -> int:
+        """Get total feature dimensionality (embedding + metadata).
+
+        Returns:
+            Total feature dimensions (embedding_dim + 3 metadata)
+
+        Example:
+            >>> # Without PCA
+            >>> analyzer = QueryAnalyzer()
+            >>> analyzer.feature_dim
+            387  # 384 + 3
+
+            >>> # With PCA
+            >>> analyzer = QueryAnalyzer(use_pca=True, pca_dimensions=64)
+            >>> analyzer.feature_dim
+            67  # 64 + 3
+        """
+        embedding_dim = self.pca_dimensions if self.use_pca else 384
+        metadata_dim = 3  # token_count, complexity_score, domain_confidence
+        return embedding_dim + metadata_dim
 
 
 class DomainClassifier:

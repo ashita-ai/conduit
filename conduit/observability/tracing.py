@@ -5,7 +5,8 @@ Provides tracer instance and helper decorators for tracing operations.
 
 import functools
 import logging
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from opentelemetry import trace
 

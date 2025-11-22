@@ -12,7 +12,6 @@ Reference: https://en.wikipedia.org/wiki/Multi-armed_bandit#Upper_Confidence_Bou
 
 import math
 from collections import deque
-from typing import Optional
 
 import numpy as np
 
@@ -46,7 +45,7 @@ class UCB1Bandit(BanditAlgorithm):
         self,
         arms: list[ModelArm],
         c: float = math.sqrt(2),
-        random_seed: Optional[int] = None,
+        random_seed: int | None = None,
         reward_weights: dict[str, float] | None = None,
         window_size: int = 0,
         success_threshold: float = 0.85,

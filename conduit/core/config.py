@@ -68,6 +68,17 @@ class Settings(BaseSettings):
         description="Available models for routing (must match pricing database IDs)",
     )
 
+    # Feature Dimension Reduction (PCA)
+    use_pca: bool = Field(
+        default=False, description="Enable PCA dimensionality reduction for embeddings"
+    )
+    pca_dimensions: int = Field(
+        default=64, description="Target embedding dimensions after PCA", ge=8, le=384
+    )
+    pca_model_path: str = Field(
+        default="models/pca.pkl", description="Path to fitted PCA model"
+    )
+
     # Bandit Algorithm Parameters
     exploration_rate: float = Field(
         default=0.1, description="Exploration rate (epsilon)", ge=0.0, le=1.0

@@ -4,7 +4,6 @@ import hashlib
 import logging
 import re
 import time
-from typing import Any
 
 import msgpack  # type: ignore[import-untyped]
 from redis.asyncio import Redis

@@ -12,9 +12,9 @@ Security Design:
 
 import logging
 import secrets
-from typing import Callable
+from collections.abc import Callable
 
-from fastapi import HTTPException, Request, status
+from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 

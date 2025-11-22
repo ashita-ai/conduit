@@ -12,7 +12,6 @@ Reference: https://en.wikipedia.org/wiki/Multi-armed_bandit#Approximate_solution
 
 import random
 from collections import deque
-from typing import Optional
 
 import numpy as np
 
@@ -47,7 +46,7 @@ class EpsilonGreedyBandit(BanditAlgorithm):
         epsilon: float = 0.1,
         decay: float = 1.0,
         min_epsilon: float = 0.01,
-        random_seed: Optional[int] = None,
+        random_seed: int | None = None,
         reward_weights: dict[str, float] | None = None,
         window_size: int = 0,
         success_threshold: float = 0.85,

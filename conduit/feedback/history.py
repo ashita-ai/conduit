@@ -6,7 +6,6 @@ with automatic expiration for memory efficiency.
 """
 
 import time
-from typing import Any
 
 from pydantic import BaseModel, Field
 from redis.asyncio import Redis

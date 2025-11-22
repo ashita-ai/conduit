@@ -25,6 +25,7 @@ _service: RoutingService | None = None
 
 from collections.abc import AsyncIterator
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Manage application lifespan (startup/shutdown)."""

@@ -310,7 +310,11 @@ class Router:
 
         # Initialize components
         self.analyzer = QueryAnalyzer(
-            embedding_model=embedding_model, cache_service=cache_service
+            embedding_model=embedding_model,
+            cache_service=cache_service,
+            use_pca=settings.use_pca,
+            pca_dimensions=settings.pca_dimensions,
+            pca_model_path=settings.pca_model_path,
         )
         self.bandit = ContextualBandit(models=models)
         self.routing_engine = RoutingEngine(

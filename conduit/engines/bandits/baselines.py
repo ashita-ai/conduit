@@ -8,7 +8,6 @@ These baselines provide reference points for evaluating bandit performance:
 """
 
 import random
-from typing import Optional
 
 from conduit.core.models import QueryFeatures
 
@@ -27,7 +26,7 @@ class RandomBaseline(BanditAlgorithm):
         arm_pulls: Number of pulls for each arm (for statistics)
     """
 
-    def __init__(self, arms: list[ModelArm], random_seed: Optional[int] = None) -> None:
+    def __init__(self, arms: list[ModelArm], random_seed: int | None = None) -> None:
         """Initialize random baseline.
 
         Args:

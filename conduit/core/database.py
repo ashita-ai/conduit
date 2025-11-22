@@ -7,7 +7,6 @@ via standard connection string: postgresql://user:pass@host:port/database
 import json
 import logging
 import os
-from typing import Any
 
 import asyncpg
 

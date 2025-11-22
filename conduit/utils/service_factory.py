@@ -4,15 +4,14 @@ import logging
 
 from pydantic import BaseModel
 
+# Import RoutingService here to avoid circular dependency
+from conduit.api.service import RoutingService
 from conduit.core.config import settings
 from conduit.core.database import Database
 from conduit.engines.analyzer import QueryAnalyzer
 from conduit.engines.bandit import ContextualBandit
 from conduit.engines.executor import ModelExecutor
 from conduit.engines.router import RoutingEngine
-
-# Import RoutingService here to avoid circular dependency
-from conduit.api.service import RoutingService
 
 logger = logging.getLogger(__name__)
 

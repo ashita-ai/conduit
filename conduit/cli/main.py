@@ -172,7 +172,7 @@ def run(
                 click.echo(f"Latency: {result.metadata.get('latency', 0.0):.2f}s")
                 click.echo(f"Tokens: {result.metadata.get('tokens', 0)}")
                 click.echo(f"\nReasoning: {result.metadata.get('reasoning', 'N/A')}")
-                click.echo(f"\nResponse:")
+                click.echo("\nResponse:")
                 content = result.data.get("content", "N/A")
                 # Wrap long content
                 for line in content.split("\n"):
@@ -263,7 +263,7 @@ def demo(queries: int, compare: bool) -> None:
             click.echo(f"Total Cost: ${total_cost:.6f}")
             click.echo(f"Average Cost per Query: ${total_cost/queries:.6f}")
             click.echo(f"Average Latency: {total_latency/queries:.2f}s")
-            click.echo(f"\nModel Distribution:")
+            click.echo("\nModel Distribution:")
             for model, count in sorted(model_counts.items(), key=lambda x: -x[1]):
                 percentage = (count / queries) * 100
                 click.echo(f"  {model}: {count} ({percentage:.1f}%)")
