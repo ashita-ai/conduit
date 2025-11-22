@@ -150,8 +150,12 @@ class TestUCB1Bandit:
         )
         await bandit.update(feedback2, test_features)
 
-        # Mean should be (0.9 + 0.7) / 2 = 0.8
-        assert bandit.mean_reward[arm.model_id] == 0.8
+        # Mean should be average of two composite rewards
+        # First: 0.9*0.7 + (1/(1+0.001))*0.2 + (1/(1+1.0))*0.1 = 0.8798...
+        # Second: 0.7*0.7 + (1/(1+0.001))*0.2 + (1/(1+1.0))*0.1 = 0.7398...
+        expected_reward2 = 0.7 * 0.7 + (1 / (1 + 0.001)) * 0.2 + (1 / (1 + 1.0)) * 0.1
+        expected_avg = (expected_reward1 + expected_reward2) / 2
+        assert abs(bandit.mean_reward[arm.model_id] - expected_avg) < 0.0001
         assert bandit.arm_pulls[arm.model_id] == 2
 
     @pytest.mark.asyncio
