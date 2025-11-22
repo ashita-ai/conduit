@@ -61,6 +61,23 @@ Detailed documentation of the implicit feedback system:
 - Latency tracking (user patience tolerance)
 - Retry detection (semantic similarity-based)
 
+### [BANDIT_ALGORITHMS.md](BANDIT_ALGORITHMS.md) - Algorithm Reference
+
+Comprehensive documentation of all bandit algorithms:
+- Contextual Thompson Sampling (Bayesian linear regression)
+- LinUCB (ridge regression with UCB)
+- Thompson Sampling (Beta distributions)
+- UCB1 (upper confidence bounds)
+- Epsilon-Greedy (exploration vs exploitation)
+
+### [LITELLM_INTEGRATION.md](LITELLM_INTEGRATION.md) - LiteLLM Integration Strategy
+
+Strategic analysis and implementation plans for LiteLLM integration:
+- **Path 1** (Recommended): Conduit as LiteLLM routing strategy plugin
+- **Path 2**: LiteLLM as Conduit execution backend
+- Market positioning, technical architecture, implementation plans
+- Access to 100+ providers through LiteLLM ecosystem
+
 ## Design Documents
 
 ### [DESIGN_SPEC.md](DESIGN_SPEC.md) - Original Design
@@ -92,6 +109,10 @@ Model pricing table and automated sync workflow.
 **...how to prove cost savings**: → [BENCHMARK_STRATEGY.md](BENCHMARK_STRATEGY.md)
 
 **...how implicit feedback works**: → [IMPLICIT_FEEDBACK.md](IMPLICIT_FEEDBACK.md)
+
+**...the bandit algorithms**: → [BANDIT_ALGORITHMS.md](BANDIT_ALGORITHMS.md)
+
+**...LiteLLM integration options**: → [LITELLM_INTEGRATION.md](LITELLM_INTEGRATION.md)
 
 **...the overall system design**: → [ARCHITECTURE.md](ARCHITECTURE.md)
 
@@ -146,6 +167,8 @@ Model pricing table and automated sync workflow.
 
 | Document | Status | Last Updated |
 |----------|--------|--------------|
+| LITELLM_INTEGRATION.md | ✅ Complete | 2025-11-21 |
+| BANDIT_ALGORITHMS.md | ✅ Complete | 2025-11-21 |
 | MODEL_DISCOVERY.md | ✅ Complete | 2025-11-20 |
 | BANDIT_TRAINING.md | ✅ Complete | 2025-11-19 |
 | COLD_START.md | ✅ Complete | 2025-11-19 |
