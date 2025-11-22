@@ -68,7 +68,7 @@ class Settings(BaseSettings):
         description="Available models for routing (must match pricing database IDs)",
     )
 
-    # Thompson Sampling Parameters
+    # Bandit Algorithm Parameters
     exploration_rate: float = Field(
         default=0.1, description="Exploration rate (epsilon)", ge=0.0, le=1.0
     )
@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     )
     reward_weight_latency: float = Field(
         default=0.2, description="Latency weight in reward", ge=0.0, le=1.0
+    )
+    bandit_window_size: int = Field(
+        default=1000,
+        description="Sliding window size for non-stationarity (0 = unlimited history)",
+        ge=0,
+        le=100000,
     )
 
     # API Configuration

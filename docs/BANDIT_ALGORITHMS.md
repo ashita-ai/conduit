@@ -124,6 +124,121 @@ reward = 0.70 * 0.85 + 0.20 * (1/1.0001) + 0.10 * (1/2.0)
 
 ---
 
+## Non-Stationarity Handling (Sliding Windows)
+
+**Status**: ✅ Implemented (Phase 3)
+**Impact**: Adapts to model quality/cost changes over time (price drops, model updates)
+
+### The Problem
+
+LLM models are **non-stationary**: their quality, cost, and performance change over time:
+- **Model updates**: GPT-4o gets smarter, Claude Opus improves reasoning
+- **Price changes**: Providers drop prices (Claude Haiku: $0.25 → $0.08)
+- **Performance drift**: API latency varies with server load
+
+**Without adaptation**: Historical data dominates, algorithms can't adapt to changes.
+
+### Sliding Window Solution
+
+All bandit algorithms support **sliding windows** to maintain only recent observations:
+
+```python
+# Unlimited history (stationary environment - default)
+bandit = ThompsonSamplingBandit(arms, window_size=0)
+
+# Sliding window (non-stationary environment)
+bandit = ThompsonSamplingBandit(arms, window_size=1000)
+```
+
+**How it works**:
+1. Each arm maintains a **deque** (double-ended queue) with `maxlen=window_size`
+2. New observations automatically **push out oldest** when window is full
+3. Algorithm parameters **recalculated** from current window on each update
+
+### Configuration
+
+Set via environment variable (applies to all bandit algorithms):
+
+```bash
+# Default: 1000 observations per arm
+BANDIT_WINDOW_SIZE=1000
+
+# Smaller window = faster adaptation to changes (but more variance)
+BANDIT_WINDOW_SIZE=500
+
+# Larger window = slower adaptation (but more stable)
+BANDIT_WINDOW_SIZE=5000
+
+# Unlimited history (stationary environment)
+BANDIT_WINDOW_SIZE=0
+```
+
+### Algorithm-Specific Implementation
+
+#### Thompson Sampling
+```python
+# Recalculates Beta distribution from window:
+alpha = prior_alpha + sum(rewards in window)
+beta = prior_beta + sum(1 - r for r in window)
+```
+
+#### UCB1 / Epsilon-Greedy
+```python
+# Recalculates mean from window:
+mean_reward = sum(rewards in window) / len(window)
+```
+
+#### LinUCB (Most Complex)
+```python
+# Stores observations (x, r) and recalculates matrices:
+A = I + sum(x_i @ x_i^T for all (x_i, r_i) in window)
+b = sum(r_i * x_i for all (x_i, r_i) in window)
+```
+
+### Tuning Window Size
+
+**Window size determines adaptation speed vs stability trade-off**:
+
+| Window Size | Adaptation Speed | Stability | Best For |
+|-------------|------------------|-----------|----------|
+| 100-500 | Fast (days) | Low variance | Rapidly changing models |
+| 1000 (default) | Moderate (weeks) | Balanced | General production use |
+| 5000+ | Slow (months) | High stability | Stable environments |
+| 0 (unlimited) | None | Maximum | Stationary environments |
+
+**Rule of thumb**:
+- **Fast-moving market**: 500 observations (~2 weeks at 50 queries/day)
+- **Production default**: 1000 observations (~1 month at 50 queries/day)
+- **Stable environment**: 5000+ observations or unlimited
+
+### Example: Adapting to Price Drop
+
+```python
+# Initial: Claude Haiku is expensive ($0.25 per query)
+# Window: Last 1000 observations show high cost
+
+# Price drop event: Claude lowers to $0.08 per query
+
+# After 1000 new observations:
+# - Old expensive observations pushed out of window
+# - New cheap observations dominate
+# - Algorithm adapts: Claude Haiku selected more frequently
+```
+
+### Validation
+
+**11 comprehensive tests** verify sliding window behavior:
+- ✅ Window initialization (with/without maxlen)
+- ✅ Automatic dropping of oldest observations
+- ✅ Correct parameter recalculation from window
+- ✅ Adaptation to distribution shifts (quality/cost changes)
+- ✅ Reset clears history correctly
+- ✅ LinUCB matrix recalculation from windowed observations
+
+**Test coverage**: `tests/unit/test_bandits_non_stationary.py` (11/11 passing)
+
+---
+
 ## Algorithm Comparison
 
 | Algorithm | Type | Uses Context? | Best For | Complexity | Test Coverage |

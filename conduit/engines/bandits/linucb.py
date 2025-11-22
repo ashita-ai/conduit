@@ -5,11 +5,16 @@ of context features. It maintains a separate linear model for each arm and
 selects arms using an upper confidence bound that balances exploitation
 (expected reward) and exploration (uncertainty).
 
+Supports sliding window for non-stationarity: maintains only recent N observations
+to adapt to model quality/cost changes over time. With sliding window, recomputes
+A and b matrices from windowed history on each update.
+
 Reference: https://arxiv.org/abs/1003.0146 (Li et al. 2010)
 Tutorial: https://kfoofw.github.io/contextual-bandits-linear-ucb-disjoint/
 """
 
 import numpy as np
+from collections import deque
 from typing import Any, Optional
 
 from conduit.core.models import QueryFeatures
@@ -50,6 +55,7 @@ class LinUCBBandit(BanditAlgorithm):
         feature_dim: int = 387,  # 384 embedding + 3 metadata
         random_seed: Optional[int] = None,
         reward_weights: dict[str, float] | None = None,
+        window_size: int = 0,
     ) -> None:
         """Initialize LinUCB algorithm.
 
@@ -60,24 +66,43 @@ class LinUCBBandit(BanditAlgorithm):
             random_seed: Random seed for reproducibility (not used in LinUCB)
             reward_weights: Multi-objective reward weights. If None, uses defaults
                 (quality: 0.70, cost: 0.20, latency: 0.10)
+            window_size: Sliding window size for non-stationarity.
+                0 = unlimited history (default), N = keep only last N observations per arm
 
         Example:
             >>> arms = [
             ...     ModelArm(model_id="gpt-4o", provider="openai", ...),
             ...     ModelArm(model_id="claude-3-5-sonnet", provider="anthropic", ...)
             ... ]
-            >>> bandit = LinUCBBandit(arms, alpha=1.5)
+            >>> # Unlimited history (stationary environment)
+            >>> bandit1 = LinUCBBandit(arms, alpha=1.5)
+            >>>
+            >>> # Sliding window of 1000 (non-stationary environment)
+            >>> bandit2 = LinUCBBandit(arms, alpha=1.5, window_size=1000)
         """
         super().__init__(name="linucb", arms=arms)
 
         self.alpha = alpha
         self.feature_dim = feature_dim
+        self.window_size = window_size
 
         # Multi-objective reward weights (Phase 3)
         if reward_weights is None:
             self.reward_weights = {"quality": 0.70, "cost": 0.20, "latency": 0.10}
         else:
             self.reward_weights = reward_weights
+
+        # Sliding window: Store recent observations (x, r) per arm (Phase 3 - Non-stationarity)
+        # Each observation is a tuple: (feature_vector, reward)
+        if window_size > 0:
+            self.observation_history: dict[str, deque[tuple[np.ndarray, float]]] = {
+                arm.model_id: deque(maxlen=window_size) for arm in arms
+            }
+        else:
+            # Use deque for unlimited history (no maxlen)
+            self.observation_history: dict[str, deque[tuple[np.ndarray, float]]] = {
+                arm.model_id: deque() for arm in arms
+            }
 
         # Initialize A as identity matrix and b as zero vector for each arm
         self.A = {
@@ -189,9 +214,14 @@ class LinUCBBandit(BanditAlgorithm):
 
         Uses multi-objective reward (quality + cost + latency) for regression updates.
 
-        For the selected arm:
-        - A = A + x @ x^T
-        - b = b + reward * x
+        With sliding window (window_size > 0):
+        - Stores observation (x, r) in history deque (automatically drops oldest when full)
+        - Recalculates A and b from all observations in current window:
+            A = I + sum(x_i @ x_i^T for all i in window)
+            b = sum(r_i * x_i for all i in window)
+
+        Without window (window_size = 0):
+        - Incremental update: A += x @ x^T, b += r * x
 
         Args:
             feedback: Feedback from model execution
@@ -217,11 +247,18 @@ class LinUCBBandit(BanditAlgorithm):
 
         x = self._extract_features(features)
 
-        # Update A = A + x @ x^T
-        self.A[model_id] += x @ x.T
+        # Add observation to history
+        self.observation_history[model_id].append((x, reward))
 
-        # Update b = b + reward * x
-        self.b[model_id] += reward * x
+        # Recalculate A and b from windowed history
+        # A = I + sum(x_i @ x_i^T for all i)
+        # b = sum(r_i * x_i for all i)
+        self.A[model_id] = np.identity(self.feature_dim)
+        self.b[model_id] = np.zeros((self.feature_dim, 1))
+
+        for obs_x, obs_r in self.observation_history[model_id]:
+            self.A[model_id] += obs_x @ obs_x.T
+            self.b[model_id] += obs_r * obs_x
 
         # Track statistics
         self.arm_pulls[model_id] += 1
@@ -231,7 +268,7 @@ class LinUCBBandit(BanditAlgorithm):
     def reset(self) -> None:
         """Reset algorithm to initial state.
 
-        Clears all learned parameters and reverts to prior.
+        Clears all learned parameters, observation history, and reverts to prior.
 
         Example:
             >>> bandit.reset()
@@ -246,6 +283,11 @@ class LinUCBBandit(BanditAlgorithm):
         }
         self.arm_pulls = {arm.model_id: 0 for arm in self.arm_list}
         self.arm_successes = {arm.model_id: 0 for arm in self.arm_list}
+
+        # Clear observation history
+        for model_id in self.observation_history:
+            self.observation_history[model_id].clear()
+
         self.total_queries = 0
 
     def get_stats(self) -> dict[str, Any]:

@@ -5,10 +5,14 @@ For each arm, we maintain a Beta distribution Beta(α, β) representing our beli
 about the arm's quality. We sample from these distributions and select the arm
 with the highest sample.
 
+Supports sliding window for non-stationarity: maintains only recent N observations
+to adapt to model quality/cost changes over time.
+
 Reference: https://en.wikipedia.org/wiki/Thompson_sampling
 """
 
 import random
+from collections import deque
 from typing import Any
 
 import numpy as np  # type: ignore[import-untyped,unused-ignore]
@@ -43,6 +47,7 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         prior_beta: float = 1.0,
         random_seed: int | None = None,
         reward_weights: dict[str, float] | None = None,
+        window_size: int = 0,
     ) -> None:
         """Initialize Thompson Sampling algorithm.
 
@@ -53,24 +58,43 @@ class ThompsonSamplingBandit(BanditAlgorithm):
             random_seed: Random seed for reproducibility
             reward_weights: Multi-objective reward weights. If None, uses defaults
                 (quality: 0.70, cost: 0.20, latency: 0.10)
+            window_size: Sliding window size for non-stationarity.
+                0 = unlimited history (default), N = keep only last N rewards per arm
 
         Example:
             >>> arms = [
             ...     ModelArm(model_id="gpt-4o", provider="openai", ...),
             ...     ModelArm(model_id="claude-3-5-sonnet", provider="anthropic", ...)
             ... ]
-            >>> bandit = ThompsonSamplingBandit(arms, prior_alpha=1.0, prior_beta=1.0)
+            >>> # Unlimited history (stationary environment)
+            >>> bandit1 = ThompsonSamplingBandit(arms, prior_alpha=1.0, prior_beta=1.0)
+            >>>
+            >>> # Sliding window of 1000 (non-stationary environment)
+            >>> bandit2 = ThompsonSamplingBandit(arms, window_size=1000)
         """
         super().__init__(name="thompson_sampling", arms=arms)
 
         self.prior_alpha = prior_alpha
         self.prior_beta = prior_beta
+        self.window_size = window_size
 
         # Multi-objective reward weights (Phase 3)
         if reward_weights is None:
             self.reward_weights = {"quality": 0.70, "cost": 0.20, "latency": 0.10}
         else:
             self.reward_weights = reward_weights
+
+        # Sliding window: Store recent rewards per arm (Phase 3 - Non-stationarity)
+        # If window_size > 0, use deque with maxlen. Otherwise, use list (unlimited).
+        if window_size > 0:
+            self.reward_history: dict[str, deque[float]] = {
+                arm.model_id: deque(maxlen=window_size) for arm in arms
+            }
+        else:
+            # Use list for unlimited history (no maxlen)
+            self.reward_history: dict[str, deque[float]] = {
+                arm.model_id: deque() for arm in arms
+            }
 
         # Initialize Beta distributions for each arm
         self.alpha = {arm.model_id: prior_alpha for arm in arms}
@@ -128,9 +152,13 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         """Update Beta distribution with feedback.
 
         Uses multi-objective reward (quality + cost + latency) as success probability.
-        For reward r ∈ [0, 1]:
-        - α += r (fractional successes)
-        - β += (1 - r) (fractional failures)
+
+        With sliding window (window_size > 0):
+        - Stores reward in history deque (automatically drops oldest when full)
+        - Recalculates α, β from all rewards in current window + prior
+
+        Without window (window_size = 0):
+        - Incremental update: α += r, β += (1 - r)
 
         Args:
             feedback: Feedback from model execution
@@ -154,21 +182,25 @@ class ThompsonSamplingBandit(BanditAlgorithm):
             latency_weight=self.reward_weights["latency"],
         )
 
-        # Update Beta distribution
-        # Treat reward as success probability in Bernoulli trial
-        # This gives us: α += r, β += (1-r)
-        self.alpha[model_id] += reward
-        self.beta[model_id] += 1.0 - reward
-        self.arm_pulls[model_id] += 1  # Always increment for feedback count
+        # Add reward to history
+        self.reward_history[model_id].append(reward)
 
-        # Track successes (reward above threshold)
+        # Recalculate alpha/beta from windowed history
+        # α = prior_alpha + sum(rewards in window)
+        # β = prior_beta + sum(1 - reward for reward in window)
+        window_rewards = list(self.reward_history[model_id])
+        self.alpha[model_id] = self.prior_alpha + sum(window_rewards)
+        self.beta[model_id] = self.prior_beta + sum(1.0 - r for r in window_rewards)
+
+        # Track statistics
+        self.arm_pulls[model_id] += 1  # Always increment for feedback count
         if reward >= 0.85:
             self.arm_successes[model_id] += 1
 
     def reset(self) -> None:
         """Reset algorithm to initial state.
 
-        Clears all learned parameters and reverts to prior.
+        Clears all learned parameters, reward history, and reverts to prior.
 
         Example:
             >>> bandit.reset()
@@ -179,6 +211,11 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         self.beta = {arm.model_id: self.prior_beta for arm in self.arm_list}
         self.arm_pulls = {arm.model_id: 0 for arm in self.arm_list}
         self.arm_successes = {arm.model_id: 0 for arm in self.arm_list}
+
+        # Clear reward history
+        for model_id in self.reward_history:
+            self.reward_history[model_id].clear()
+
         self.total_queries = 0
 
     def get_stats(self) -> dict[str, Any]:

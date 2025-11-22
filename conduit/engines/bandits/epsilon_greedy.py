@@ -4,10 +4,14 @@ Epsilon-Greedy is one of the simplest exploration/exploitation strategies.
 With probability ε (epsilon), explore by selecting a random arm.
 With probability (1-ε), exploit by selecting the arm with highest mean reward.
 
+Supports sliding window for non-stationarity: maintains only recent N observations
+to adapt to model quality/cost changes over time.
+
 Reference: https://en.wikipedia.org/wiki/Multi-armed_bandit#Approximate_solutions
 """
 
 import random
+from collections import deque
 from typing import Optional
 
 import numpy as np
@@ -45,6 +49,7 @@ class EpsilonGreedyBandit(BanditAlgorithm):
         min_epsilon: float = 0.01,
         random_seed: Optional[int] = None,
         reward_weights: dict[str, float] | None = None,
+        window_size: int = 0,
     ) -> None:
         """Initialize Epsilon-Greedy algorithm.
 
@@ -56,6 +61,8 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             random_seed: Random seed for reproducibility
             reward_weights: Multi-objective reward weights. If None, uses defaults
                 (quality: 0.70, cost: 0.20, latency: 0.10)
+            window_size: Sliding window size for non-stationarity.
+                0 = unlimited history (default), N = keep only last N rewards per arm
 
         Example:
             >>> arms = [
@@ -67,6 +74,9 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             >>>
             >>> # Decaying epsilon (start 20%, decay to 1% over time)
             >>> bandit2 = EpsilonGreedyBandit(arms, epsilon=0.2, decay=0.999, min_epsilon=0.01)
+            >>>
+            >>> # Sliding window of 1000 (non-stationary environment)
+            >>> bandit3 = EpsilonGreedyBandit(arms, window_size=1000)
         """
         # Validate epsilon parameter
         if not 0.0 <= epsilon <= 1.0:
@@ -82,12 +92,25 @@ class EpsilonGreedyBandit(BanditAlgorithm):
         self.epsilon = epsilon
         self.decay = decay
         self.min_epsilon = min_epsilon
+        self.window_size = window_size
 
         # Multi-objective reward weights (Phase 3)
         if reward_weights is None:
             self.reward_weights = {"quality": 0.70, "cost": 0.20, "latency": 0.10}
         else:
             self.reward_weights = reward_weights
+
+        # Sliding window: Store recent rewards per arm (Phase 3 - Non-stationarity)
+        # If window_size > 0, use deque with maxlen. Otherwise, use deque (unlimited).
+        if window_size > 0:
+            self.reward_history: dict[str, deque[float]] = {
+                arm.model_id: deque(maxlen=window_size) for arm in arms
+            }
+        else:
+            # Use deque for unlimited history (no maxlen)
+            self.reward_history: dict[str, deque[float]] = {
+                arm.model_id: deque() for arm in arms
+            }
 
         # Initialize statistics for each arm
         self.mean_reward = {arm.model_id: 0.0 for arm in arms}
@@ -164,6 +187,13 @@ class EpsilonGreedyBandit(BanditAlgorithm):
         Updates running mean reward for the selected arm using multi-objective
         reward function (quality + cost + latency).
 
+        With sliding window (window_size > 0):
+        - Stores reward in history deque (automatically drops oldest when full)
+        - Recalculates mean and sum from all rewards in current window
+
+        Without window (window_size = 0):
+        - Incremental update: sum += reward, mean = sum / count
+
         Args:
             feedback: Feedback from model execution
             context: Original query context (not used)
@@ -186,12 +216,18 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             latency_weight=self.reward_weights["latency"],
         )
 
-        # Update running statistics
-        self.sum_reward[model_id] += reward
-        self.arm_pulls[model_id] += 1  # Always increment for feedback count
+        # Add reward to history
+        self.reward_history[model_id].append(reward)
 
-        pulls = self.arm_pulls[model_id]
-        self.mean_reward[model_id] = self.sum_reward[model_id] / pulls
+        # Recalculate mean and sum from windowed history
+        window_rewards = list(self.reward_history[model_id])
+        self.sum_reward[model_id] = sum(window_rewards)
+        self.mean_reward[model_id] = (
+            self.sum_reward[model_id] / len(window_rewards) if window_rewards else 0.0
+        )
+
+        # Track statistics (arm_pulls always = len(history) for consistency)
+        self.arm_pulls[model_id] += 1  # Always increment for feedback count
 
         # Track successes (reward above threshold)
         if reward >= 0.85:
@@ -200,7 +236,7 @@ class EpsilonGreedyBandit(BanditAlgorithm):
     def reset(self) -> None:
         """Reset algorithm to initial state.
 
-        Clears all learned parameters and restores initial epsilon.
+        Clears all learned parameters, reward history, and restores initial epsilon.
 
         Example:
             >>> bandit.reset()
@@ -216,6 +252,11 @@ class EpsilonGreedyBandit(BanditAlgorithm):
         self.arm_successes = {arm.model_id: 0 for arm in self.arm_list}
         self.exploration_count = 0
         self.exploitation_count = 0
+
+        # Clear reward history
+        for model_id in self.reward_history:
+            self.reward_history[model_id].clear()
+
         self.total_queries = 0
 
     def get_stats(self) -> dict[str, any]:  # type: ignore
