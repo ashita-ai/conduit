@@ -49,6 +49,7 @@ class LinUCBBandit(BanditAlgorithm):
         alpha: float = 1.0,
         feature_dim: int = 387,  # 384 embedding + 3 metadata
         random_seed: Optional[int] = None,
+        reward_weights: dict[str, float] | None = None,
     ) -> None:
         """Initialize LinUCB algorithm.
 
@@ -57,6 +58,8 @@ class LinUCBBandit(BanditAlgorithm):
             alpha: Exploration parameter (higher = more exploration, default: 1.0)
             feature_dim: Dimensionality of context features (default: 387)
             random_seed: Random seed for reproducibility (not used in LinUCB)
+            reward_weights: Multi-objective reward weights. If None, uses defaults
+                (quality: 0.70, cost: 0.20, latency: 0.10)
 
         Example:
             >>> arms = [
@@ -69,6 +72,12 @@ class LinUCBBandit(BanditAlgorithm):
 
         self.alpha = alpha
         self.feature_dim = feature_dim
+
+        # Multi-objective reward weights (Phase 3)
+        if reward_weights is None:
+            self.reward_weights = {"quality": 0.70, "cost": 0.20, "latency": 0.10}
+        else:
+            self.reward_weights = reward_weights
 
         # Initialize A as identity matrix and b as zero vector for each arm
         self.A = {
@@ -178,6 +187,8 @@ class LinUCBBandit(BanditAlgorithm):
     async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
         """Update ridge regression parameters with feedback.
 
+        Uses multi-objective reward (quality + cost + latency) for regression updates.
+
         For the selected arm:
         - A = A + x @ x^T
         - b = b + reward * x
@@ -196,7 +207,14 @@ class LinUCBBandit(BanditAlgorithm):
             >>> await bandit.update(feedback, features)
         """
         model_id = feedback.model_id
-        reward = feedback.quality_score
+
+        # Calculate composite reward from quality, cost, and latency (Phase 3)
+        reward = feedback.calculate_reward(
+            quality_weight=self.reward_weights["quality"],
+            cost_weight=self.reward_weights["cost"],
+            latency_weight=self.reward_weights["latency"],
+        )
+
         x = self._extract_features(features)
 
         # Update A = A + x @ x^T

@@ -21,8 +21,106 @@ Imagine a casino with multiple slot machines (arms). Each machine has an unknown
 **In Conduit's context**:
 - **Arms**: LLM models (GPT-4o, Claude Sonnet, Gemini Pro, etc.)
 - **Context**: Query features (embedding, complexity, domain, token count)
-- **Reward**: Quality score weighted by cost (high quality, low cost = best)
+- **Reward**: Multi-objective composite (quality + cost + latency)
 - **Goal**: Learn which model works best for which type of query
+
+---
+
+## Multi-Objective Reward Function
+
+**Status**: ✅ Implemented (Phase 3)
+**Impact**: Optimizes cost/quality/latency trade-offs instead of just quality
+
+All bandit algorithms use a **composite reward function** that balances three objectives:
+
+### Reward Formula
+
+```python
+reward = (
+    0.70 * quality_normalized +    # Quality (inverted error rate)
+    0.20 * cost_normalized +        # Cost (inverted $/query)
+    0.10 * latency_normalized       # Speed (inverted seconds)
+)
+```
+
+### Component Normalization
+
+**Quality** (already in [0, 1], higher is better):
+```python
+quality_norm = quality_score  # Use directly (0.0 = failure, 1.0 = perfect)
+```
+
+**Cost** (asymptotic normalization, lower cost = higher reward):
+```python
+cost_norm = 1 / (1 + cost_usd)
+# Examples:
+#   cost=$0.00 → 1.00 (free = perfect)
+#   cost=$1.00 → 0.50 (expensive hurts reward)
+#   cost=$10.0 → 0.09 (very expensive)
+```
+
+**Latency** (asymptotic normalization, lower latency = higher reward):
+```python
+latency_norm = 1 / (1 + latency_seconds)
+# Examples:
+#   latency=0.0s → 1.00 (instant = perfect)
+#   latency=1.0s → 0.50 (moderate speed)
+#   latency=10s  → 0.09 (slow)
+```
+
+### Configurable Weights
+
+Weights are configurable via environment variables (must sum to 1.0):
+
+```bash
+# Default: Quality-focused (70/20/10)
+REWARD_WEIGHT_QUALITY=0.70
+REWARD_WEIGHT_COST=0.20
+REWARD_WEIGHT_LATENCY=0.10
+
+# Example: Cost-optimized (50/40/10)
+REWARD_WEIGHT_QUALITY=0.50
+REWARD_WEIGHT_COST=0.40
+REWARD_WEIGHT_LATENCY=0.10
+```
+
+### Examples
+
+**High-quality, expensive model**:
+```python
+quality_score = 0.95
+cost = $0.01  # GPT-4o
+latency = 2.0s
+
+reward = 0.70 * 0.95 + 0.20 * (1/1.01) + 0.10 * (1/3.0)
+       = 0.665 + 0.198 + 0.033
+       = 0.896
+```
+
+**Fast, cheap model**:
+```python
+quality_score = 0.85
+cost = $0.0001  # GPT-4o-mini
+latency = 1.0s
+
+reward = 0.70 * 0.85 + 0.20 * (1/1.0001) + 0.10 * (1/2.0)
+       = 0.595 + 0.200 + 0.050
+       = 0.845
+```
+
+**Trade-off**: High-quality expensive model (0.896) vs fast cheap model (0.845). The expensive model wins due to quality weight (70%), but cost does reduce its reward.
+
+### Why Asymptotic Normalization?
+
+**Advantages**:
+- No population statistics needed (min/max tracking)
+- Handles extreme values gracefully ($0 → 1.0, $1000 → ~0)
+- Simple, fast computation
+- Natural diminishing returns (doubling cost from $10 to $20 matters less than $0.1 to $0.2)
+
+**Trade-offs**:
+- Non-linear scaling (may overweight small cost differences)
+- Could be replaced with z-score normalization if population stats are tracked
 
 ---
 

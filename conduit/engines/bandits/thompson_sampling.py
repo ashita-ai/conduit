@@ -42,6 +42,7 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         prior_alpha: float = 1.0,
         prior_beta: float = 1.0,
         random_seed: int | None = None,
+        reward_weights: dict[str, float] | None = None,
     ) -> None:
         """Initialize Thompson Sampling algorithm.
 
@@ -50,6 +51,8 @@ class ThompsonSamplingBandit(BanditAlgorithm):
             prior_alpha: Prior successes (higher = more optimistic)
             prior_beta: Prior failures (higher = more pessimistic)
             random_seed: Random seed for reproducibility
+            reward_weights: Multi-objective reward weights. If None, uses defaults
+                (quality: 0.70, cost: 0.20, latency: 0.10)
 
         Example:
             >>> arms = [
@@ -62,6 +65,12 @@ class ThompsonSamplingBandit(BanditAlgorithm):
 
         self.prior_alpha = prior_alpha
         self.prior_beta = prior_beta
+
+        # Multi-objective reward weights (Phase 3)
+        if reward_weights is None:
+            self.reward_weights = {"quality": 0.70, "cost": 0.20, "latency": 0.10}
+        else:
+            self.reward_weights = reward_weights
 
         # Initialize Beta distributions for each arm
         self.alpha = {arm.model_id: prior_alpha for arm in arms}
@@ -118,10 +127,10 @@ class ThompsonSamplingBandit(BanditAlgorithm):
     async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
         """Update Beta distribution with feedback.
 
-        For quality score q ∈ [0, 1]:
-        - Treat q as success probability
-        - α += q (fractional successes)
-        - β += (1 - q) (fractional failures)
+        Uses multi-objective reward (quality + cost + latency) as success probability.
+        For reward r ∈ [0, 1]:
+        - α += r (fractional successes)
+        - β += (1 - r) (fractional failures)
 
         Args:
             feedback: Feedback from model execution
@@ -137,17 +146,23 @@ class ThompsonSamplingBandit(BanditAlgorithm):
             >>> await bandit.update(feedback, features)
         """
         model_id = feedback.model_id
-        quality = feedback.quality_score
+
+        # Calculate composite reward from quality, cost, and latency (Phase 3)
+        reward = feedback.calculate_reward(
+            quality_weight=self.reward_weights["quality"],
+            cost_weight=self.reward_weights["cost"],
+            latency_weight=self.reward_weights["latency"],
+        )
 
         # Update Beta distribution
-        # For quality score q, treat as Bernoulli with p=q
-        # This gives us: α += q, β += (1-q)
-        self.alpha[model_id] += quality
-        self.beta[model_id] += 1.0 - quality
+        # Treat reward as success probability in Bernoulli trial
+        # This gives us: α += r, β += (1-r)
+        self.alpha[model_id] += reward
+        self.beta[model_id] += 1.0 - reward
         self.arm_pulls[model_id] += 1  # Always increment for feedback count
 
-        # Track successes (quality above threshold)
-        if quality >= 0.85:  # Quality threshold
+        # Track successes (reward above threshold)
+        if reward >= 0.85:
             self.arm_successes[model_id] += 1
 
     def reset(self) -> None:

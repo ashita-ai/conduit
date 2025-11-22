@@ -44,6 +44,7 @@ class EpsilonGreedyBandit(BanditAlgorithm):
         decay: float = 1.0,
         min_epsilon: float = 0.01,
         random_seed: Optional[int] = None,
+        reward_weights: dict[str, float] | None = None,
     ) -> None:
         """Initialize Epsilon-Greedy algorithm.
 
@@ -53,6 +54,8 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             decay: Epsilon decay multiplier per query (default: 1.0 = no decay)
             min_epsilon: Minimum epsilon value after decay (default: 0.01)
             random_seed: Random seed for reproducibility
+            reward_weights: Multi-objective reward weights. If None, uses defaults
+                (quality: 0.70, cost: 0.20, latency: 0.10)
 
         Example:
             >>> arms = [
@@ -79,6 +82,12 @@ class EpsilonGreedyBandit(BanditAlgorithm):
         self.epsilon = epsilon
         self.decay = decay
         self.min_epsilon = min_epsilon
+
+        # Multi-objective reward weights (Phase 3)
+        if reward_weights is None:
+            self.reward_weights = {"quality": 0.70, "cost": 0.20, "latency": 0.10}
+        else:
+            self.reward_weights = reward_weights
 
         # Initialize statistics for each arm
         self.mean_reward = {arm.model_id: 0.0 for arm in arms}
@@ -152,7 +161,8 @@ class EpsilonGreedyBandit(BanditAlgorithm):
     async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
         """Update arm statistics with feedback.
 
-        Updates running mean reward for the selected arm.
+        Updates running mean reward for the selected arm using multi-objective
+        reward function (quality + cost + latency).
 
         Args:
             feedback: Feedback from model execution
@@ -168,7 +178,13 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             >>> await bandit.update(feedback, context)
         """
         model_id = feedback.model_id
-        reward = feedback.quality_score
+
+        # Calculate composite reward from quality, cost, and latency (Phase 3)
+        reward = feedback.calculate_reward(
+            quality_weight=self.reward_weights["quality"],
+            cost_weight=self.reward_weights["cost"],
+            latency_weight=self.reward_weights["latency"],
+        )
 
         # Update running statistics
         self.sum_reward[model_id] += reward
@@ -177,7 +193,7 @@ class EpsilonGreedyBandit(BanditAlgorithm):
         pulls = self.arm_pulls[model_id]
         self.mean_reward[model_id] = self.sum_reward[model_id] / pulls
 
-        # Track successes (quality above threshold)
+        # Track successes (reward above threshold)
         if reward >= 0.85:
             self.arm_successes[model_id] += 1
 
