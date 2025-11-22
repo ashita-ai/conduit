@@ -155,10 +155,11 @@ class TestUCB1Bandit:
         """Test UCB value calculation after exploration phase."""
         bandit = UCB1Bandit(test_arms, c=1.5)
 
-        # Simulate exploration phase
+        # Simulate exploration phase (select_arm + update)
         for arm in test_arms:
+            selected_arm = await bandit.select_arm(test_features)
             feedback = BanditFeedback(
-                model_id=arm.model_id,
+                model_id=selected_arm.model_id,
                 cost=0.001,
                 quality_score=0.8,
                 latency=1.0,
@@ -171,6 +172,8 @@ class TestUCB1Bandit:
         value = bandit.mean_reward[model_id]
         total = bandit.total_queries
 
+        # Verify total_queries > 0 to avoid log(0)
+        assert total > 0
         expected_ucb = value + bandit.c * math.sqrt(math.log(total) / count)
 
         # The actual UCB is calculated internally during select_arm
@@ -231,8 +234,8 @@ class TestUCB1Bandit:
                 await bandit.update(feedback, test_features)
 
         # Both should recognize gpt-4o is best
-        assert bandit_low.values["gpt-4o"] > bandit_low.values["gpt-4o-mini"]
-        assert bandit_high.values["gpt-4o"] > bandit_high.values["gpt-4o-mini"]
+        assert bandit_low.mean_reward["gpt-4o"] > bandit_low.mean_reward["gpt-4o-mini"]
+        assert bandit_high.mean_reward["gpt-4o"] > bandit_high.mean_reward["gpt-4o-mini"]
 
         # High c bandit should continue exploring more even after finding best arm
         # This is hard to test deterministically, but we can verify c is stored

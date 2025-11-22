@@ -41,7 +41,7 @@ class UCB1Bandit(BanditAlgorithm):
     def __init__(
         self,
         arms: list[ModelArm],
-        c: float = np.sqrt(2),
+        c: float = math.sqrt(2),
         random_seed: Optional[int] = None,
     ) -> None:
         """Initialize UCB1 algorithm.

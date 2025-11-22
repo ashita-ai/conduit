@@ -57,7 +57,7 @@ conduit/
 - **System**: p99 latency < 200ms for routing decisions
 
 ### Current Test Coverage (2025-11-21 - Verified)
-- **Overall Test Health**: 95.0% (402/423 passing) ✅
+- **Overall Test Health**: 96.3% (419/435 passing) ✅
 - **Overall Coverage**: 86% (2178 lines, 302 uncovered) ✅ exceeds Phase 1 target (80%)
 - **Core Engine**: 96-100% (models, analyzer, bandit, router, executor)
 - **Feedback System**: 98-100% coverage (89 comprehensive tests)
@@ -65,15 +65,16 @@ conduit/
 - **Database**: 84% (integration tests complete, edge cases covered)
 - **API Layer**: 0% (routes, middleware - not yet tested)
 
-**Bandit Algorithms**: 52/61 passing (85.2%)
+**Bandit Algorithms**: 69/73 passing (94.5%) ✅ [Improved from 52/61 = 85.2%]
+  - **LinUCB**: 12/12 passing (100%) ✅ **NEW** contextual bandit with ridge regression
   - Epsilon-Greedy: 14/14 passing (100%) ✅
+  - UCB1: 11/11 passing (100%) ✅ [Fixed from 6/11 - numpy/python float comparison]
   - Thompson Sampling: 8/9 passing (88.9%)
-  - UCB1: 6/11 passing (54.5%)
   - Baselines: 17/20 passing (85%)
+  - Base: 8/8 passing (100%) ✅
 
-**Known Test Failures** (21 total):
+**Known Test Failures** (16 total, down from 21):
   - 12 model_registry tests (need updates for dynamic pricing - expect static PRICING dict)
-  - 5 UCB1 tests (functional issues with exploration parameter)
   - 3 baseline tests (cost ordering changed with dynamic pricing)
   - 1 Thompson Sampling test (learning convergence timing)
 
@@ -111,7 +112,19 @@ conduit/
 
 ### Recent Updates
 
-**2025-11-21: Documentation Accuracy Audit**
+**2025-11-21 Session 2: LinUCB Contextual Bandit Implementation**
+- ✅ **LinUCB Algorithm**: Implemented full contextual bandit with ridge regression
+  - Design matrix A (d×d) and response vector b (d×1) per arm
+  - UCB formula: `theta^T @ x + alpha * sqrt(x^T @ A_inv @ x)`
+  - Feature extraction: 387 dims (384 embedding + 3 metadata)
+  - Update rules: `A += x @ x^T`, `b += reward * x`
+- ✅ **Comprehensive Tests**: 12/12 tests passing (100% coverage)
+- ✅ **UCB1 Bug Fixes**: Fixed all 5 failing tests (numpy/python float comparison)
+- ✅ **Test Infrastructure**: Updated conftest.py to use real numpy when available
+- ✅ **Overall Improvement**: 419/435 passing (96.3%), bandit tests 69/73 (94.5%)
+- 📚 **Research**: Identified state-of-the-art algorithms from 2024-2025 arXiv papers
+
+**2025-11-21 Session 1: Documentation Accuracy Audit**
 - 🔍 **Ultrathink Verification**: Ran full test suite to verify all documentation claims
 - ✅ **Actual Test Health**: 95.0% (402/423 passing) - BETTER than previously documented
 - ⚠️ **Known Failures**: 21 tests failing due to dynamic pricing migration (12 model_registry, 5 UCB1, 3 baselines, 1 Thompson)
@@ -286,8 +299,11 @@ async def route_query(query: str) -> RoutingResult:
 
 ### Key Concepts
 - **Contextual Bandit**: ML algorithm for exploration/exploitation
+- **LinUCB**: Contextual bandit using ridge regression (A matrix, b vector, UCB formula)
+- **UCB1**: Upper Confidence Bound algorithm (mean + c * sqrt(log(t)/n))
 - **Thompson Sampling**: Bayesian approach to model selection (Beta distributions)
-- **Query Embedding**: Semantic representation for routing features (sentence-transformers)
+- **Query Embedding**: Semantic representation for routing features (sentence-transformers, 384 dims)
+- **Feature Vector**: 387 dimensions (384 embedding + token_count + complexity + confidence)
 - **Dual Feedback Loop**: Explicit (user ratings) + Implicit (system signals)
 - **Observability Trinity**: Error detection + Latency tracking + Retry detection
 - **Weighted Feedback**: 70% explicit (user ratings) + 30% implicit (behavioral signals)

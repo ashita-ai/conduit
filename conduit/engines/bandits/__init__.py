@@ -6,6 +6,7 @@ Conduit's QueryFeatures.
 
 Available Algorithms:
 - ThompsonSamplingBandit: Bayesian probability matching (optimal regret)
+- LinUCBBandit: Contextual linear UCB (uses query features, proven for LLM routing)
 - UCB1Bandit: Upper Confidence Bound (optimal regret, fastest convergence)
 - EpsilonGreedyBandit: Simple exploration-exploitation (suboptimal regret)
 - RandomBaseline: Uniform random selection (lower bound)
@@ -22,6 +23,7 @@ from .baselines import (
     RandomBaseline,
 )
 from .epsilon_greedy import EpsilonGreedyBandit
+from .linucb import LinUCBBandit
 from .thompson_sampling import ThompsonSamplingBandit
 from .ucb import UCB1Bandit
 
@@ -30,6 +32,7 @@ __all__ = [
     "BanditFeedback",
     "ModelArm",
     "ThompsonSamplingBandit",
+    "LinUCBBandit",
     "UCB1Bandit",
     "EpsilonGreedyBandit",
     "RandomBaseline",

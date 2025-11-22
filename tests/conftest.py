@@ -34,13 +34,20 @@ class MockSentenceTransformer:
 sys.modules["sentence_transformers"] = MagicMock()
 sys.modules["sentence_transformers"].SentenceTransformer = MockSentenceTransformer
 
-# Mock numpy with proper bool_ type for isinstance checks
-numpy_mock = MagicMock()
-numpy_mock.random = MagicMock()
-numpy_mock.random.beta = MagicMock(return_value=0.5)
-# Create a proper type for bool_ to support isinstance checks
-numpy_mock.bool_ = type("bool_", (object,), {})
-sys.modules["numpy"] = numpy_mock
+# Only mock numpy if it's not actually installed
+# (LinUCB needs real numpy for matrix operations)
+try:
+    import numpy as np  # noqa: F401
+
+    # numpy is available, don't mock it
+except ImportError:
+    # Mock numpy with proper bool_ type for isinstance checks
+    numpy_mock = MagicMock()
+    numpy_mock.random = MagicMock()
+    numpy_mock.random.beta = MagicMock(return_value=0.5)
+    # Create a proper type for bool_ to support isinstance checks
+    numpy_mock.bool_ = type("bool_", (object,), {})
+    sys.modules["numpy"] = numpy_mock
 
 # Mock sklearn
 sys.modules["sklearn"] = MagicMock()
