@@ -104,13 +104,14 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
 
         # Sliding window: Store recent observations (x, r) per arm (Phase 3 - Non-stationarity)
         # Each observation is a tuple: (feature_vector, reward)
+        self.observation_history: dict[str, deque[tuple[np.ndarray, float]]]
         if window_size > 0:
-            self.observation_history: dict[str, deque[tuple[np.ndarray, float]]] = {
+            self.observation_history = {
                 arm.model_id: deque(maxlen=window_size) for arm in arms
             }
         else:
             # Use deque for unlimited history (no maxlen)
-            self.observation_history: dict[str, deque[tuple[np.ndarray, float]]] = {
+            self.observation_history = {
                 arm.model_id: deque() for arm in arms
             }
 
@@ -282,7 +283,7 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
             weighted_sum += self.lambda_reg * obs_r * obs_x
 
         # Update posterior
-        self.Sigma[model_id] = np.linalg.inv(Sigma_inv)
+        self.Sigma[model_id] = np.linalg.inv(Sigma_inv)  # type: ignore[assignment]
         self.mu[model_id] = self.Sigma[model_id] @ weighted_sum
 
         # Track statistics
