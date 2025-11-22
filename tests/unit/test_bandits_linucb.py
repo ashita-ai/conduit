@@ -162,8 +162,10 @@ class TestLinUCBBandit:
         expected_A = A_initial + x @ x.T
         assert np.allclose(bandit.A[model_id], expected_A)
 
-        # Verify b = b + reward * x
-        expected_b = b_initial + 0.9 * x
+        # Verify b = b + composite_reward * x
+        # Composite: 0.9*0.7 + (1/(1+0.001))*0.2 + (1/(1+1.0))*0.1 = 0.8798...
+        composite_reward = 0.9 * 0.7 + (1 / (1 + 0.001)) * 0.2 + (1 / (1 + 1.0)) * 0.1
+        expected_b = b_initial + composite_reward * x
         assert np.allclose(bandit.b[model_id], expected_b)
 
     @pytest.mark.asyncio

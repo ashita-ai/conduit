@@ -189,8 +189,10 @@ class TestEpsilonGreedyBandit:
 
         await bandit.update(feedback, test_features)
 
-        # Mean value should be updated
-        assert bandit.mean_reward[arm.model_id] == 0.9
+        # Mean value should be updated to composite reward
+        # Composite: 0.9*0.7 + (1/(1+0.001))*0.2 + (1/(1+1.0))*0.1 = 0.8798...
+        expected_reward = 0.9 * 0.7 + (1 / (1 + 0.001)) * 0.2 + (1 / (1 + 1.0)) * 0.1
+        assert abs(bandit.mean_reward[arm.model_id] - expected_reward) < 0.0001
         assert bandit.arm_pulls[arm.model_id] == 1
 
     @pytest.mark.asyncio
@@ -208,7 +210,9 @@ class TestEpsilonGreedyBandit:
             latency=1.0,
         )
         await bandit.update(feedback1, test_features)
-        assert bandit.mean_reward[arm.model_id] == 0.8
+        # Composite: 0.8*0.7 + (1/(1+0.001))*0.2 + (1/(1+1.0))*0.1 = 0.8098...
+        expected_reward1 = 0.8 * 0.7 + (1 / (1 + 0.001)) * 0.2 + (1 / (1 + 1.0)) * 0.1
+        assert abs(bandit.mean_reward[arm.model_id] - expected_reward1) < 0.0001
 
         # Second update: quality = 1.0
         feedback2 = BanditFeedback(

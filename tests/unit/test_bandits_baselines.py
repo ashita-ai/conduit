@@ -361,29 +361,33 @@ class TestAlwaysCheapestBaseline:
         """Test always selects arm with lowest average cost."""
         bandit = AlwaysCheapestBaseline(test_arms)
 
-        # claude-3-haiku has lowest average cost
-        # input=0.00025, output=0.00125, avg=0.000875
+        # Find cheapest arm (dynamic pricing may change which is cheapest)
+        cheapest_arm = min(test_arms, key=lambda arm: (arm.cost_per_input_token + arm.cost_per_output_token) / 2)
+
         for _ in range(10):
             arm = await bandit.select_arm(test_features)
-            assert arm.model_id == "claude-3-haiku"
+            assert arm.model_id == cheapest_arm.model_id
 
     @pytest.mark.asyncio
     async def test_update_has_no_effect(self, test_arms, test_features):
         """Test update doesn't change selection (always uses expected cost)."""
         bandit = AlwaysCheapestBaseline(test_arms)
 
+        # Find cheapest arm
+        cheapest_arm = min(test_arms, key=lambda arm: (arm.cost_per_input_token + arm.cost_per_output_token) / 2)
+
         # Give feedback suggesting a different arm is cheaper
         feedback = BanditFeedback(
             model_id="gpt-4o",
-                        cost=0.0001,  # Claim gpt-4o was cheaper this time
+            cost=0.0001,  # Claim gpt-4o was cheaper this time
             quality_score=0.95,
             latency=0.5,
         )
         await bandit.update(feedback, test_features)
 
-        # Should still select claude-3-haiku (based on expected cost)
+        # Should still select cheapest arm (based on expected cost, ignores feedback)
         arm = await bandit.select_arm(test_features)
-        assert arm.model_id == "claude-3-haiku"
+        assert arm.model_id == cheapest_arm.model_id
 
     @pytest.mark.asyncio
     async def test_reset(self, test_arms):
