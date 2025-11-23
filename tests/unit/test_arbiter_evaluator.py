@@ -127,9 +127,12 @@ class TestAsyncEvaluation:
     ):
         """Test successful evaluation."""
         # Mock Arbiter evaluate result
+        mock_interaction = MagicMock()
+        mock_interaction.cost = 0.0001
+
         mock_result = MagicMock()
         mock_result.overall_score = 0.95
-        mock_result.interactions = [MagicMock(cost_usd=0.0001)]
+        mock_result.interactions = [mock_interaction]
         mock_evaluate.return_value = mock_result
 
         # Force sampling to always evaluate
@@ -200,9 +203,13 @@ class TestAsyncEvaluation:
         # Mock slow evaluation (100ms)
         async def slow_evaluate(*args, **kwargs):
             await asyncio.sleep(0.1)
+
+            mock_interaction = MagicMock()
+            mock_interaction.cost = 0.0001
+
             result = MagicMock()
             result.overall_score = 0.9
-            result.interactions = [MagicMock(cost_usd=0.0001)]
+            result.interactions = [mock_interaction]
             return result
 
         mock_evaluate.side_effect = slow_evaluate

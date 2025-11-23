@@ -131,11 +131,15 @@ class ArbiterEvaluator:
             overall_score = result.overall_score
 
             # Store in feedback table for bandit learning
+            # Extract cost from first interaction (evaluation LLM call)
+            eval_cost = result.interactions[0].cost if result.interactions[0].cost else 0.0
+            cost_str = f"{float(eval_cost):.6f}" if eval_cost is not None else "0.000000"
+
             feedback = Feedback(
                 response_id=response.id,
                 quality_score=overall_score,
                 met_expectations=(overall_score >= 0.7),  # Threshold for expectations
-                comments=f"Arbiter eval: ${result.interactions[0].cost_usd:.6f} (semantic + factuality)",
+                comments=f"Arbiter eval: ${cost_str} (semantic + factuality)",
             )
 
             await self.db.save_complete_interaction(
@@ -145,7 +149,7 @@ class ArbiterEvaluator:
             logger.info(
                 f"Evaluation complete: response={response.id[:8]}, "
                 f"score={overall_score:.3f}, "
-                f"cost=${result.interactions[0].cost_usd:.6f}"
+                f"cost=${cost_str}"
             )
 
             return overall_score
