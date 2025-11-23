@@ -630,8 +630,10 @@ cold_start_metrics = {
 - Cost within 25% of optimal during cold start
 - Demonstrable improvement curve (visible progress)
 
-## References
+## See Also
 
-- **Bandit Training**: `docs/BANDIT_TRAINING.md`
-- **Implementation**: `conduit/engines/bandit.py`, `conduit/engines/router.py`
-- **Query Analysis**: `conduit/engines/analyzer.py` (existing features we can use!)
+- [HYBRID_ROUTING.md](./HYBRID_ROUTING.md) - UCB1→LinUCB warm start (30% faster convergence)
+- [PCA_GUIDE.md](./PCA_GUIDE.md) - Dimensionality reduction (75% sample reduction)
+- **Combined Impact**: Hybrid + PCA = 1,500-2,500 queries to production (vs 10,000+ baseline)
+- [BANDIT_ALGORITHMS.md](./BANDIT_ALGORITHMS.md) - Algorithm details
+- [BANDIT_TRAINING.md](./BANDIT_TRAINING.md) - How online learning works

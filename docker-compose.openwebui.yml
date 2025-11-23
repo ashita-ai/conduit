@@ -1,0 +1,74 @@
+services:
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: conduit-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - conduit-network
+
+  # Conduit + LiteLLM Router (OpenAI-compatible API)
+  conduit-router:
+    build:
+      context: .
+      dockerfile: Dockerfile.router
+    container_name: conduit-litellm-router
+    ports:
+      - "8000:8000"
+    environment:
+      # LLM Provider Keys
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      
+      # Conduit Config
+      - REDIS_URL=redis://redis:6379
+      - USE_HYBRID_ROUTING=true
+      - LOG_LEVEL=INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - conduit-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Open WebUI
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    ports:
+      - "3000:8080"
+    environment:
+      - OPENAI_API_BASE_URL=http://conduit-router:8000/v1
+      - OPENAI_API_KEY=sk-conduit-router
+      - ENABLE_OLLAMA_API=false
+      - ENABLE_OPENAI_API=true
+      - WEBUI_NAME=Conduit + LiteLLM Router
+    volumes:
+      - open-webui-data:/app/backend/data
+    depends_on:
+      - conduit-router
+    networks:
+      - conduit-network
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  open-webui-data:
+
+networks:
+  conduit-network:
+    driver: bridge

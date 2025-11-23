@@ -455,7 +455,7 @@ Compute Cost:
 
 ## See Also
 
-- [Bandit Algorithms](./BANDIT_ALGORITHMS.md) - Algorithm details
-- [PCA Guide](./PCA_GUIDE.md) - Dimensionality reduction
-- [Performance Optimization](./PERFORMANCE.md) - Combined strategies
-- [Architecture](./ARCHITECTURE.md) - System design
+- [COLD_START.md](./COLD_START.md) - Strategic context for sample efficiency solutions
+- [PCA_GUIDE.md](./PCA_GUIDE.md) - Combine with PCA for maximum efficiency (1,500-2,500 queries)
+- [BANDIT_ALGORITHMS.md](./BANDIT_ALGORITHMS.md) - UCB1 and LinUCB algorithm details
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - System design and integration

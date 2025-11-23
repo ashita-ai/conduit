@@ -568,7 +568,7 @@ uv run pytest tests/unit/test_pca.py --cov=conduit.engines.analyzer
 
 ## See Also
 
-- [Hybrid Routing](./HYBRID_ROUTING.md) - Combine with PCA for maximum efficiency
-- [Bandit Algorithms](./BANDIT_ALGORITHMS.md) - LinUCB details
-- [Performance Optimization](./PERFORMANCE.md) - Combined strategies
-- [Architecture](./ARCHITECTURE.md) - System design
+- [COLD_START.md](./COLD_START.md) - Strategic context for sample efficiency solutions
+- [HYBRID_ROUTING.md](./HYBRID_ROUTING.md) - Combine with Hybrid for maximum efficiency (1,500-2,500 queries)
+- [BANDIT_ALGORITHMS.md](./BANDIT_ALGORITHMS.md) - LinUCB algorithm details
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - System design and integration
