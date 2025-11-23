@@ -162,54 +162,54 @@ class Database:
             async with self.pool.acquire() as conn, conn.transaction():
                 # Save routing decision (if provided)
                 if routing is not None:
-                        await conn.execute(
-                            """
-                            INSERT INTO routing_decisions
-                                (id, query_id, selected_model, confidence, features, reasoning, created_at)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7)
-                            """,
-                            routing.id,
-                            routing.query_id,
-                            routing.selected_model,
-                            routing.confidence,
-                            json.dumps(routing.features.model_dump()),
-                            routing.reasoning,
-                            routing.created_at,
-                        )
-
-                    # Save response
                     await conn.execute(
                         """
-                        INSERT INTO responses
-                            (id, query_id, model, text, cost, latency, tokens, created_at)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                        INSERT INTO routing_decisions
+                            (id, query_id, selected_model, confidence, features, reasoning, created_at)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)
                         """,
-                        response.id,
-                        response.query_id,
-                        response.model,
-                        response.text,
-                        response.cost,
-                        response.latency,
-                        response.tokens,
-                        response.created_at,
+                        routing.id,
+                        routing.query_id,
+                        routing.selected_model,
+                        routing.confidence,
+                        json.dumps(routing.features.model_dump()),
+                        routing.reasoning,
+                        routing.created_at,
                     )
 
-                    # Save feedback if provided
-                    if feedback:
-                        await conn.execute(
-                            """
-                            INSERT INTO feedback
-                                (id, response_id, quality_score, user_rating, met_expectations, comments, created_at)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7)
-                            """,
-                            feedback.id,
-                            feedback.response_id,
-                            feedback.quality_score,
-                            feedback.user_rating,
-                            feedback.met_expectations,
-                            feedback.comments,
-                            feedback.created_at,
-                        )
+                # Save response
+                await conn.execute(
+                    """
+                    INSERT INTO responses
+                        (id, query_id, model, text, cost, latency, tokens, created_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    """,
+                    response.id,
+                    response.query_id,
+                    response.model,
+                    response.text,
+                    response.cost,
+                    response.latency,
+                    response.tokens,
+                    response.created_at,
+                )
+
+                # Save feedback if provided
+                if feedback:
+                    await conn.execute(
+                        """
+                        INSERT INTO feedback
+                            (id, response_id, quality_score, user_rating, met_expectations, comments, created_at)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        """,
+                        feedback.id,
+                        feedback.response_id,
+                        feedback.quality_score,
+                        feedback.user_rating,
+                        feedback.met_expectations,
+                        feedback.comments,
+                        feedback.created_at,
+                    )
 
             routing_id = routing.id if routing is not None else "none"
             logger.info(

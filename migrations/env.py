@@ -14,9 +14,10 @@ load_dotenv()
 # access to the values within the .ini file in use.
 config = context.config
 
-# Override sqlalchemy.url with DATABASE_URL from environment
-# This allows for secure credential management via .env file
-database_url = os.getenv("DATABASE_URL")
+# Override sqlalchemy.url with DIRECT_URL (migrations) or DATABASE_URL (runtime)
+# DIRECT_URL uses port 5432 for migrations (Alembic requirement)
+# DATABASE_URL uses port 6543 for pooled connections (runtime)
+database_url = os.getenv("DIRECT_URL") or os.getenv("DATABASE_URL")
 if database_url:
     # Double the % signs to escape them for ConfigParser
     database_url = database_url.replace('%', '%%')
@@ -66,25 +67,24 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode.
 
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
-
+    Uses DIRECT_URL for direct connection (migrations)
+    or DATABASE_URL as fallback.
     """
-    # Use DATABASE_URL directly if available, bypassing ConfigParser
-    database_url = os.getenv("DATABASE_URL")
-    if database_url:
-        from sqlalchemy import create_engine
-        connectable = create_engine(database_url, poolclass=pool.NullPool)
-    else:
-        connectable = engine_from_config(
-            config.get_section(config.config_ini_section, {}),
-            prefix="sqlalchemy.",
-            poolclass=pool.NullPool,
-        )
+    from sqlalchemy import create_engine
+
+    # Get database URL (DIRECT_URL prioritized for migrations)
+    database_url = os.getenv("DIRECT_URL") or os.getenv("DATABASE_URL")
+
+    if not database_url:
+        database_url = config.get_main_option("sqlalchemy.url")
+
+    # Create sync engine with psycopg2 (Alembic standard)
+    connectable = create_engine(database_url, poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata
         )
 
         with context.begin_transaction():

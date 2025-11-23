@@ -1,28 +1,30 @@
-# LiteLLM Integration Strategy
+# LiteLLM Integration Status
 
-**Document Purpose**: Strategic analysis and implementation plans for integrating Conduit with LiteLLM
-**Last Updated**: 2025-11-21
-**Status**: Planning phase - GitHub issues created
+**Document Purpose**: Implementation status and usage guide for Conduit-LiteLLM integration
+**Last Updated**: 2025-11-22
+**Status**: Path 1 COMPLETE, Path 2 not started
 
 ---
 
 ## Executive Summary
 
-Conduit can integrate with LiteLLM in two complementary ways:
+Conduit integrates with LiteLLM as a native routing strategy, bringing ML-powered model selection to LiteLLM's 100+ provider ecosystem.
 
-1. **Path 1: Conduit as LiteLLM Routing Strategy** (RECOMMENDED - Issue #9)
-   - Conduit plugs into LiteLLM as a native routing plugin
-   - Target: LiteLLM's 12K+ star ecosystem
-   - Effort: 1-2 days
-   - Package: `conduit-litellm` (separate)
+### Path 1: Conduit as LiteLLM Routing Strategy ✅ COMPLETE
+- **Status**: Shipped in `conduit_litellm/` package
+- **Commits**: d7b69cc, ff06a46, c5dd24c, abcae20
+- **Features**:
+  - `ConduitRoutingStrategy` implements `CustomRoutingStrategyBase`
+  - Hybrid routing support (UCB1→LinUCB warm start)
+  - Async/sync context handling (Issue #31 fixed)
+  - Helper method `setup_strategy()` for initialization
+- **Usage**: See `conduit_litellm/README.md`
+- **Issues**: #13 (feedback loop) pending
 
-2. **Path 2: LiteLLM as Conduit Execution Backend** (Issue #8)
-   - Conduit uses LiteLLM for API calls instead of PydanticAI
-   - Target: Conduit users wanting 100+ providers
-   - Effort: 2-3 days
-   - Package: `conduit[litellm]` (optional dependency)
-
-**Recommendation**: Build Path 1 first for maximum strategic impact.
+### Path 2: LiteLLM as Conduit Execution Backend ❌ NOT STARTED
+- **Status**: Not implemented, no current plans
+- **Reason**: Path 1 provides better strategic value
+- **Alternative**: Conduit continues using PydanticAI (8 providers)
 
 ---
 
@@ -54,196 +56,52 @@ Conduit can integrate with LiteLLM in two complementary ways:
 
 ---
 
-## Path 1: Conduit as LiteLLM Routing Strategy (RECOMMENDED)
+## Path 1: Conduit as LiteLLM Routing Strategy ✅ COMPLETE
 
-**GitHub Issue**: [#9](https://github.com/MisfitIdeas/conduit/issues/9)
+**Implementation**: `conduit_litellm/` package
+**Key Commits**: d7b69cc, ff06a46, c5dd24c, abcae20
 
-### Overview
+### What Was Built
 
-LiteLLM provides `CustomRoutingStrategyBase` API for plugging in custom routing logic. Conduit can implement this interface to become a native routing plugin.
+The `conduit_litellm` package provides `ConduitRoutingStrategy`, which implements LiteLLM's `CustomRoutingStrategyBase` interface. This allows Conduit's ML-powered routing to work with all 100+ LiteLLM providers.
 
-### Technical Architecture
-
-#### LiteLLM's Custom Routing API
-
-```python
-from litellm.router import CustomRoutingStrategyBase
-from typing import Optional, List, Dict, Union
-
-class CustomRoutingStrategy(CustomRoutingStrategyBase):
-    async def async_get_available_deployment(
-        self,
-        model: str,
-        messages: Optional[List[Dict[str, str]]] = None,
-        input: Optional[Union[str, List]] = None,
-        specific_deployment: Optional[bool] = False,
-        request_kwargs: Optional[Dict] = None,
-    ):
-        """
-        Select optimal deployment from litellm.router.model_list
-
-        Returns: An element from model_list
-        """
-        # Custom routing logic here
-        pass
-```
-
-**Reference**: [LiteLLM Router Docs](https://docs.litellm.ai/docs/routing), [Custom Routing Issue #4302](https://github.com/BerriAI/litellm/issues/4302)
-
-#### Conduit Implementation
-
-```python
-# conduit_litellm/strategy.py
-from litellm.router import CustomRoutingStrategyBase
-from conduit.engines.router import ConduitRouter
-from conduit.core.models import QueryFeatures, ModelArm, BanditFeedback
-
-class ConduitRoutingStrategy(CustomRoutingStrategyBase):
-    """ML-powered routing strategy for LiteLLM."""
-
-    def __init__(
-        self,
-        conduit_router: Optional[ConduitRouter] = None,
-        bandit_algorithm: str = "contextual_thompson",
-        **conduit_config
-    ):
-        self.conduit_router = conduit_router
-        self.bandit_algorithm = bandit_algorithm
-        self.conduit_config = conduit_config
-        self._initialized = False
-
-    async def _initialize_from_litellm(self, router):
-        """Convert LiteLLM model_list to Conduit ModelArms on first call."""
-        if self._initialized:
-            return
-
-        # Convert LiteLLM deployments to Conduit arms
-        arms = []
-        for deployment in router.model_list:
-            arm = ModelArm(
-                model_id=deployment["model_info"]["id"],
-                provider=deployment["litellm_params"]["model"].split("/")[0],
-                cost_per_token=deployment["model_info"].get("cost_per_token", 0.0),
-            )
-            arms.append(arm)
-
-        # Initialize Conduit router
-        if not self.conduit_router:
-            from conduit.utils.service_factory import create_router
-            self.conduit_router = await create_router(
-                arms=arms,
-                algorithm=self.bandit_algorithm,
-                **self.conduit_config
-            )
-
-        self._initialized = True
-
-    async def async_get_available_deployment(
-        self,
-        model: str,
-        messages: Optional[List[Dict[str, str]]] = None,
-        input: Optional[Union[str, List]] = None,
-        specific_deployment: Optional[bool] = False,
-        request_kwargs: Optional[Dict] = None,
-    ):
-        """Use Conduit's ML router to select optimal deployment."""
-        # Initialize on first call
-        await self._initialize_from_litellm(self.router)
-
-        # Extract query text
-        query_text = messages[-1]["content"] if messages else (input or "")
-
-        # Analyze query features (embeddings, complexity, domain)
-        features = await self.conduit_router.analyzer.analyze_query(query_text)
-
-        # Use ML bandit to select optimal model
-        selected_arm = await self.conduit_router.bandit.select_arm(features)
-
-        # Find matching LiteLLM deployment
-        for deployment in self.router.model_list:
-            if deployment["model_info"]["id"] == selected_arm.model_id:
-                # Store context for feedback
-                self._store_context(deployment["model_info"]["id"], features)
-                return deployment
-
-        # Fallback to default
-        return self.router.model_list[0]
-
-    async def record_feedback(
-        self,
-        deployment_id: str,
-        cost: float,
-        latency: float,
-        quality_score: Optional[float] = None,
-        error: Optional[str] = None
-    ):
-        """Record feedback to update bandit (called after completion)."""
-        features = self._get_stored_context(deployment_id)
-
-        # Calculate composite reward
-        reward = self._calculate_reward(
-            quality=quality_score or (0.0 if error else 1.0),
-            cost=cost,
-            latency=latency
-        )
-
-        # Update bandit
-        feedback = BanditFeedback(
-            model_id=deployment_id,
-            reward=reward,
-            cost=cost,
-            latency=latency,
-            quality_score=quality_score,
-            error_occurred=bool(error)
-        )
-        await self.conduit_router.bandit.update(feedback, features)
-```
-
-#### Usage Example
+### Quick Start
 
 ```python
 from litellm import Router
 from conduit_litellm import ConduitRoutingStrategy
 
-# Initialize LiteLLM router with 100+ providers
-litellm_router = Router(
+# Configure LiteLLM with your models
+router = Router(
     model_list=[
-        {
-            "model_name": "gpt-4",
-            "litellm_params": {"model": "openai/gpt-4", "api_key": "..."},
-            "model_info": {"id": "gpt-4-openai"},
-        },
-        {
-            "model_name": "gpt-4",
-            "litellm_params": {"model": "azure/gpt-4", "api_key": "..."},
-            "model_info": {"id": "gpt-4-azure"},
-        },
-        {
-            "model_name": "claude-3",
-            "litellm_params": {"model": "anthropic/claude-3-opus", "api_key": "..."},
-            "model_info": {"id": "claude-3-opus"},
-        },
+        {"model_name": "gpt-4", "litellm_params": {"model": "gpt-4o-mini"}},
+        {"model_name": "claude-3", "litellm_params": {"model": "claude-3-haiku"}},
     ]
 )
 
-# Plug in Conduit's ML routing (ONE LINE!)
-litellm_router.set_custom_routing_strategy(
-    ConduitRoutingStrategy(
-        bandit_algorithm="contextual_thompson",
-        lambda_reg=1.0,
-        window_size=1000,
-    )
-)
+# Setup Conduit routing strategy (use helper method!)
+strategy = ConduitRoutingStrategy(use_hybrid=True)
+ConduitRoutingStrategy.setup_strategy(router, strategy)
 
-# Use LiteLLM normally - Conduit routes intelligently
-response = await litellm_router.acompletion(
-    model="gpt-4",  # Conduit selects optimal gpt-4 deployment
-    messages=[{"role": "user", "content": "Explain quantum computing"}]
+# LiteLLM now uses Conduit's ML routing
+response = await router.acompletion(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello"}]
 )
-
-# Conduit learns from usage automatically
-# (via feedback hook if we can tap into LiteLLM response tracking)
 ```
+
+### Implementation Details
+
+**Source**: `conduit_litellm/strategy.py:30`
+
+Key features implemented:
+- `async_get_available_deployment()`: ML model selection
+- `get_available_deployment()`: Sync wrapper with async context handling (Issue #31 fix)
+- `setup_strategy()`: Helper for proper initialization
+- Lazy initialization from LiteLLM's `model_list`
+- Hybrid routing support (UCB1→LinUCB warm start)
+
+**Note**: Feedback loop (`record_feedback()`) is stubbed pending Issue #13.
 
 ### Strategic Benefits
 
@@ -265,199 +123,119 @@ response = await litellm_router.acompletion(
 - **Learning**: Gets smarter with usage (30-50% cost savings)
 - **Flexibility**: Choose algorithm (Thompson, LinUCB, UCB1, etc.)
 
-### Implementation Plan
+### Implementation Status
 
-**Total Effort**: 1-2 days (3 phases)
+**Total Time**: 2 days (Nov 22, 2025)
 
-#### Phase 1: Core Integration (1 day)
-- [ ] Create `conduit-litellm` package structure
-- [ ] Implement `ConduitRoutingStrategy(CustomRoutingStrategyBase)`
-- [ ] Convert LiteLLM `model_list` to Conduit `ModelArm` format
-- [ ] Implement `async_get_available_deployment()` with ML routing
-- [ ] Extract query text from LiteLLM messages/input
-- [ ] Store routing context for feedback
+#### Phase 1: Core Integration ✅ COMPLETE
+- ✅ Create `conduit_litellm/` package structure (d7b69cc)
+- ✅ Implement `ConduitRoutingStrategy(CustomRoutingStrategyBase)` (ff06a46)
+- ✅ Convert LiteLLM `model_list` to Conduit model IDs
+- ✅ Implement `async_get_available_deployment()` with ML routing
+- ✅ Extract query text from LiteLLM messages/input
+- ✅ Add `setup_strategy()` helper for initialization (c5dd24c)
+- ✅ Fix async context handling (Issue #31, abcae20)
 
-#### Phase 2: Feedback Loop (0.5 days)
-- [ ] Hook into LiteLLM response tracking (if possible)
-- [ ] Implement `record_feedback()` method
-- [ ] Calculate composite rewards (quality + cost + latency)
-- [ ] Update bandit with feedback
-- [ ] Test learning convergence
+#### Phase 2: Feedback Loop ⏳ PENDING (Issue #13)
+- ⏳ Hook into LiteLLM response tracking
+- ⏳ Implement `record_feedback()` method (stub exists)
+- ⏳ Calculate composite rewards (quality + cost + latency)
+- ⏳ Update bandit with feedback
+- ⏳ Test learning convergence
 
-#### Phase 3: Testing & Docs (0.5 days)
-- [ ] Unit tests for `ConduitRoutingStrategy`
-- [ ] Integration tests with mock LiteLLM router
-- [ ] Example: basic usage with multiple providers
-- [ ] Example: performance comparison (ML vs rule-based)
-- [ ] README with installation and usage
+#### Phase 3: Testing & Docs ⏳ PARTIAL
+- ⏳ Unit tests for `ConduitRoutingStrategy` (optional dependency blocks pytest)
+- ✅ README with installation and usage (`conduit_litellm/README.md`)
+- ⏳ Example: basic usage with multiple providers (Issue #14)
+- ⏳ Example: performance comparison (Issue #14)
 
-#### Phase 4: Package & Distribution
-- [ ] Publish `conduit-litellm` to PyPI
-- [ ] Create docs: `conduit-litellm.readthedocs.io`
-- [ ] Submit PR to LiteLLM docs (community plugins section)
-- [ ] Blog post: "ML-Powered Routing for LiteLLM"
-- [ ] Demo video showing learning curve
+#### Phase 4: Package & Distribution ❌ NOT PLANNED
+- ❌ Publish `conduit-litellm` to PyPI (part of main package)
+- ❌ Separate docs site (using main docs)
+- ❌ Submit PR to LiteLLM docs (future)
+- ❌ Blog post (future)
+- ❌ Demo video (future)
 
-### Package Structure
+### Actual Package Structure
 
 ```
-conduit-litellm/
-├── conduit_litellm/
-│   ├── __init__.py
-│   ├── strategy.py          # ConduitRoutingStrategy
-│   ├── config.py            # Configuration
-│   ├── feedback.py          # Feedback integration
-│   └── utils.py             # Helper functions
+conduit/
+├── conduit_litellm/              # LiteLLM integration package
+│   ├── __init__.py               # Exports ConduitRoutingStrategy
+│   ├── strategy.py               # Main routing strategy (340 lines)
+│   ├── config.py                 # Configuration helpers
+│   ├── utils.py                  # Validation and extraction
+│   └── README.md                 # Usage guide
 ├── tests/
-│   ├── test_strategy.py
-│   ├── test_feedback.py
-│   ├── test_integration.py
-│   └── fixtures/
-├── examples/
-│   ├── basic_usage.py
-│   ├── custom_algorithm.py
-│   ├── performance_comparison.py
-│   └── feedback_loop.py
-├── docs/
-│   ├── index.md
-│   ├── installation.md
-│   ├── usage.md
-│   ├── algorithms.md
-│   └── troubleshooting.md
-├── pyproject.toml
-├── README.md
-└── LICENSE
+│   └── unit/
+│       └── test_litellm_strategy.py  # Tests (blocked by optional dep)
+└── examples/
+    └── (Issue #14 - pending)
 ```
 
 ### Dependencies
 
+**From `pyproject.toml`**:
 ```toml
-[project]
-name = "conduit-litellm"
-version = "0.1.0"
-description = "ML-powered routing strategy for LiteLLM"
-dependencies = [
-    "conduit>=0.1.0",      # Core Conduit library
-    "litellm>=1.74.9",     # LiteLLM with custom routing support
-]
+[project.optional-dependencies]
+litellm = ["litellm>=1.50.29"]
 ```
 
-### Success Metrics
+**Installation**:
+```bash
+pip install conduit[litellm]
+```
 
-- [ ] Strategy successfully routes 100+ requests
-- [ ] Feedback loop updates bandit correctly
-- [ ] Learning: 30%+ cost reduction after 1000 requests
-- [ ] Performance: <50ms routing overhead
-- [ ] Test coverage: >90%
-- [ ] Documentation: 3+ complete examples
-- [ ] Community: 5+ LiteLLM users adopt it
+### Current Limitations
+
+1. **Feedback Loop**: `record_feedback()` is stubbed (Issue #13)
+   - Routing works, but bandit doesn't learn from outcomes yet
+   - Manual feedback not yet implemented
+
+2. **Testing**: Optional dependency prevents pytest import
+   - Tests exist but can't run in main test suite
+   - Requires `pip install conduit[litellm]` first
+
+3. **Examples**: No working examples yet (Issue #14)
+   - Basic usage documented in README
+   - Need real-world integration examples
+
+4. **Documentation**: No usage docs beyond README (Issue #15)
+   - Need guide for LiteLLM users
+   - Need troubleshooting section
 
 ---
 
-## Path 2: LiteLLM as Conduit Execution Backend
+## Path 2: LiteLLM as Conduit Execution Backend ❌ NOT IMPLEMENTED
 
-**GitHub Issue**: [#8](https://github.com/MisfitIdeas/conduit/issues/8)
+**Status**: Not started, no plans to implement
 
-### Overview
+### Why Not Implemented
 
-Add LiteLLM as an optional execution backend for Conduit, expanding from 5 providers (PydanticAI) to 100+ providers (LiteLLM).
+1. **Path 1 provides better strategic value**
+   - LiteLLM users get ML routing (Path 1)
+   - More users reached (12K+ stars vs Conduit users)
 
-### Technical Architecture
+2. **PydanticAI sufficient for current needs**
+   - 8 providers cover most use cases (OpenAI, Anthropic, Google, etc.)
+   - Structured outputs and type safety more valuable than 100+ providers
 
-#### Pluggable Execution Backend
+3. **Maintenance burden**
+   - Would require maintaining two execution backends
+   - LiteLLM changes could break integration
 
-```python
-# conduit/core/config.py
-class ConduitConfig:
-    execution_backend: Literal["pydantic_ai", "litellm"] = "pydantic_ai"
+4. **Alternative approach works better**
+   - Conduit users wanting 100+ providers can use Path 1
+   - Use LiteLLM with `ConduitRoutingStrategy`
 
-# conduit/engines/executor.py
-class LLMExecutor(ABC):
-    @abstractmethod
-    async def execute(self, model_id: str, query: str) -> ExecutionResult:
-        pass
+### If We Ever Need This
 
-class PydanticAIExecutor(LLMExecutor):
-    # Current implementation (keep as-is)
-    pass
+The original design (from planning doc) proposed a pluggable executor interface:
+- `LLMExecutor` ABC with `execute()` method
+- `PydanticAIExecutor` (current implementation)
+- `LiteLLMExecutor` (hypothetical)
 
-class LiteLLMExecutor(LLMExecutor):
-    async def execute(self, model_id: str, query: str) -> ExecutionResult:
-        import litellm
-
-        response = await litellm.acompletion(
-            model=model_id,
-            messages=[{"role": "user", "content": query}]
-        )
-
-        # Extract metrics for feedback
-        return ExecutionResult(
-            content=response.choices[0].message.content,
-            cost=response._hidden_params.get("response_cost", 0.0),
-            latency=response._response_ms / 1000.0,
-            tokens=response.usage.total_tokens,
-            metadata={"provider": response.model.split("/")[0]}
-        )
-```
-
-#### Usage Example
-
-```python
-from conduit import create_service
-
-# Create service with LiteLLM backend
-service = await create_service(
-    execution_backend="litellm",  # Use LiteLLM instead of PydanticAI
-    default_result_type=MyResult
-)
-
-# Conduit's ML router selects model
-# LiteLLM executes with any of 100+ providers
-result = await service.complete(
-    prompt="Explain quantum computing",
-    user_id="user_123"
-)
-```
-
-### Implementation Plan
-
-**Total Effort**: 2-3 days
-
-#### Day 1: Core Integration
-- [ ] Create `LiteLLMExecutor` class
-- [ ] Add `execution_backend` to `ConduitConfig`
-- [ ] Map model IDs (Conduit format → LiteLLM format)
-- [ ] Extract cost/latency/tokens from LiteLLM responses
-- [ ] Handle LiteLLM-specific errors
-
-#### Day 2: Testing
-- [ ] Unit tests for `LiteLLMExecutor`
-- [ ] Integration tests with mock LiteLLM
-- [ ] Test cost/latency accuracy
-- [ ] Test error handling
-- [ ] Verify feedback loop works
-
-#### Day 3: Documentation
-- [ ] Update README with LiteLLM backend section
-- [ ] Create example: `examples/04_production/litellm_backend.py`
-- [ ] Document model ID mapping
-- [ ] Add troubleshooting guide
-- [ ] Update `supported_models()` to show LiteLLM models
-
-### Strategic Benefits
-
-- **100+ providers** vs current 5 (20x expansion)
-- **Battle-tested** infrastructure (retries, fallbacks)
-- **User choice**: PydanticAI (5) or LiteLLM (100+)
-- **Migration path**: Start PydanticAI, grow to LiteLLM
-
-### Success Metrics
-
-- [ ] LiteLLM backend works with 10+ providers
-- [ ] Cost/latency tracking within 5% accuracy
-- [ ] Test coverage >90%
-- [ ] Example demonstrates value
-- [ ] Documentation enables self-service
+This would allow Conduit to use LiteLLM for execution while keeping ML routing. However, current architecture doesn't need this complexity.
 
 ---
 
@@ -465,17 +243,18 @@ result = await service.complete(
 
 | Aspect | Path 1: Routing Strategy | Path 2: Execution Backend |
 |--------|-------------------------|---------------------------|
+| **Status** | ✅ COMPLETE | ❌ NOT STARTED |
 | **Target Users** | LiteLLM users (12K+ stars) | Conduit users |
 | **Value Prop** | "Make LiteLLM smarter" | "More LLM providers" |
 | **Integration** | LiteLLM uses Conduit | Conduit uses LiteLLM |
-| **Package** | `conduit-litellm` (separate) | `conduit[litellm]` (optional) |
-| **Distribution** | LiteLLM ecosystem | Conduit users only |
-| **Effort** | 1-2 days | 2-3 days |
+| **Package** | `conduit_litellm/` | N/A |
+| **Distribution** | LiteLLM ecosystem | N/A |
+| **Time Spent** | 2 days | 0 days |
 | **Complexity** | Lower (routing only) | Moderate (execution layer) |
 | **Impact** | High (ecosystem play) | Medium (feature addition) |
 | **Uniqueness** | Only ML router for LiteLLM | Many alternatives exist |
 
-**Recommendation**: Build Path 1 first, then Path 2 if demand exists.
+**Decision**: Path 1 built and working. Path 2 not needed given Path 1 success.
 
 ---
 
@@ -550,19 +329,42 @@ result = await service.complete(
 
 ## Next Steps
 
-### Immediate Actions (Path 1)
-1. ✅ Create GitHub issue #9
-2. ⏳ Create `conduit-litellm` repository
-3. ⏳ Implement `ConduitRoutingStrategy` (Phase 1)
-4. ⏳ Test with mock LiteLLM router
-5. ⏳ Add feedback loop (Phase 2)
-6. ⏳ Publish to PyPI
+### Completed Work
+1. ✅ Create `conduit_litellm/` package structure (d7b69cc)
+2. ✅ Implement `ConduitRoutingStrategy` (ff06a46)
+3. ✅ Add `setup_strategy()` helper (c5dd24c)
+4. ✅ Fix async context handling (abcae20, Issue #31)
+5. ✅ Write basic README documentation
 
-### Future Actions (Path 2)
-1. ✅ Create GitHub issue #8
-2. ⏳ Wait for Path 1 completion
-3. ⏳ Assess demand from Conduit users
-4. ⏳ Implement if justified
+### Remaining Work (Priority Order)
+
+#### High Priority
+1. **Issue #13**: Implement feedback loop
+   - Hook into LiteLLM response callbacks
+   - Complete `record_feedback()` implementation
+   - Enable bandit learning from actual usage
+
+2. **Issue #14**: Add working examples
+   - Basic integration example
+   - Performance comparison (ML vs rule-based)
+   - Multi-provider setup
+
+#### Medium Priority
+3. **Issue #15**: User documentation
+   - LiteLLM user guide
+   - Migration guide
+   - Troubleshooting section
+
+4. **Testing**: Fix pytest import issues
+   - Make tests work with optional dependency
+   - Integration tests with real LiteLLM
+   - End-to-end learning verification
+
+#### Low Priority (Future)
+5. **Distribution**: PyPI and ecosystem
+   - Consider separate PyPI package
+   - Submit to LiteLLM community plugins
+   - Blog post and demo video
 
 ---
 
