@@ -6,7 +6,7 @@ authors = [
     { name = "Evan Volgas", email = "evan@ashita.ai" }
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 keywords = ["llm", "routing", "ml", "optimization", "cost-reduction"]
 classifiers = [
@@ -14,7 +14,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -44,6 +43,7 @@ dependencies = [
     "opentelemetry-exporter-otlp>=1.20.0",
     "greenlet>=3.2.4",
     "psycopg2-binary>=2.9.11",
+    "arbiter",
 ]
 
 [project.optional-dependencies]
@@ -121,6 +121,9 @@ minversion = "9.0"
 addopts = "-ra -q --strict-markers --cov=conduit --cov-report=term-missing"
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.uv.sources]
+arbiter = { git = "https://github.com/evanvolgas/arbiter" }
 
 [dependency-groups]
 dev = [

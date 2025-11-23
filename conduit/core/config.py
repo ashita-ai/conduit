@@ -169,6 +169,20 @@ class Settings(BaseSettings):
         default="development", description="Environment (development, production)"
     )
 
+    # Arbiter Evaluation Configuration
+    arbiter_enabled: bool = Field(
+        default=False, description="Enable Arbiter LLM-as-judge evaluation"
+    )
+    arbiter_sample_rate: float = Field(
+        default=0.1, description="Fraction of responses to evaluate (0.0-1.0)", ge=0.0, le=1.0
+    )
+    arbiter_daily_budget: float = Field(
+        default=10.0, description="Maximum daily evaluation budget (USD)", ge=0.0, le=1000.0
+    )
+    arbiter_model: str = Field(
+        default="gpt-4o-mini", description="Model for evaluation (cheap recommended)"
+    )
+
     # OpenTelemetry Configuration
     otel_enabled: bool = Field(
         default=False, description="Enable OpenTelemetry instrumentation"

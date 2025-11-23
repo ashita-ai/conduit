@@ -5,14 +5,17 @@ import logging
 import pickle
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sentence_transformers import (
     SentenceTransformer,  # type: ignore[import-untyped,unused-ignore]
 )
-from sklearn.decomposition import PCA  # type: ignore[import-untyped,unused-ignore]
 
 from conduit.cache import CacheService
 from conduit.core.models import QueryFeatures
+
+if TYPE_CHECKING:
+    from sklearn.decomposition import PCA  # type: ignore[import-untyped,unused-ignore]
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +62,12 @@ class QueryAnalyzer:
         self.use_pca = use_pca
         self.pca_dimensions = pca_dimensions
         self.pca_model_path = pca_model_path
-        self.pca: PCA | None = None
+        self.pca: "PCA | None" = None
 
         if use_pca:
+            # Lazy load sklearn.decomposition.PCA only when needed
+            from sklearn.decomposition import PCA  # type: ignore[import-untyped]
+
             # Try to load pre-fitted PCA model
             self.pca = self._load_pca()
             if self.pca is None:
@@ -242,12 +248,14 @@ class QueryAnalyzer:
         # Save fitted model
         self._save_pca()
 
-    def _load_pca(self) -> PCA | None:
+    def _load_pca(self) -> "PCA | None":
         """Load pre-fitted PCA model from disk.
 
         Returns:
             Fitted PCA model or None if file doesn't exist
         """
+        from sklearn.decomposition import PCA  # type: ignore[import-untyped]
+
         pca_path = Path(self.pca_model_path)
         if not pca_path.exists():
             return None

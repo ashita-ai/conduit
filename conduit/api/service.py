@@ -1,5 +1,6 @@
 """Service layer for routing operations."""
 
+import asyncio
 import logging
 from typing import Any
 
@@ -17,6 +18,7 @@ from conduit.engines.analyzer import QueryAnalyzer
 from conduit.engines.bandit import ContextualBandit
 from conduit.engines.executor import ModelExecutor
 from conduit.engines.router import RoutingEngine
+from conduit.evaluation import ArbiterEvaluator
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,7 @@ class RoutingService:
         executor: ModelExecutor,
         router: RoutingEngine,
         default_result_type: type[BaseModel] | None = None,
+        evaluator: ArbiterEvaluator | None = None,
     ):
         """Initialize routing service.
 
@@ -42,6 +45,7 @@ class RoutingService:
             executor: LLM executor
             router: Routing engine
             default_result_type: Default Pydantic model for structured output
+            evaluator: Optional Arbiter evaluator for quality assessment
         """
         self.database = database
         self.analyzer = analyzer
@@ -49,6 +53,7 @@ class RoutingService:
         self.executor = executor
         self.router = router
         self.default_result_type = default_result_type
+        self.evaluator = evaluator
 
     async def complete(
         self,
@@ -123,6 +128,10 @@ class RoutingService:
         await self.database.save_complete_interaction(
             routing=routing, response=response
         )
+
+        # Fire-and-forget async evaluation (doesn't block routing)
+        if self.evaluator:
+            asyncio.create_task(self.evaluator.evaluate_async(response, query))
 
         # Update bandit with reward (simplified - use quality score from response)
         # Until explicit/implicit feedback is wired into the reward signal,
