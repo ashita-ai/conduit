@@ -8,6 +8,7 @@ enabling ML-based learning from actual usage.
 import logging
 from typing import Any
 
+from conduit.core.defaults import QUALITY_ESTIMATION_DEFAULTS
 from conduit.engines.bandits.base import BanditFeedback
 
 logger = logging.getLogger(__name__)
@@ -199,7 +200,7 @@ class ConduitFeedbackLogger(CustomLogger):
             feedback = BanditFeedback(
                 model_id=model_id,
                 cost=cost,
-                quality_score=0.1,  # Failure implies low quality
+                quality_score=QUALITY_ESTIMATION_DEFAULTS.failure_quality,
                 latency=latency,
                 success=False,
                 metadata={
@@ -378,20 +379,16 @@ class ConduitFeedbackLogger(CustomLogger):
         """Estimate response quality from content analysis.
 
         Uses lightweight heuristics without LLM calls for fast, free estimation.
-        More accurate than fixed 0.9, catches obvious failures.
+        More accurate than fixed base_quality, catches obvious failures.
 
-        Checks:
-        - Length: Very short responses likely incomplete (< 10 chars)
-        - Emptiness: No content means failure
-        - Repetition: Looping/stuck models produce repetitive text
-        - Keyword overlap: Basic relevance proxy
+        Uses thresholds from QUALITY_ESTIMATION_DEFAULTS configuration.
 
         Args:
             query_text: User query
             response_text: Model response
 
         Returns:
-            Quality score in [0.1, 0.95] range
+            Quality score in [min_quality, max_quality] range
 
         Example:
             >>> estimate_quality("What is 2+2?", "4")
@@ -400,43 +397,48 @@ class ConduitFeedbackLogger(CustomLogger):
             >>> estimate_quality("Explain quantum physics", "quantum quantum quantum...")
             0.50  # Repetitive content penalty
         """
+        cfg = QUALITY_ESTIMATION_DEFAULTS
+
         # Start with base quality for successful responses
-        quality = 0.9
+        quality = cfg.base_quality
 
         # Empty response
         if not response_text or not response_text.strip():
-            return 0.1
+            return cfg.empty_quality
 
         response_clean = response_text.strip()
 
         # Very short response (likely truncated or incomplete)
-        if len(response_clean) < 10:
-            quality -= 0.15
+        if len(response_clean) < cfg.min_response_chars:
+            quality -= cfg.short_response_penalty
 
         # Check for repetition (model looping/stuck)
-        if self._has_repetition(response_clean):
-            quality -= 0.30
+        if self._has_repetition(response_clean, min_length=cfg.repetition_min_length):
+            quality -= cfg.repetition_penalty
 
         # Check keyword overlap (basic relevance)
         overlap = self._keyword_overlap(query_text, response_clean)
-        if overlap < 0.05:  # Almost no common keywords
-            quality -= 0.20
-        elif overlap < 0.15:  # Low keyword overlap
-            quality -= 0.10
+        if overlap < cfg.keyword_overlap_very_low:
+            quality -= cfg.no_keyword_overlap_penalty
+        elif overlap < cfg.keyword_overlap_low:
+            quality -= cfg.low_keyword_overlap_penalty
 
         # Clamp to reasonable range
-        return max(0.1, min(0.95, quality))
+        return max(cfg.min_quality, min(cfg.max_quality, quality))
 
-    def _has_repetition(self, text: str, min_length: int = 20) -> bool:
+    def _has_repetition(self, text: str, min_length: int | None = None) -> bool:
         """Detect repetitive patterns in text (model stuck/looping).
 
         Args:
             text: Text to check
-            min_length: Minimum pattern length to detect (default: 20 chars)
+            min_length: Minimum pattern length to detect (default: from config)
 
         Returns:
             True if significant repetition detected
         """
+        if min_length is None:
+            min_length = QUALITY_ESTIMATION_DEFAULTS.repetition_min_length
+
         if len(text) < min_length * 2:
             return False
 
@@ -445,7 +447,7 @@ class ConduitFeedbackLogger(CustomLogger):
             pattern = text[:pattern_len]
             # Count occurrences
             occurrences = text.count(pattern)
-            if occurrences >= 3:  # Pattern repeats 3+ times
+            if occurrences >= QUALITY_ESTIMATION_DEFAULTS.repetition_occurrence_threshold:
                 return True
 
         return False
@@ -454,6 +456,7 @@ class ConduitFeedbackLogger(CustomLogger):
         """Calculate keyword overlap between two texts.
 
         Simple relevance proxy: what fraction of query keywords appear in response?
+        Uses stopwords from QUALITY_ESTIMATION_DEFAULTS configuration.
 
         Args:
             text1: First text (query)
@@ -466,10 +469,9 @@ class ConduitFeedbackLogger(CustomLogger):
         words1 = set(text1.lower().split())
         words2 = set(text2.lower().split())
 
-        # Remove very common words (basic stopwords)
-        stopwords = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "is", "are", "was", "were"}
-        words1 = words1 - stopwords
-        words2 = words2 - stopwords
+        # Remove stopwords from config
+        words1 = words1 - QUALITY_ESTIMATION_DEFAULTS.stopwords
+        words2 = words2 - QUALITY_ESTIMATION_DEFAULTS.stopwords
 
         if not words1:
             return 0.0
