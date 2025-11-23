@@ -1,17 +1,96 @@
 ---
 name: conduit_agent
-description: AI agent for Conduit ML-powered LLM routing system - implements contextual bandits, manages tests, and maintains production-grade Python code
+description: ML-powered LLM routing system developer implementing contextual bandits, managing tests, and maintaining production-grade Python code
+last_updated: 2025-01-22
 ---
 
 # Conduit Agent Guide
 
-**What is Conduit**: ML-powered LLM routing system that learns which model to use for YOUR workload, reducing costs 30-50% while maintaining quality through contextual bandit algorithms.
+**What is Conduit**: ML-powered LLM routing system that learns which model to use for your workload, reducing costs 30-50% while maintaining quality through contextual bandit algorithms.
 
-**Your Role**: You are a Python ML engineer specializing in contextual bandits, async/await patterns, and type-safe code. You write production-grade implementations with comprehensive tests.
+**Your Role**: Python ML engineer specializing in contextual bandits, async/await patterns, and type-safe code. You write production-grade implementations with comprehensive tests.
 
-**Last Updated**: 2025-01-22
-**Phase**: 3 complete + Performance optimizations shipped (Hybrid routing, PCA)
+**Current Phase**: Phase 3 complete + Performance optimizations shipped (Hybrid routing, PCA)
 **Test Health**: 88% (64/73 bandit tests passing), 87% coverage
+
+---
+
+## Boundaries
+
+### Always Do (No Permission Needed)
+
+**Implementation**:
+- Write complete, production-grade code (no TODOs, no placeholders)
+- Add comprehensive tests for all new features (>90% coverage)
+- Use type hints strictly (mypy strict mode)
+- Follow async/await patterns for all bandit methods
+- Export new classes in `__init__.py`
+
+**Testing**:
+- Run full test suite before committing
+- Verify tests pass with `pytest -v`
+- Check coverage with `pytest --cov`
+- Test both success and failure cases
+
+**Documentation**:
+- Add docstrings to all public functions/classes
+- Include Args, Returns, Raises, and Example sections
+- Update AGENTS.md when adding new features
+- Create examples in `examples/` directory
+
+### Ask First
+
+**Architecture Changes**:
+- Modifying base classes (`BanditAlgorithm`, `ModelArm`)
+- Changing API contracts (function signatures, return types)
+- Adding new dependencies to `pyproject.toml`
+- Changing database schema or migrations
+
+**Risky Operations**:
+- Deleting existing algorithms or features
+- Refactoring core routing logic
+- Modifying production configuration defaults
+- Changing test fixtures that affect many tests
+
+**External Services**:
+- Adding new MCP servers or external APIs
+- Changing Redis/PostgreSQL connection patterns
+- Modifying authentication or rate limiting logic
+
+### Never Do
+
+**Security (CRITICAL)**:
+- NEVER EVER COMMIT CREDENTIALS TO GITHUB
+- No API keys, tokens, passwords, secrets in ANY file
+- No credentials in code, documentation, examples, tests, or configuration files
+- Use environment variables (.env files in .gitignore) ONLY
+- This is non-negotiable with serious security consequences
+
+**Code Quality**:
+- Skip tests to make builds pass
+- Disable type checking or linting errors
+- Leave TODO comments in production code
+- Use `# type: ignore` without justification
+- Create placeholder/stub implementations
+
+**Destructive**:
+- Work directly on main/master branch
+- Force push to shared branches
+- Delete failing tests instead of fixing them
+- Remove error handling to "fix" issues
+
+**Anti-Patterns**:
+- Use `Any` type without clear justification
+- Mix sync and async code incorrectly
+- Ignore test failures
+- Add features beyond explicit requirements
+- Create files outside designated directories
+
+---
+
+## Communication Preferences
+
+Don't flatter me. I know what [AI sycophancy](https://www.seangoedecke.com/ai-sycophancy/) is and I don't want your praise. Be concise and direct. Don't use emdashes ever.
 
 ---
 
@@ -49,8 +128,8 @@ uv run python examples/02_routing/basic_routing.py
   - API: Use `Agent(...).run(..., deps=...)` not `Agent(..., deps=...)`
 - **Pydantic**: 2.12+ (data validation and settings)
 - **FastAPI**: 0.115+ (REST API endpoints)
-- **PostgreSQL**: Any provider - self-hosted, AWS RDS, Supabase, Neon, etc. (routing history)
-- **Redis**: Optional (caching and rate limiting - graceful degradation)
+- **PostgreSQL**: Any provider (self-hosted, AWS RDS, Supabase, Neon, etc.) for routing history
+- **Redis**: Optional (caching and rate limiting with graceful degradation)
 
 ### ML Stack
 - **numpy**: 2.0+ (matrix operations for LinUCB)
@@ -70,7 +149,7 @@ uv run python examples/02_routing/basic_routing.py
 
 ```
 conduit/
-├── conduit/                    # ✅ READ & WRITE: Source code
+├── conduit/                    # Source code
 │   ├── core/                   # Models, config, exceptions
 │   ├── engines/                # Routing engine, bandit algorithms
 │   │   └── bandits/            # LinUCB, UCB1, Thompson Sampling, Epsilon-Greedy
@@ -78,16 +157,16 @@ conduit/
 │   ├── feedback/               # Implicit feedback detection
 │   ├── api/                    # FastAPI routes and middleware
 │   └── cli/                    # Command-line interface
-├── tests/                      # ✅ WRITE HERE: All tests
+├── tests/                      # All tests
 │   ├── unit/                   # Unit tests (fast, isolated)
 │   ├── integration/            # Integration tests (DB, Redis, API)
 │   └── conftest.py             # Test configuration (uses real numpy)
-├── examples/                   # ✅ READ ONLY: Usage examples
+├── examples/                   # Usage examples (READ ONLY)
 │   ├── 01_quickstart/          # hello_world.py, simple_router.py
 │   ├── 02_routing/             # basic_routing.py, with_constraints.py
 │   └── 03_optimization/        # caching.py, feedback examples
-├── docs/                       # ✅ WRITE HERE: Technical documentation
-└── notes/                      # ✅ READ ONLY: Strategic decisions (dated)
+├── docs/                       # Technical documentation
+└── notes/                      # Strategic decisions (dated, READ ONLY)
 ```
 
 ---
@@ -177,14 +256,14 @@ async def select_arm(self, features: QueryFeatures) -> ModelArm:
 
 Current implementations in `conduit/engines/bandits/`:
 
-### LinUCB (Contextual - Best for LLM Routing)
+### LinUCB (Contextual, Best for LLM Routing)
 - **File**: `linucb.py` (12/12 tests passing, 98% coverage)
 - **Algorithm**: Ridge regression with upper confidence bound
 - **State**: A matrix (d×d), b vector (d×1) per arm
 - **Selection**: `UCB = theta^T @ x + alpha * sqrt(x^T @ A_inv @ x)`
 - **Update**: `A += x @ x^T`, `b += reward * x`
 - **Features**: 387 dims (384 embedding + 3 metadata)
-- **When to use**: Default choice - uses query context for better decisions
+- **When to use**: Default choice, uses query context for better decisions
 
 ### UCB1 (Non-contextual)
 - **File**: `ucb.py` (11/11 tests passing, 17% coverage)
@@ -296,79 +375,6 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
-## Agent Boundaries
-
-### ✅ ALWAYS Do
-
-**Implementation**:
-- Write complete, production-grade code (no TODOs, no placeholders)
-- Add comprehensive tests for all new features (>90% coverage)
-- Use type hints strictly (mypy strict mode)
-- Follow async/await patterns for all bandit methods
-- Export new classes in `__init__.py`
-
-**Testing**:
-- Run full test suite before committing
-- Verify tests pass with `pytest -v`
-- Check coverage with `pytest --cov`
-- Test both success and failure cases
-
-**Documentation**:
-- Add docstrings to all public functions/classes
-- Include Args, Returns, Raises, and Example sections
-- Update AGENTS.md when adding new features
-- Create examples in `examples/` directory
-
-### ⚠️ ASK FIRST Before
-
-**Architecture Changes**:
-- Modifying base classes (`BanditAlgorithm`, `ModelArm`)
-- Changing API contracts (function signatures, return types)
-- Adding new dependencies to `pyproject.toml`
-- Changing database schema or migrations
-
-**Risky Operations**:
-- Deleting existing algorithms or features
-- Refactoring core routing logic
-- Modifying production configuration defaults
-- Changing test fixtures that affect many tests
-
-**External Services**:
-- Adding new MCP servers or external APIs
-- Changing Redis/PostgreSQL connection patterns
-- Modifying authentication or rate limiting logic
-
-### 🚫 NEVER Do
-
-**CRITICAL SECURITY VIOLATION** ⚠️:
-- **NEVER EVER COMMIT CREDENTIALS TO GITHUB**
-- No API keys, tokens, passwords, secrets in ANY file
-- No credentials in code, documentation, examples, tests, or configuration files
-- Use environment variables (.env files in .gitignore) ONLY
-- This is NON-NEGOTIABLE - violating this rule has serious security consequences
-
-**Code Quality Violations**:
-- Skip tests to make builds pass
-- Disable type checking or linting errors
-- Leave TODO comments in production code
-- Use `# type: ignore` without justification
-- Create placeholder/stub implementations
-
-**Destructive Actions**:
-- Work directly on main/master branch
-- Force push to shared branches
-- Delete failing tests instead of fixing them
-- Remove error handling to "fix" issues
-
-**Anti-Patterns**:
-- Use `Any` type without clear justification
-- Mix sync and async code incorrectly
-- Ignore test failures ("it works on my machine")
-- Add features beyond explicit requirements
-- Create files outside designated directories
-
----
-
 ## Key Concepts
 
 ### Contextual Bandits
@@ -392,7 +398,7 @@ features = embedding + [
 
 ### Feedback Loop
 - **Explicit**: User ratings (quality_score, user_rating, met_expectations)
-- **Implicit**: System signals (errors, latency, retries) - weighted 30%
+- **Implicit**: System signals (errors, latency, retries), weighted 30%
 - **Integration**: 70% explicit + 30% implicit = final reward
 
 ### Quality Guarantees
@@ -429,45 +435,45 @@ features = embedding + [
 
 ---
 
-## Current Status (2025-11-22)
+## Current Status (2025-01-22)
 
-### Latest: Performance Optimizations Shipped ✅
+### Latest: Performance Optimizations Shipped
 
 **New Features** (commits: 834c2ef, 4093d2f, 7fafe50, ace8305):
-1. ✅ **Hybrid Routing** - 30% faster convergence
+1. **Hybrid Routing** (30% faster convergence)
    - UCB1→LinUCB warm start strategy
    - 2,000-3,000 queries to production (vs 10,000+ pure LinUCB)
    - Automatic phase transition with knowledge transfer
    - 17 comprehensive tests, full integration
 
-2. ✅ **PCA Dimensionality Reduction** - 75% sample reduction
+2. **PCA Dimensionality Reduction** (75% sample reduction)
    - 387→67 dimensions (384 embedding + 3 → 64 PCA + 3)
    - LinUCB: 17K queries vs 68K without PCA
    - Combined with hybrid: 1,500-2,500 queries to production
    - Automatic save/load of fitted PCA models
 
-3. ✅ **Dynamic Pricing & Model Discovery**
+3. **Dynamic Pricing & Model Discovery**
    - Auto-fetch 71+ models from llm-prices.com (24h cache)
    - Auto-detect available models based on API keys
    - Provider filtering (PydanticAI + pricing support only)
 
-### Phase 3 Complete: Strategic Algorithm Improvements ✅
+### Phase 3 Complete: Strategic Algorithm Improvements
 
-**All 3 Tasks Shipped** (2025-11-21):
-1. ✅ Multi-objective reward function (quality + cost + latency)
-2. ✅ Non-stationarity handling (sliding windows, configurable window_size)
-3. ✅ Contextual Thompson Sampling (Bayesian contextual bandit)
+**All 3 Tasks Shipped** (2025-01-21):
+1. Multi-objective reward function (quality + cost + latency)
+2. Non-stationarity handling (sliding windows, configurable window_size)
+3. Contextual Thompson Sampling (Bayesian contextual bandit)
 
 ### Test Health
-- **Overall**: 88% (64/73 bandit tests passing), 87% coverage ✅
-- **Hybrid Router**: 17/17 tests (100%) ✅ NEW
-- **PCA**: Comprehensive tests ✅ NEW
+- **Overall**: 88% (64/73 bandit tests passing), 87% coverage
+- **Hybrid Router**: 17/17 tests (100%)
+- **PCA**: Comprehensive tests
 - **Bandit Algorithms**: 64/73 passing (88%)
-  - Contextual Thompson Sampling: 17/17 (100%) ✅
-  - LinUCB: 12/12 (100%) ✅
-  - Epsilon-Greedy: 14/14 (100%) ✅
-  - UCB1: 11/11 (100%) ✅
-  - Non-stationarity: 11/11 (100%) ✅
+  - Contextual Thompson Sampling: 17/17 (100%)
+  - LinUCB: 12/12 (100%)
+  - Epsilon-Greedy: 14/14 (100%)
+  - UCB1: 11/11 (100%)
+  - Non-stationarity: 11/11 (100%)
   - 9 failures: composite reward expectations (test issues, not code bugs)
 
 ### API Layer Coverage
@@ -475,13 +481,13 @@ features = embedding + [
 - **Status**: Blocked by pytest sklearn import (environment issue)
 - **Code quality**: Production-ready, runs fine outside pytest
 
-### Recent Work (2025-11-22)
-- ✅ Shipped hybrid routing system (834c2ef)
-- ✅ Shipped PCA dimensionality reduction (ace8305)
-- ✅ Added dynamic pricing and model discovery
-- ✅ Fixed composite reward test expectations (9ba4af6)
-- ✅ Closed GitHub issues #3, #4, #5
-- ✅ Updated README and documentation
+### Recent Work (2025-01-22)
+- Shipped hybrid routing system (834c2ef)
+- Shipped PCA dimensionality reduction (ace8305)
+- Added dynamic pricing and model discovery
+- Fixed composite reward test expectations (9ba4af6)
+- Closed GitHub issues #3, #4, #5
+- Updated README and documentation
 
 ---
 
@@ -536,8 +542,3 @@ def _extract_features(self, features: QueryFeatures) -> np.ndarray:
     )
     return feature_vector.reshape(-1, 1)  # Column vector (387, 1)
 ```
-
----
-
-**Last Updated**: 2025-01-22
-**Agent Version**: 2.0 (GitHub best practices compliant)
