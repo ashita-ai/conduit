@@ -203,12 +203,12 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
         for model_id in self.arms:
             # Sample theta from posterior: theta ~ N(mu, Sigma)
             mu = self.mu[model_id]
-            Sigma = self.Sigma[model_id]
+            sigma = self.Sigma[model_id]
 
             # Sample: theta_hat = mu + Sigma^(1/2) @ z, where z ~ N(0, I)
             # Using Cholesky decomposition: Sigma = L @ L^T
             try:
-                L = np.linalg.cholesky(Sigma)
+                L = np.linalg.cholesky(sigma)
                 z = np.random.randn(self.feature_dim, 1)
                 theta_hat = mu + L @ z
             except np.linalg.LinAlgError:

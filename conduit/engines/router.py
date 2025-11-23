@@ -13,7 +13,9 @@ from conduit.core.models import (
 )
 from conduit.engines.analyzer import QueryAnalyzer
 from conduit.engines.bandit import ContextualBandit
+from conduit.engines.bandits.base import ModelArm
 from conduit.engines.hybrid_router import HybridRouter
+from conduit.models.registry import DEFAULT_REGISTRY, get_model_by_id
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +136,7 @@ class RoutingEngine:
     def _filter_by_constraints(
         self, models: list[str], constraints: QueryConstraints | None
     ) -> list[str]:
-        """Filter models that satisfy constraints.
+        """Filter models that satisfy constraints using real pricing from llm-prices.com.
 
         Args:
             models: Available models
@@ -144,46 +146,113 @@ class RoutingEngine:
             List of eligible model IDs
 
         Note:
-            Phase 1 uses approximate cost/latency estimates.
-            Phase 2+ will use historical data from database.
+            Uses pricing data from llm-prices.com (71+ models, 24h cache).
+            Quality and latency estimates are heuristics until historical data available.
         """
         if constraints is None:
             return models
 
         eligible = []
 
-        # Approximate model characteristics (Phase 1 heuristics)
-        model_specs = {
-            "gpt-4o-mini": {"cost": 0.0001, "latency": 1.0, "quality": 0.7},
-            "gpt-4o": {"cost": 0.001, "latency": 2.0, "quality": 0.9},
-            "claude-sonnet-4": {"cost": 0.0005, "latency": 1.5, "quality": 0.85},
-            "claude-opus-4": {"cost": 0.002, "latency": 3.0, "quality": 0.95},
-        }
-
         for model in models:
-            specs = model_specs.get(
-                model, {"cost": 0.001, "latency": 2.0, "quality": 0.8}
-            )
-
-            # Check constraints
-            if constraints.max_cost and specs["cost"] > constraints.max_cost:
+            # Get model from registry (contains real pricing from llm-prices.com)
+            model_arm = self._get_model_arm(model)
+            if model_arm is None:
+                # Model not in registry, skip (shouldn't happen in normal usage)
+                logger.warning(f"Model {model} not found in registry, skipping")
                 continue
 
-            if constraints.max_latency and specs["latency"] > constraints.max_latency:
+            # Check cost constraint (using real pricing)
+            if constraints.max_cost:
+                # Average of input/output cost as approximation
+                avg_cost = (
+                    model_arm.cost_per_input_token + model_arm.cost_per_output_token
+                ) / 2
+                if avg_cost > constraints.max_cost:
+                    continue
+
+            # Check quality constraint (using expected_quality from registry)
+            if (
+                constraints.min_quality
+                and model_arm.expected_quality < constraints.min_quality
+            ):
                 continue
 
-            if constraints.min_quality and specs["quality"] < constraints.min_quality:
-                continue
+            # Check latency constraint (TODO: use historical data when available)
+            # For now, use rough estimates based on model size/provider
+            if constraints.max_latency:
+                estimated_latency = self._estimate_latency(model_arm)
+                if estimated_latency > constraints.max_latency:
+                    continue
 
+            # Check provider preference
             if (
                 constraints.preferred_provider
-                and constraints.preferred_provider not in model.lower()
+                and constraints.preferred_provider != model_arm.provider
             ):
                 continue
 
             eligible.append(model)
 
         return eligible
+
+    def _get_model_arm(self, model_id: str) -> ModelArm | None:
+        """Get ModelArm from registry for a model ID.
+
+        Args:
+            model_id: Model identifier (may or may not have provider prefix)
+
+        Returns:
+            ModelArm if found, None otherwise
+        """
+        # Try with model_id as-is first
+        arm = get_model_by_id(model_id, DEFAULT_REGISTRY)
+        if arm is not None:
+            return arm
+
+        # Try adding common provider prefixes if not found
+        for provider in ["openai", "anthropic", "google", "groq", "mistral", "cohere"]:
+            prefixed_id = f"{provider}:{model_id}"
+            arm = get_model_by_id(prefixed_id, DEFAULT_REGISTRY)
+            if arm is not None:
+                return arm
+
+        return None
+
+    def _estimate_latency(self, model_arm: ModelArm) -> float:
+        """Estimate model latency based on provider and cost.
+
+        Args:
+            model_arm: Model to estimate latency for
+
+        Returns:
+            Estimated latency in seconds
+
+        Note:
+            This is a rough heuristic until we have historical data.
+            Higher cost models tend to be larger/slower.
+        """
+        # Provider-specific baseline latencies
+        provider_baselines = {
+            "openai": 1.5,
+            "anthropic": 1.8,
+            "google": 1.2,
+            "groq": 0.5,  # Groq is notably faster
+            "mistral": 1.5,
+            "cohere": 1.6,
+        }
+
+        baseline = provider_baselines.get(model_arm.provider, 1.5)
+
+        # Adjust based on cost (higher cost = larger model = slower)
+        avg_cost = (
+            model_arm.cost_per_input_token + model_arm.cost_per_output_token
+        ) / 2
+
+        # Scale: 0.001 cost = 1x, 0.01 cost = 2x
+        cost_multiplier = 1 + (avg_cost / 0.001) * 0.5
+
+        return baseline * cost_multiplier
 
     def _relax_constraints(
         self, constraints: QueryConstraints, factor: float = 0.2

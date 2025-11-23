@@ -159,10 +159,9 @@ class Database:
             raise DatabaseError("Database not connected")
 
         try:
-            async with self.pool.acquire() as conn:
-                async with conn.transaction():
-                    # Save routing decision (if provided)
-                    if routing is not None:
+            async with self.pool.acquire() as conn, conn.transaction():
+                # Save routing decision (if provided)
+                if routing is not None:
                         await conn.execute(
                             """
                             INSERT INTO routing_decisions

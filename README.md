@@ -254,7 +254,7 @@ All algorithms support:
 - ⏳ Create demo showing 30% cost reduction on real workload
 - ⏳ Production API examples (FastAPI endpoint, batch processing)
 - ⏳ Monitoring and observability tooling
-- ⏳ API layer testing (currently 0% coverage)
+- ⏳ Fix sklearn import blocking API tests (38 tests exist but can't run)
 
 ### Test Coverage (2025-11-22)
 - **Overall**: 87% ✅ (exceeds 80% target), 64/73 bandit tests passing (88%)
