@@ -88,6 +88,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         self._initialized = False
         self._router: Any | None = None  # LiteLLM router reference
         self.feedback_logger: ConduitFeedbackLogger | None = None  # Feedback integration
+        self._feedback_registered = False  # Track if feedback logger is registered
 
     @staticmethod
     def setup_strategy(router: Any, strategy: "ConduitRoutingStrategy") -> None:
@@ -324,12 +325,19 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         system. The logger captures response metadata (cost, latency) and feeds
         it back to Conduit's bandit algorithms for learning.
 
+        Prevents duplicate registration: If a logger from this strategy is already
+        registered, it will be removed before adding the new one.
+
         Note:
             Requires LiteLLM to be installed. Silently skips if unavailable.
         """
         try:
             # Import litellm to register callbacks
             import litellm
+
+            # Remove any existing logger from this strategy to prevent duplicates
+            if self.feedback_logger is not None and self._feedback_registered:
+                self._unregister_feedback_logger()
 
             # Create feedback logger
             self.feedback_logger = ConduitFeedbackLogger(self.conduit_router)
@@ -339,12 +347,15 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
             if not hasattr(litellm, "callbacks") or litellm.callbacks is None:
                 litellm.callbacks = []
 
-            # Add our logger to callbacks list
-            litellm.callbacks.append(self.feedback_logger)
-
-            logger.info(
-                "Feedback logger registered with LiteLLM - bandit learning enabled"
-            )
+            # Check if this exact logger instance is already registered (shouldn't happen)
+            if self.feedback_logger not in litellm.callbacks:
+                litellm.callbacks.append(self.feedback_logger)
+                self._feedback_registered = True
+                logger.info(
+                    "Feedback logger registered with LiteLLM - bandit learning enabled"
+                )
+            else:
+                logger.warning("Feedback logger already registered, skipping duplicate")
 
         except ImportError:
             logger.warning(
@@ -353,6 +364,44 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
             )
         except Exception as e:
             logger.error(f"Failed to initialize feedback logger: {e}", exc_info=True)
+
+    def _unregister_feedback_logger(self) -> None:
+        """Remove feedback logger from LiteLLM callbacks.
+
+        Internal cleanup method called before re-registering or during cleanup.
+        """
+        try:
+            import litellm
+
+            if (
+                self.feedback_logger is not None
+                and hasattr(litellm, "callbacks")
+                and litellm.callbacks is not None
+            ):
+                if self.feedback_logger in litellm.callbacks:
+                    litellm.callbacks.remove(self.feedback_logger)
+                    self._feedback_registered = False
+                    logger.debug("Feedback logger unregistered from LiteLLM")
+        except Exception as e:
+            logger.warning(f"Failed to unregister feedback logger: {e}")
+
+    def cleanup(self) -> None:
+        """Clean up resources and unregister callbacks.
+
+        Call this method when done using the strategy to properly release resources
+        and remove the feedback logger from LiteLLM's global callback list.
+
+        Example:
+            >>> strategy = ConduitRoutingStrategy(use_hybrid=True)
+            >>> ConduitRoutingStrategy.setup_strategy(router, strategy)
+            >>> try:
+            ...     # Use strategy
+            ...     await router.acompletion(...)
+            ... finally:
+            ...     strategy.cleanup()
+        """
+        self._unregister_feedback_logger()
+        logger.info("ConduitRoutingStrategy cleaned up")
 
     async def record_feedback(
         self,

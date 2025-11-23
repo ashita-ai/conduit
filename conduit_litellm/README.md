@@ -1,6 +1,6 @@
 # Conduit LiteLLM Integration
 
-ML-powered routing strategy for LiteLLM using Conduit's contextual bandits.
+ML-powered routing strategy for LiteLLM's 100+ providers with automatic feedback loop learning.
 
 ## Installation
 
@@ -28,23 +28,29 @@ router = Router(
     ]
 )
 
-# Setup Conduit routing strategy
+# Setup Conduit routing strategy (feedback loop auto-enabled)
 strategy = ConduitRoutingStrategy(use_hybrid=True)
 ConduitRoutingStrategy.setup_strategy(router, strategy)
 
-# Now LiteLLM uses Conduit's ML routing
-response = await router.acompletion(
-    model="gpt-4",
-    messages=[{"role": "user", "content": "Hello"}]
-)
+try:
+    # LiteLLM uses ML routing + learns from every request
+    response = await router.acompletion(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello"}]
+    )
+    # Feedback captured automatically: cost, latency, quality
+finally:
+    strategy.cleanup()  # Clean up resources
 ```
 
 ## Features
 
-- **ML-Powered Selection**: Uses contextual bandits (LinUCB, Thompson Sampling) to learn optimal model routing
+- **ML-Powered Selection**: Contextual bandits (LinUCB, Thompson Sampling) learn optimal routing
+- **Automatic Learning**: Feedback loop captures cost/latency from every request (Issue #13 complete)
 - **100+ Providers**: Works with all LiteLLM-supported providers
-- **Hybrid Routing**: Optional UCB1→LinUCB warm start for faster convergence
-- **Async & Sync**: Supports both async and sync contexts (Issue #31 fixed)
+- **Hybrid Routing**: UCB1→LinUCB warm start for faster convergence
+- **Resource Management**: Cleanup method prevents memory leaks
+- **Async & Sync**: Supports both contexts (Issue #31 fixed)
 
 ## Configuration Options
 

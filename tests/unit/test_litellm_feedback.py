@@ -35,9 +35,14 @@ def mock_router():
     )
     router.analyzer = analyzer
 
-    # Mock bandit with async update method
+    # Mock bandit with async update method and arms
     bandit = Mock()
     bandit.update = AsyncMock()
+    bandit.arms = {
+        "gpt-4o-mini": Mock(),
+        "claude-3-haiku": Mock(),
+        "gemini-pro": Mock(),
+    }
     router.bandit = bandit
     router.hybrid_router = None
 
@@ -65,6 +70,13 @@ def mock_hybrid_router():
     # Mock hybrid_router with async update method
     hybrid = Mock()
     hybrid.update = AsyncMock()
+    # Mock linucb_bandit with arms
+    linucb = Mock()
+    linucb.arms = {
+        "gpt-4o-mini": Mock(),
+        "claude-3-haiku": Mock(),
+    }
+    hybrid.linucb_bandit = linucb
     router.hybrid_router = hybrid
     router.bandit = None
 
@@ -186,6 +198,62 @@ class TestConduitFeedbackLogger:
         mock_hybrid_router.hybrid_router.update.assert_called_once()
         assert mock_hybrid_router.bandit is None  # Not used in hybrid mode
 
+    @pytest.mark.asyncio
+    async def test_cost_unavailable_skips_feedback(
+        self, feedback_logger, mock_router, litellm_kwargs
+    ):
+        """Test that unavailable cost skips feedback (prevents cost=0.0 corruption)."""
+        response = Mock()
+        response._hidden_params = {}
+        # Remove fallback
+        if hasattr(response, "response_cost"):
+            delattr(response, "response_cost")
+
+        await feedback_logger.async_log_success_event(
+            litellm_kwargs, response, 1000.0, 1001.0
+        )
+
+        # Analyzer should still be called
+        mock_router.analyzer.analyze.assert_called_once()
+        # But bandit update should NOT be called
+        mock_router.bandit.update.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_unknown_model_id_skips_feedback(
+        self, feedback_logger, mock_router, litellm_response
+    ):
+        """Test that unknown model_id skips feedback."""
+        kwargs = {
+            "model": "unknown",
+            "messages": [{"role": "user", "content": "test"}],
+        }
+
+        await feedback_logger.async_log_success_event(
+            kwargs, litellm_response, 1000.0, 1001.0
+        )
+
+        # Analyzer called but bandit not updated
+        mock_router.analyzer.analyze.assert_called_once()
+        mock_router.bandit.update.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_model_not_in_arms_skips_feedback(
+        self, feedback_logger, mock_router, litellm_response
+    ):
+        """Test that model not in arms skips feedback."""
+        kwargs = {
+            "model": "nonexistent-model",
+            "messages": [{"role": "user", "content": "test"}],
+        }
+
+        await feedback_logger.async_log_success_event(
+            kwargs, litellm_response, 1000.0, 1001.0
+        )
+
+        # Analyzer called but bandit not updated
+        mock_router.analyzer.analyze.assert_called_once()
+        mock_router.bandit.update.assert_not_called()
+
     def test_extract_query_text_messages(self, feedback_logger):
         """Test query text extraction from messages format."""
         kwargs = {
@@ -237,13 +305,29 @@ class TestConduitFeedbackLogger:
         assert cost == 0.00035
 
     def test_extract_cost_unavailable(self, feedback_logger):
-        """Test cost extraction returns 0.0 when unavailable."""
+        """Test cost extraction returns None when unavailable."""
         response = Mock()
         response._hidden_params = {}
-        delattr(response, "response_cost")  # Remove fallback
+        # Remove fallback attribute
+        if hasattr(response, "response_cost"):
+            delattr(response, "response_cost")
 
         cost = feedback_logger._extract_cost(response)
-        assert cost == 0.0
+        assert cost is None
+
+    def test_validate_model_id_exists(self, feedback_logger):
+        """Test model validation for existing model."""
+        assert feedback_logger._validate_model_id("gpt-4o-mini") is True
+        assert feedback_logger._validate_model_id("claude-3-haiku") is True
+
+    def test_validate_model_id_not_exists(self, feedback_logger):
+        """Test model validation for non-existent model."""
+        assert feedback_logger._validate_model_id("nonexistent") is False
+
+    def test_get_available_model_ids(self, feedback_logger):
+        """Test getting available model IDs."""
+        model_ids = feedback_logger._get_available_model_ids()
+        assert set(model_ids) == {"gpt-4o-mini", "claude-3-haiku", "gemini-pro"}
 
     @pytest.mark.asyncio
     async def test_no_bandit_available(self, litellm_kwargs, litellm_response):

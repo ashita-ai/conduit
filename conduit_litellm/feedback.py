@@ -91,12 +91,29 @@ class ConduitFeedbackLogger(CustomLogger):
 
             # Extract cost from LiteLLM response metadata
             cost = self._extract_cost(response_obj)
+            if cost is None:
+                logger.warning(
+                    "Cost unavailable in LiteLLM response, skipping feedback "
+                    "(prevents corrupting bandit with cost=0.0)"
+                )
+                return
 
             # Calculate latency
             latency = end_time - start_time
 
-            # Get model ID
+            # Get model ID and validate
             model_id = kwargs.get("model", "unknown")
+            if model_id == "unknown":
+                logger.warning("No model ID in LiteLLM response, skipping feedback")
+                return
+
+            # Validate model exists in router's arms
+            if not self._validate_model_id(model_id):
+                logger.warning(
+                    f"Model '{model_id}' not in router arms, skipping feedback "
+                    f"(available: {self._get_available_model_ids()})"
+                )
+                return
 
             # Create feedback with high quality (success = good response)
             feedback = BanditFeedback(
@@ -150,14 +167,27 @@ class ConduitFeedbackLogger(CustomLogger):
             # Generate features
             features = await self.router.analyzer.analyze(query_text)
 
-            # Extract cost (may be 0 for failures)
+            # Extract cost (may be None for failures)
             cost = self._extract_cost(response_obj)
+            # For failures, cost might be unavailable - use 0.0 since quality is already low
+            if cost is None:
+                cost = 0.0
 
             # Calculate latency
             latency = end_time - start_time
 
-            # Get model ID
+            # Get model ID and validate
             model_id = kwargs.get("model", "unknown")
+            if model_id == "unknown":
+                logger.warning("No model ID in failed request, skipping feedback")
+                return
+
+            # Validate model exists in router's arms
+            if not self._validate_model_id(model_id):
+                logger.warning(
+                    f"Model '{model_id}' not in router arms, skipping failure feedback"
+                )
+                return
 
             # Create feedback with low quality (failure = poor response)
             feedback = BanditFeedback(
@@ -210,30 +240,79 @@ class ConduitFeedbackLogger(CustomLogger):
 
         return ""
 
-    def _extract_cost(self, response_obj: Any) -> float:
+    def _extract_cost(self, response_obj: Any) -> float | None:
         """Extract cost from LiteLLM response object.
 
         Args:
             response_obj: LiteLLM response object
 
         Returns:
-            Cost in USD, or 0.0 if unavailable
+            Cost in USD, or None if unavailable (prevents corrupting bandit with 0.0)
         """
         try:
             # LiteLLM stores cost in _hidden_params
             if hasattr(response_obj, "_hidden_params"):
                 hidden = response_obj._hidden_params
                 if isinstance(hidden, dict):
-                    return float(hidden.get("response_cost", 0.0))
+                    cost = hidden.get("response_cost")
+                    if cost is not None:
+                        return float(cost)
 
             # Fallback: Try response_cost attribute
             if hasattr(response_obj, "response_cost"):
-                return float(response_obj.response_cost)
+                cost = response_obj.response_cost
+                if cost is not None:
+                    return float(cost)
 
         except (ValueError, TypeError, AttributeError) as e:
             logger.warning(f"Failed to extract cost from response: {e}")
 
-        return 0.0
+        return None
+
+    def _validate_model_id(self, model_id: str) -> bool:
+        """Validate that model_id exists in router's available arms.
+
+        Args:
+            model_id: Model identifier to validate
+
+        Returns:
+            True if model exists in arms, False otherwise
+        """
+        # Check hybrid router arms
+        if self.router.hybrid_router is not None:
+            if hasattr(self.router.hybrid_router, "linucb_bandit"):
+                bandit = self.router.hybrid_router.linucb_bandit
+                return model_id in bandit.arms if bandit else False
+            if hasattr(self.router.hybrid_router, "ucb1_bandit"):
+                bandit = self.router.hybrid_router.ucb1_bandit
+                return model_id in bandit.arms if bandit else False
+
+        # Check standard bandit arms
+        if self.router.bandit is not None:
+            return model_id in self.router.bandit.arms
+
+        return False
+
+    def _get_available_model_ids(self) -> list[str]:
+        """Get list of available model IDs from router arms.
+
+        Returns:
+            List of model IDs available in router
+        """
+        # Check hybrid router
+        if self.router.hybrid_router is not None:
+            if hasattr(self.router.hybrid_router, "linucb_bandit"):
+                bandit = self.router.hybrid_router.linucb_bandit
+                return list(bandit.arms.keys()) if bandit else []
+            if hasattr(self.router.hybrid_router, "ucb1_bandit"):
+                bandit = self.router.hybrid_router.ucb1_bandit
+                return list(bandit.arms.keys()) if bandit else []
+
+        # Check standard bandit
+        if self.router.bandit is not None:
+            return list(self.router.bandit.arms.keys())
+
+        return []
 
     async def _update_bandit(self, feedback: BanditFeedback, features: Any) -> None:
         """Update appropriate bandit algorithm (hybrid or standard).
