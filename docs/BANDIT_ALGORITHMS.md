@@ -84,31 +84,47 @@ REWARD_WEIGHT_COST=0.40
 REWARD_WEIGHT_LATENCY=0.10
 ```
 
-### Examples
+### Reward Calculation Examples
 
-**High-quality, expensive model**:
+**Scenario**: Two models complete the same query. Which should the bandit prefer?
+
+**Model A: GPT-4o (High-quality, expensive)**:
 ```python
-quality_score = 0.95
-cost = $0.01  # GPT-4o
-latency = 2.0s
+quality_score = 0.95  # Excellent response
+cost = $0.01          # Expensive per query
+latency = 2.0s        # Moderate speed
 
-reward = 0.70 * 0.95 + 0.20 * (1/1.01) + 0.10 * (1/3.0)
-       = 0.665 + 0.198 + 0.033
-       = 0.896
+# Calculate reward components:
+quality_component = 0.70 * 0.95 = 0.665
+cost_component = 0.20 * (1/(1+0.01)) = 0.20 * 0.990 = 0.198
+latency_component = 0.10 * (1/(1+2.0)) = 0.10 * 0.333 = 0.033
+
+total_reward = 0.665 + 0.198 + 0.033 = 0.896
 ```
 
-**Fast, cheap model**:
+**Model B: GPT-4o-mini (Fast, cheap)**:
 ```python
-quality_score = 0.85
-cost = $0.0001  # GPT-4o-mini
-latency = 1.0s
+quality_score = 0.85  # Good response (slightly lower quality)
+cost = $0.0001        # Very cheap
+latency = 1.0s        # Fast
 
-reward = 0.70 * 0.85 + 0.20 * (1/1.0001) + 0.10 * (1/2.0)
-       = 0.595 + 0.200 + 0.050
-       = 0.845
+# Calculate reward components:
+quality_component = 0.70 * 0.85 = 0.595
+cost_component = 0.20 * (1/(1+0.0001)) = 0.20 * 0.9999 = 0.200
+latency_component = 0.10 * (1/(1+1.0)) = 0.10 * 0.500 = 0.050
+
+total_reward = 0.595 + 0.200 + 0.050 = 0.845
 ```
 
-**Trade-off**: High-quality expensive model (0.896) vs fast cheap model (0.845). The expensive model wins due to quality weight (70%), but cost does reduce its reward.
+**How the bandit uses these rewards**:
+- **Immediate decision**: Model A wins (0.896 > 0.845) due to higher quality
+- **Learning**: Both rewards update the bandit's belief about each model
+  - Model A: Good for high-quality needs (reward 0.896 reinforces selection)
+  - Model B: Good for cost-conscious queries (reward 0.845 still positive)
+- **Future routing**: Similar queries will favor Model A due to better historical reward
+- **Exploration**: Bandit still tries Model B occasionally to check if quality improved
+
+**Key insight**: The 70% quality weight means quality differences matter most. Model A's 10% quality advantage (0.95 vs 0.85) outweighs Model B's 100x cost advantage ($0.01 vs $0.0001).
 
 ### Why Asymptotic Normalization?
 

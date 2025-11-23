@@ -115,11 +115,17 @@ class ConduitFeedbackLogger(CustomLogger):
                 )
                 return
 
-            # Create feedback with high quality (success = good response)
+            # Extract response text for quality estimation
+            response_text = self._extract_response_text(response_obj)
+
+            # Estimate quality from response content
+            quality_score = self._estimate_quality(query_text, response_text)
+
+            # Create feedback with estimated quality
             feedback = BanditFeedback(
                 model_id=model_id,
                 cost=cost,
-                quality_score=0.9,  # Success implies high quality
+                quality_score=quality_score,
                 latency=latency,
                 success=True,
                 metadata={
@@ -133,7 +139,7 @@ class ConduitFeedbackLogger(CustomLogger):
 
             logger.debug(
                 f"Feedback recorded: model={model_id}, cost=${cost:.6f}, "
-                f"latency={latency:.2f}s, quality=0.9"
+                f"latency={latency:.2f}s, quality={quality_score:.2f}"
             )
 
         except Exception as e:
@@ -338,6 +344,139 @@ class ConduitFeedbackLogger(CustomLogger):
             "No bandit algorithm available for feedback update "
             "(neither hybrid_router nor bandit found)"
         )
+
+    def _extract_response_text(self, response_obj: Any) -> str:
+        """Extract response text from LiteLLM response object.
+
+        Args:
+            response_obj: LiteLLM response object
+
+        Returns:
+            Response text or empty string if unavailable
+        """
+        try:
+            # Try choices[0].message.content (standard chat completion format)
+            if hasattr(response_obj, "choices") and len(response_obj.choices) > 0:
+                choice = response_obj.choices[0]
+                if hasattr(choice, "message") and hasattr(choice.message, "content"):
+                    return choice.message.content or ""
+
+            # Try text attribute (some models)
+            if hasattr(response_obj, "text"):
+                return response_obj.text or ""
+
+            # Try content attribute (direct)
+            if hasattr(response_obj, "content"):
+                return response_obj.content or ""
+
+        except (AttributeError, IndexError, TypeError) as e:
+            logger.warning(f"Failed to extract response text: {e}")
+
+        return ""
+
+    def _estimate_quality(self, query_text: str, response_text: str) -> float:
+        """Estimate response quality from content analysis.
+
+        Uses lightweight heuristics without LLM calls for fast, free estimation.
+        More accurate than fixed 0.9, catches obvious failures.
+
+        Checks:
+        - Length: Very short responses likely incomplete (< 10 chars)
+        - Emptiness: No content means failure
+        - Repetition: Looping/stuck models produce repetitive text
+        - Keyword overlap: Basic relevance proxy
+
+        Args:
+            query_text: User query
+            response_text: Model response
+
+        Returns:
+            Quality score in [0.1, 0.95] range
+
+        Example:
+            >>> estimate_quality("What is 2+2?", "4")
+            0.75  # Short but valid
+
+            >>> estimate_quality("Explain quantum physics", "quantum quantum quantum...")
+            0.50  # Repetitive content penalty
+        """
+        # Start with base quality for successful responses
+        quality = 0.9
+
+        # Empty response
+        if not response_text or not response_text.strip():
+            return 0.1
+
+        response_clean = response_text.strip()
+
+        # Very short response (likely truncated or incomplete)
+        if len(response_clean) < 10:
+            quality -= 0.15
+
+        # Check for repetition (model looping/stuck)
+        if self._has_repetition(response_clean):
+            quality -= 0.30
+
+        # Check keyword overlap (basic relevance)
+        overlap = self._keyword_overlap(query_text, response_clean)
+        if overlap < 0.05:  # Almost no common keywords
+            quality -= 0.20
+        elif overlap < 0.15:  # Low keyword overlap
+            quality -= 0.10
+
+        # Clamp to reasonable range
+        return max(0.1, min(0.95, quality))
+
+    def _has_repetition(self, text: str, min_length: int = 20) -> bool:
+        """Detect repetitive patterns in text (model stuck/looping).
+
+        Args:
+            text: Text to check
+            min_length: Minimum pattern length to detect (default: 20 chars)
+
+        Returns:
+            True if significant repetition detected
+        """
+        if len(text) < min_length * 2:
+            return False
+
+        # Check for repeated substrings
+        for pattern_len in range(min_length, len(text) // 2):
+            pattern = text[:pattern_len]
+            # Count occurrences
+            occurrences = text.count(pattern)
+            if occurrences >= 3:  # Pattern repeats 3+ times
+                return True
+
+        return False
+
+    def _keyword_overlap(self, text1: str, text2: str) -> float:
+        """Calculate keyword overlap between two texts.
+
+        Simple relevance proxy: what fraction of query keywords appear in response?
+
+        Args:
+            text1: First text (query)
+            text2: Second text (response)
+
+        Returns:
+            Overlap ratio in [0, 1]
+        """
+        # Tokenize and lowercase
+        words1 = set(text1.lower().split())
+        words2 = set(text2.lower().split())
+
+        # Remove very common words (basic stopwords)
+        stopwords = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "is", "are", "was", "were"}
+        words1 = words1 - stopwords
+        words2 = words2 - stopwords
+
+        if not words1:
+            return 0.0
+
+        # Calculate overlap
+        overlap = len(words1 & words2)
+        return overlap / len(words1)
 
     def log_success_event(
         self,
