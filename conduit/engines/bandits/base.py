@@ -7,8 +7,10 @@ for context, ensuring consistency across the routing system.
 from abc import ABC, abstractmethod
 from typing import Any
 
+import numpy as np
 from pydantic import BaseModel, Field
 
+from conduit.core.defaults import DEFAULT_REWARD_WEIGHTS, TOKEN_COUNT_NORMALIZATION
 from conduit.core.models import QueryFeatures
 
 
@@ -65,9 +67,9 @@ class BanditFeedback(BaseModel):
 
     def calculate_reward(
         self,
-        quality_weight: float = 0.70,
-        cost_weight: float = 0.20,
-        latency_weight: float = 0.10,
+        quality_weight: float | None = None,
+        cost_weight: float | None = None,
+        latency_weight: float | None = None,
     ) -> float:
         """Calculate composite reward from quality, cost, and latency.
 
@@ -77,9 +79,9 @@ class BanditFeedback(BaseModel):
         - Latency: Normalized as 1 / (1 + latency), inverted so lower latency = higher reward
 
         Args:
-            quality_weight: Weight for quality component (default: 0.70)
-            cost_weight: Weight for cost component (default: 0.20)
-            latency_weight: Weight for latency component (default: 0.10)
+            quality_weight: Weight for quality component (default: from DEFAULT_REWARD_WEIGHTS)
+            cost_weight: Weight for cost component (default: from DEFAULT_REWARD_WEIGHTS)
+            latency_weight: Weight for latency component (default: from DEFAULT_REWARD_WEIGHTS)
 
         Returns:
             Composite reward in [0, 1] range
@@ -95,6 +97,14 @@ class BanditFeedback(BaseModel):
             >>> print(f"{reward:.3f}")  # ~0.90 (high quality dominates)
             0.903
         """
+        # Use defaults if not provided
+        if quality_weight is None:
+            quality_weight = DEFAULT_REWARD_WEIGHTS["quality"]
+        if cost_weight is None:
+            cost_weight = DEFAULT_REWARD_WEIGHTS["cost"]
+        if latency_weight is None:
+            latency_weight = DEFAULT_REWARD_WEIGHTS["latency"]
+
         # Validate weights sum to 1.0
         total_weight = quality_weight + cost_weight + latency_weight
         if abs(total_weight - 1.0) > 0.01:
@@ -220,3 +230,43 @@ class BanditAlgorithm(ABC):
             "total_queries": self.total_queries,
             "n_arms": self.n_arms,
         }
+
+    def _extract_features(self, features: QueryFeatures) -> np.ndarray:
+        """Extract feature vector from QueryFeatures.
+
+        Combines embedding vector with metadata features:
+        - embedding (384 dims)
+        - token_count (1 dim, normalized by TOKEN_COUNT_NORMALIZATION)
+        - complexity_score (1 dim)
+        - domain_confidence (1 dim)
+
+        Args:
+            features: Query features object
+
+        Returns:
+            Feature vector as (d×1) numpy array
+
+        Example:
+            >>> features = QueryFeatures(
+            ...     embedding=[0.1] * 384,
+            ...     token_count=50,
+            ...     complexity_score=0.5,
+            ...     domain="general",
+            ...     domain_confidence=0.8
+            ... )
+            >>> x = bandit._extract_features(features)
+            >>> x.shape
+            (387, 1)
+        """
+        # Combine embedding with metadata
+        feature_vector = np.array(
+            features.embedding
+            + [
+                features.token_count / TOKEN_COUNT_NORMALIZATION,
+                features.complexity_score,
+                features.domain_confidence,
+            ]
+        )
+
+        # Reshape to column vector (d×1)
+        return feature_vector.reshape(-1, 1)

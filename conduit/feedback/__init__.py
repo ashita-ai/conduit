@@ -50,7 +50,6 @@ Usage:
 
 from conduit.feedback.detector import ImplicitFeedbackDetector
 from conduit.feedback.history import QueryHistoryEntry, QueryHistoryTracker
-from conduit.feedback.integration import FeedbackIntegrator
 from conduit.feedback.signals import (
     ErrorSignal,
     LatencySignal,
@@ -62,7 +61,6 @@ __all__ = [
     # Core Components
     "ImplicitFeedbackDetector",
     "QueryHistoryTracker",
-    "FeedbackIntegrator",
     # History Models
     "QueryHistoryEntry",
     # Signal Models
