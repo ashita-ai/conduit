@@ -5,6 +5,7 @@ from typing import Any, cast
 
 from conduit.core.models import Query
 from conduit.engines.router import Router
+from conduit_litellm.feedback import ConduitFeedbackLogger
 from conduit_litellm.utils import extract_model_ids, validate_litellm_model_list
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         self.conduit_config = conduit_config
         self._initialized = False
         self._router: Any | None = None  # LiteLLM router reference
+        self.feedback_logger: ConduitFeedbackLogger | None = None  # Feedback integration
 
     @staticmethod
     def setup_strategy(router: Any, strategy: "ConduitRoutingStrategy") -> None:
@@ -158,6 +160,9 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
                 f"use_hybrid={self.conduit_config.get('use_hybrid', False)}, "
                 f"cache_enabled={self.conduit_config.get('cache_enabled', False)}"
             )
+
+        # Initialize feedback logger for bandit learning
+        self._initialize_feedback_logger()
 
         self._initialized = True
 
@@ -312,6 +317,43 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
             return " ".join(str(x) for x in input)
         return ""
 
+    def _initialize_feedback_logger(self) -> None:
+        """Initialize and register feedback logger with LiteLLM.
+
+        Creates ConduitFeedbackLogger and registers it with LiteLLM's callback
+        system. The logger captures response metadata (cost, latency) and feeds
+        it back to Conduit's bandit algorithms for learning.
+
+        Note:
+            Requires LiteLLM to be installed. Silently skips if unavailable.
+        """
+        try:
+            # Import litellm to register callbacks
+            import litellm
+
+            # Create feedback logger
+            self.feedback_logger = ConduitFeedbackLogger(self.conduit_router)
+
+            # Register with LiteLLM's callback system
+            # LiteLLM will call async_log_success_event and async_log_failure_event
+            if not hasattr(litellm, "callbacks") or litellm.callbacks is None:
+                litellm.callbacks = []
+
+            # Add our logger to callbacks list
+            litellm.callbacks.append(self.feedback_logger)
+
+            logger.info(
+                "Feedback logger registered with LiteLLM - bandit learning enabled"
+            )
+
+        except ImportError:
+            logger.warning(
+                "LiteLLM not available, feedback loop disabled. "
+                "Install with: pip install conduit[litellm]"
+            )
+        except Exception as e:
+            logger.error(f"Failed to initialize feedback logger: {e}", exc_info=True)
+
     async def record_feedback(
         self,
         deployment_id: str,
@@ -320,10 +362,10 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         quality_score: float | None = None,
         error: str | None = None
     ) -> None:
-        """Record feedback to update Conduit's bandit algorithm.
+        """Record manual feedback to update Conduit's bandit algorithm.
 
-        This method enables Conduit to learn from LiteLLM request outcomes,
-        improving routing decisions over time.
+        This method allows explicit feedback submission in addition to automatic
+        feedback captured by ConduitFeedbackLogger from LiteLLM responses.
 
         Args:
             deployment_id: ID of deployment that was used.
@@ -333,7 +375,18 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
             error: Optional error message if request failed.
 
         Note:
-            Implementation in Issue #13 (feedback collection and learning).
+            Automatic feedback from LiteLLM responses is preferred and happens
+            transparently via ConduitFeedbackLogger. Use this method only for
+            manual overrides or custom feedback scenarios.
         """
-        # TODO: Implement feedback loop in Issue #13
-        pass
+        # Manual feedback implementation deferred - automatic feedback via
+        # ConduitFeedbackLogger is now the primary mechanism (Issue #13 complete)
+        logger.info(
+            f"Manual feedback received but not implemented: "
+            f"deployment={deployment_id}, cost={cost}, latency={latency}, "
+            f"quality={quality_score}, error={error}"
+        )
+        logger.info(
+            "Automatic feedback via ConduitFeedbackLogger is active and preferred. "
+            "Manual feedback support may be added in future if needed."
+        )

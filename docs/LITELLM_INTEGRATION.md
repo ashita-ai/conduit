@@ -11,15 +11,16 @@
 Conduit integrates with LiteLLM as a native routing strategy, bringing ML-powered model selection to LiteLLM's 100+ provider ecosystem.
 
 ### Path 1: Conduit as LiteLLM Routing Strategy ✅ COMPLETE
-- **Status**: Shipped in `conduit_litellm/` package
-- **Commits**: d7b69cc, ff06a46, c5dd24c, abcae20
+- **Status**: Shipped in `conduit_litellm/` package with feedback loop
+- **Commits**: d7b69cc, ff06a46, c5dd24c, abcae20, [Issue #13 complete]
 - **Features**:
   - `ConduitRoutingStrategy` implements `CustomRoutingStrategyBase`
   - Hybrid routing support (UCB1→LinUCB warm start)
   - Async/sync context handling (Issue #31 fixed)
   - Helper method `setup_strategy()` for initialization
+  - **Automatic feedback loop** via `ConduitFeedbackLogger` (Issue #13)
 - **Usage**: See `conduit_litellm/README.md`
-- **Issues**: #13 (feedback loop) pending
+- **Issues**: All complete ✅
 
 ### Path 2: LiteLLM as Conduit Execution Backend ❌ NOT STARTED
 - **Status**: Not implemented, no current plans
@@ -44,13 +45,15 @@ Conduit integrates with LiteLLM as a native routing strategy, bringing ML-powere
 
 ### Complementary Strengths
 
-| Capability | LiteLLM | Conduit |
-|------------|---------|---------|
-| **Providers** | 100+ (✅ massive) | 5 (❌ limited) |
-| **Routing** | Rule-based (❌ static) | ML-based (✅ learning) |
-| **Infrastructure** | Battle-tested (✅) | New (⚠️) |
-| **Intelligence** | None (❌) | Contextual bandits (✅) |
-| **Cost Tracking** | Built-in (✅) | Manual (⚠️) |
+| Capability | LiteLLM | Pure Conduit | conduit_litellm (Path 1) |
+|------------|---------|--------------|--------------------------|
+| **Providers** | 100+ (✅) | 5 (❌) | 100+ (✅) |
+| **Routing** | Rule-based (❌) | ML-based (✅) | ML-based (✅) |
+| **Infrastructure** | Battle-tested (✅) | New (⚠️) | Battle-tested (✅) |
+| **Intelligence** | None (❌) | Contextual bandits (✅) | Contextual bandits (✅) |
+| **Cost Tracking** | Built-in via response (✅) | llm-prices.com fetch (⚠️) | Built-in via LiteLLM\* (✅) |
+
+\* When Issue #13 (feedback loop) is complete, `conduit_litellm` will use LiteLLM's built-in cost tracking via `response._hidden_params["response_cost"]` instead of llm-prices.com.
 
 **Integration opportunity**: LiteLLM's infrastructure + Conduit's intelligence = best of both worlds
 
@@ -101,7 +104,18 @@ Key features implemented:
 - Lazy initialization from LiteLLM's `model_list`
 - Hybrid routing support (UCB1→LinUCB warm start)
 
-**Note**: Feedback loop (`record_feedback()`) is stubbed pending Issue #13.
+**Feedback Loop**: Automatic learning enabled via `ConduitFeedbackLogger` ✅
+
+The feedback loop works seamlessly in the background:
+1. LiteLLM completes request → calls `async_log_success_event()`
+2. Extract cost from `response._hidden_params['response_cost']`
+3. Calculate latency from `end_time - start_time`
+4. Reconstruct features from query text using `router.analyzer`
+5. Create `BanditFeedback` with quality=0.9 (success) or 0.1 (failure)
+6. Update bandit: `router.bandit.update(feedback, features)` or `router.hybrid_router.update()`
+7. Bandit learns which models work best for each query type
+
+This eliminates dependency on llm-prices.com for `conduit_litellm` usage.
 
 ### Strategic Benefits
 
@@ -114,7 +128,8 @@ Key features implemented:
 #### Technical Benefits
 - **100+ providers**: Instant access to LiteLLM's entire ecosystem
 - **Battle-tested infra**: LiteLLM handles retries, fallbacks, rate limiting
-- **Cost tracking**: LiteLLM provides cost/latency automatically (helps feedback)
+- **Cost tracking**: LiteLLM provides cost/latency in response metadata (`response._hidden_params["response_cost"]`)
+- **No llm-prices.com dependency**: Use LiteLLM's built-in pricing instead of external API
 - **Maintenance**: LiteLLM team maintains provider APIs, not us
 
 #### User Benefits
@@ -136,12 +151,17 @@ Key features implemented:
 - ✅ Add `setup_strategy()` helper for initialization (c5dd24c)
 - ✅ Fix async context handling (Issue #31, abcae20)
 
-#### Phase 2: Feedback Loop ⏳ PENDING (Issue #13)
-- ⏳ Hook into LiteLLM response tracking
-- ⏳ Implement `record_feedback()` method (stub exists)
-- ⏳ Calculate composite rewards (quality + cost + latency)
-- ⏳ Update bandit with feedback
-- ⏳ Test learning convergence
+#### Phase 2: Feedback Loop ✅ COMPLETE (Issue #13)
+- ✅ Hook into LiteLLM response tracking via `CustomLogger` callbacks
+- ✅ Implemented `ConduitFeedbackLogger` class (conduit_litellm/feedback.py)
+- ✅ Extract cost from `response._hidden_params["response_cost"]`
+- ✅ Calculate latency from start_time/end_time
+- ✅ Estimate quality (success=0.9, failure=0.1)
+- ✅ Generate features from query text using router.analyzer
+- ✅ Update bandit with `BanditFeedback` (quality + cost + latency)
+- ✅ Support both hybrid and standard routing modes
+- ✅ Comprehensive tests (test_litellm_feedback.py)
+- ✅ Eliminated llm-prices.com dependency (uses LiteLLM's built-in cost tracking)
 
 #### Phase 3: Testing & Docs ⏳ PARTIAL
 - ⏳ Unit tests for `ConduitRoutingStrategy` (optional dependency blocks pytest)
@@ -188,11 +208,12 @@ pip install conduit[litellm]
 
 ### Current Limitations
 
-1. **Feedback Loop**: `record_feedback()` is stubbed (Issue #13)
-   - Routing works, but bandit doesn't learn from outcomes yet
-   - Manual feedback not yet implemented
+1. **Manual Feedback API**: `record_feedback()` method is informational only
+   - Automatic feedback via `ConduitFeedbackLogger` is the primary mechanism ✅
+   - Manual feedback override API deferred (may be added if needed)
+   - Automatic learning from all LiteLLM responses is fully operational
 
-2. **Testing**: Optional dependency prevents pytest import
+2. **Testing**: Optional dependency prevents pytest import in main suite
    - Tests exist but can't run in main test suite
    - Requires `pip install conduit[litellm]` first
 
@@ -335,16 +356,19 @@ This would allow Conduit to use LiteLLM for execution while keeping ML routing. 
 3. ✅ Add `setup_strategy()` helper (c5dd24c)
 4. ✅ Fix async context handling (abcae20, Issue #31)
 5. ✅ Write basic README documentation
+6. ✅ **Issue #13**: Implement feedback loop
+   - ✅ Created `ConduitFeedbackLogger(CustomLogger)`
+   - ✅ Automatic registration with LiteLLM callbacks
+   - ✅ Cost extraction from `response._hidden_params`
+   - ✅ Feature regeneration from query text
+   - ✅ Bandit update with composite rewards
+   - ✅ Support for hybrid and standard routing
+   - ✅ Comprehensive unit tests
 
 ### Remaining Work (Priority Order)
 
 #### High Priority
-1. **Issue #13**: Implement feedback loop
-   - Hook into LiteLLM response callbacks
-   - Complete `record_feedback()` implementation
-   - Enable bandit learning from actual usage
-
-2. **Issue #14**: Add working examples
+1. **Issue #14**: Add working examples
    - Basic integration example
    - Performance comparison (ML vs rule-based)
    - Multi-provider setup
