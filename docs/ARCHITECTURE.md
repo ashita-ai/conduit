@@ -17,7 +17,7 @@ This document provides detailed technical architecture for Conduit's ML-powered 
 │ Application │         │   Router    │         │ (OpenAI/etc)│
 └─────────────┘         └─────────────┘         └─────────────┘
                               │
-                              ├─────────▶ Supabase PostgreSQL
+                              ├─────────▶ PostgreSQL
                               └─────────▶ Redis Cache
 ```
 
@@ -520,7 +520,7 @@ conduit/engines/
 
 ---
 
-### Layer 6: Data Persistence (Supabase)
+### Layer 6: Data Persistence
 
 **Responsibilities**:
 - Query/response/feedback storage
@@ -531,7 +531,7 @@ conduit/engines/
 **Database** (`conduit/core/database.py`):
 ```python
 class Database:
-    """Supabase PostgreSQL interface with transaction management.
+    """PostgreSQL interface with transaction management.
 
     Transaction Boundaries:
         - Single row inserts: Auto-commit (no explicit transaction)
@@ -656,7 +656,7 @@ class Database:
 **Key Files**:
 ```
 conduit/core/
-└── database.py       # Database - Supabase interface
+└── database.py       # Database - PostgreSQL interface
 ```
 
 ---
@@ -873,7 +873,7 @@ logger.info(
 
 ### API Key Management
 
-- Store in Supabase secrets (encrypted at rest)
+- Store in environment variables or secure secret manager
 - Load from environment variables only
 - Never log API keys
 - Rotate regularly
@@ -888,7 +888,7 @@ logger.info(
 
 - No PII logged without consent
 - User data encrypted in transit (HTTPS)
-- Database encryption at rest (Supabase default)
+- Database encryption at rest (provider-specific)
 - GDPR-compliant data retention
 
 ---

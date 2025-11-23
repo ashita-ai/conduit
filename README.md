@@ -39,112 +39,65 @@ asyncio.run(main())
 ```
 
 **See `examples/` for complete usage:**
-- **01_quickstart/**: hello_world.py (5 lines), simple_router.py, model_discovery.py
-- **02_routing/**: basic_routing.py, with_constraints.py, contextual_thompson.py
-- **03_optimization/**: caching.py, explicit_feedback.py, implicit_feedback.py, combined_feedback.py
-- **04_pca/**: pca_setup.py (one-time training), pca_routing.py (75% sample reduction)
-- **05_production/**: (coming soon - FastAPI, batch processing, monitoring)
+- **01_quickstart/**: hello_world.py (5 lines), simple_router.py
+- **02_routing/**: basic_routing.py, hybrid_routing.py, with_constraints.py
+- **03_optimization/**: caching.py, explicit_feedback.py
 
 ## Installation & Setup
 
 ### Prerequisites
 
 - Python 3.10+ (3.13 recommended)
-- **LLM API Keys** (at least one required):
-  - Direct support: OpenAI, Anthropic, Google, Groq, Mistral, Cohere, AWS Bedrock, HuggingFace
-  - For 100+ providers: Use LiteLLM integration (see `conduit_litellm/`)
-- Redis instance (optional - for caching and retry detection)
-- PostgreSQL database (optional - for query history persistence)
-  - Works with any provider: self-hosted, AWS RDS, Supabase, Neon, Railway, etc.
+- **LLM API Keys** (at least one): OpenAI, Anthropic, Google, Groq, Mistral, Cohere, AWS Bedrock, HuggingFace
+- Redis (optional - caching)
+- PostgreSQL (optional - history persistence)
 
-### Step 1: Clone and Install
+### Installation
 
 ```bash
 git clone https://github.com/MisfitIdeas/conduit.git
 cd conduit
 
-# Create virtual environment
 python3.13 -m venv .venv
 source .venv/bin/activate
-
-# Install core dependencies
 pip install -e .
 
-# Install development tools
-pip install mypy black ruff pytest pytest-asyncio pytest-cov psycopg2-binary
+# Development tools
+pip install -e ".[dev]"
 ```
 
-**Note:** Some ML dependencies (scipy, scikit-learn) require Fortran compilers. If installation fails, you can still use the core functionality.
+### Configuration
 
-### Step 2: Environment Configuration
-
-Create `.env` file:
+Create `.env`:
 ```bash
-# LLM Provider API Keys (at least one required)
-OPENAI_API_KEY=your_openai_key_here
-ANTHROPIC_API_KEY=your_anthropic_key_here
-GOOGLE_API_KEY=your_google_key_here
-GROQ_API_KEY=your_groq_key_here
+# LLM Provider (at least one)
+OPENAI_API_KEY=your_key
+ANTHROPIC_API_KEY=your_key
 
-# PostgreSQL (required if using database features)
-# Works with any PostgreSQL provider
+# Optional
 DATABASE_URL=postgresql://postgres:password@localhost:5432/conduit
-# Examples:
-# - Local: postgresql://postgres:password@localhost:5432/conduit
-# - Supabase: postgresql://postgres:password@db.xxxxx.supabase.co:5432/postgres
-# - AWS RDS: postgresql://user:password@instance.region.rds.amazonaws.com:5432/conduit
-
-# Redis (optional - Phase 2+)
 REDIS_URL=redis://localhost:6379
-
-# Application
 LOG_LEVEL=INFO
-ENVIRONMENT=development
 ```
 
-### Step 3: Database Setup
-
-**Option A: Using Alembic (recommended)**
+Database setup:
 ```bash
-# Ensure DATABASE_URL in .env points to your PostgreSQL database
-./migrate.sh
+./migrate.sh  # or: psql $DATABASE_URL < migrations/001_initial_schema.sql
 ```
-
-**Option B: Manual SQL**
-```bash
-# Run SQL directly via psql or your database provider's SQL editor
-psql $DATABASE_URL < migrations/001_initial_schema.sql
-```
-
-See `migrations/DEPLOYMENT.md` for detailed migration instructions.
 
 ## Tech Stack
 
-- **Python 3.10+**
-- **PydanticAI 1.14+** (LLM interface for direct provider support)
-- **LiteLLM** (optional - for 100+ provider support via `conduit_litellm/`)
-- **FastAPI** (REST API)
-- **PostgreSQL** (routing history)
-- **scikit-learn** (ML algorithms)
-- **sentence-transformers** (query embeddings)
+- Python 3.10+, PydanticAI 1.14+, FastAPI
+- PostgreSQL (history), Redis (caching)
+- numpy, sentence-transformers (embeddings)
 
 ## Development
 
 ```bash
-# Install dependencies
-pip install -e ".[dev]"
-
-# Run tests
-pytest --cov=conduit
-
-# Type checking
-mypy conduit/
-
-# Linting
-ruff check conduit/
-
-# Formatting
-black conduit/
+pytest --cov=conduit  # Tests
+mypy conduit/         # Type checking
+ruff check conduit/   # Linting
+black conduit/        # Formatting
 ```
 
 ## Architecture
@@ -184,116 +137,21 @@ All algorithms support:
 - **Development**: See `AGENTS.md` for development guidelines
 - **Strategic Decisions**: See `notes/2025-11-18_business_panel_analysis.md`
 
-## Current Status
+## Status
 
-**Phase**: 3 Complete + Performance Optimizations + Measurement Shipped
-**Version**: 0.0.5-alpha
-**Last Updated**: 2025-11-22
+**Version**: 0.0.5-alpha (Phase 3 Complete)
+**Test Coverage**: 87% (64/73 bandit tests passing)
 
-### Latest Updates (2025-11-22)
-
-- ✅ **Arbiter LLM-as-Judge Integration** - Automatic quality evaluation
-  - Async fire-and-forget evaluation (doesn't block routing)
-  - Semantic + factuality evaluators (commits: 0598f61, a1ceb96)
-  - Configurable sampling (10% default) with budget control ($10/day)
-  - 11/11 unit tests passing, 100% coverage
-  - Live integration tested with real API calls
-  - Stores feedback for bandit learning
-
-- ✅ **LiteLLM Feedback Loop** - Zero-config automatic learning
-  - ConduitFeedbackLogger with automatic bandit updates (commit: c68b7d0)
-  - Captures cost from LiteLLM response callbacks
-  - Feature regeneration from query text (stateless design)
-  - Supports hybrid and standard routing modes
-  - 19 comprehensive unit tests
-  - Closes Issue #13
-
-- ✅ **Hybrid Routing System** - 30% faster convergence
-  - UCB1→LinUCB warm start strategy (commits: 834c2ef, 4093d2f)
-  - Phase 1 (0-2K queries): UCB1 non-contextual exploration
-  - Phase 2 (2K+ queries): LinUCB contextual routing with knowledge transfer
-  - Sample requirements: 2,000-3,000 queries vs 10,000+ for pure LinUCB
-  - 17 comprehensive tests, full Router integration
-
-- ✅ **PCA Dimensionality Reduction** - 75% sample reduction
-  - Feature compression: 387→67 dimensions (commit: ace8305)
-  - LinUCB convergence: 17K queries vs 68K without PCA
-  - Combined with hybrid routing: 1,500-2,500 queries to production
-  - Automatic save/load of fitted PCA models
-
-- ✅ **Dynamic Pricing & Model Discovery**
-  - Auto-fetch 71+ models from llm-prices.com (24h cache)
-  - Auto-detect available models based on API keys
-  - Supports both PydanticAI (direct) and LiteLLM (extended) providers
-
-### Phase 3 Completed (2025-11-21)
-- ✅ **Multi-Objective Reward Function**
-  - Composite rewards: 70% quality + 20% cost + 10% latency
-  - Configurable weights via `reward_weights` parameter
-  - All bandit algorithms updated to support composite rewards
-
-- ✅ **Non-Stationarity Handling**
-  - Sliding window adaptation with configurable `window_size`
-  - Automatically adapts to changing model quality/costs over time
-  - Default 1000-observation window with graceful degradation
-
-- ✅ **Contextual Thompson Sampling**
-  - Bayesian linear regression with multivariate normal posterior
-  - Posterior distribution tracking (μ, Σ) per model
-  - Natural exploration via posterior sampling
-  - 17/17 tests passing, 96% coverage
-
-### Phase 2 Completed (2025-11-19)
-- ✅ **Implicit Feedback System** - "Observability Trinity"
-  - Error detection (model failures, empty responses, error patterns)
-  - Latency tracking (user patience tolerance categorization)
-  - Retry detection (semantic similarity with 5-min history window)
-  - 76 comprehensive tests (98-100% coverage)
-
-- ✅ **Redis Caching** - 10-40x performance improvement
-  - QueryFeatures caching with circuit breaker
-  - Cache hit/miss statistics
-  - Graceful degradation without Redis
-
-- ✅ **Examples Suite** - Progressive learning path
-  - 10 examples from hello_world.py (5 lines) to combined_feedback.py
-  - Organized into 4 folders: quickstart, routing, optimization, production
-  - All tested and working with graceful Redis degradation
-
-- ✅ **Database Migration** - Schema for implicit feedback storage
-
-### Phase 1 Completed (2025-11-18)
-- ✅ Core routing engine (ML-powered model selection)
-- ✅ Query analysis (embeddings, complexity, domain classification)
-- ✅ Thompson Sampling bandit algorithm
-- ✅ Database schema (PostgreSQL - any provider)
-- ✅ Type safety (mypy strict mode passes)
-- ✅ Comprehensive tests (87% overall coverage)
-
-### Phase 4 Priorities (Next)
-- ⏳ LiteLLM Integration (Issue #9): Conduit as routing strategy plugin
-- ⏳ Document success metrics and quality baselines
-- ⏳ Create demo showing 30% cost reduction on real workload
-- ⏳ Production API examples (FastAPI endpoint, batch processing)
-- ⏳ Monitoring and observability tooling
-- ⏳ Fix sklearn import blocking API tests (38 tests exist but can't run)
-
-### Test Coverage (2025-11-22)
-- **Overall**: 87% ✅ (exceeds 80% target), 64/73 bandit tests passing (88%)
-- **Core Engine**: 96-100% (models, analyzer, bandit, router, executor)
-- **Hybrid Router**: 17/17 tests (100%) ✅ - NEW
-- **Bandit Algorithms**: 64/73 passing (88%)
-  - Contextual Thompson Sampling: 17/17 (100%) ✅
-  - LinUCB: 12/12 (100%) ✅
-  - Epsilon-Greedy: 14/14 (100%) ✅
-  - UCB1: 11/11 (100%) ✅
-  - Non-stationarity: 11/11 (100%) ✅
-  - 9 failures: composite reward expectations (not implementation bugs)
-- **PCA**: Comprehensive tests ✅ - NEW
-- **Feedback System**: 98-100% (signals, history, integration - 76 tests)
-- **Database**: 84% (integration tests complete)
-- **CLI**: 98% ✅ (comprehensive command testing)
-- **API Layer**: Tests exist (513 lines, 38 tests) but blocked by pytest environment issue
+### Recent Additions
+- ✅ Arbiter LLM-as-Judge (automatic quality evaluation)
+- ✅ LiteLLM Feedback Loop (zero-config learning, Issue #13)
+- ✅ Hybrid Routing (UCB1→LinUCB, 30% faster convergence)
+- ✅ PCA Reduction (387→67 dims, 75% sample reduction)
+- ✅ Multi-Objective Rewards (70% quality + 20% cost + 10% latency)
+- ✅ Non-Stationarity Handling (sliding window adaptation)
+- ✅ Contextual Thompson Sampling (Bayesian linear regression)
+- ✅ Implicit Feedback (error/latency/retry detection)
+- ✅ Dynamic Pricing (71+ models from llm-prices.com)
 
 ## License
 
