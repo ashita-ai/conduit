@@ -16,7 +16,6 @@ Usage:
     >>> from conduit.feedback import (
     ...     ImplicitFeedbackDetector,
     ...     QueryHistoryTracker,
-    ...     FeedbackIntegrator,
     ... )
     >>> from redis.asyncio import Redis
     >>>
@@ -24,7 +23,6 @@ Usage:
     >>> redis = Redis.from_url("redis://localhost:6379")
     >>> history_tracker = QueryHistoryTracker(redis=redis)
     >>> detector = ImplicitFeedbackDetector(history_tracker)
-    >>> integrator = FeedbackIntegrator(bandit)
     >>>
     >>> # Detect implicit signals
     >>> implicit_feedback = await detector.detect(
@@ -40,12 +38,8 @@ Usage:
     ...     user_id="user_abc"
     ... )
     >>>
-    >>> # Update Thompson Sampling bandit
-    >>> integrator.update_from_implicit(
-    ...     model="gpt-4o-mini",
-    ...     features=query_features,
-    ...     feedback=implicit_feedback
-    ... )
+    >>> # Feedback can be used directly with HybridRouter.update()
+    >>> # See conduit_litellm.feedback for automatic bandit updates
 """
 
 from conduit.feedback.detector import ImplicitFeedbackDetector

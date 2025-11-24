@@ -1,8 +1,7 @@
-"""Integration tests for Database using real Supabase instance.
+"""Integration tests for Database using real PostgreSQL instance.
 
 These tests require:
-- SUPABASE_URL environment variable
-- SUPABASE_ANON_KEY environment variable
+- DATABASE_URL environment variable (postgresql://...)
 - Database schema migrated (run alembic upgrade head)
 """
 
@@ -25,10 +24,10 @@ from conduit.core.pricing import ModelPricing
 from conduit.core.exceptions import DatabaseError
 
 
-# Skip all tests if Supabase credentials not available
+# Skip all tests if DATABASE_URL not available
 pytestmark = pytest.mark.skipif(
-    not os.getenv("SUPABASE_URL") or not os.getenv("SUPABASE_ANON_KEY"),
-    reason="Supabase credentials not configured",
+    not os.getenv("DATABASE_URL"),
+    reason="DATABASE_URL not configured",
 )
 
 
