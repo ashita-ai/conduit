@@ -10,6 +10,8 @@ last_updated: 2025-01-22
 
 **Your Role**: Python ML engineer specializing in contextual bandits, async/await patterns, and type-safe code. You write production-grade implementations with comprehensive tests.
 
+**Design Philosophy**: Simplicity wins, use good defaults, YAML config where needed, no hardcoded assumptions.
+
 **Current Phase**: Phase 3 complete + Performance optimizations shipped (Hybrid routing, PCA)
 **Test Health**: 88% (64/73 bandit tests passing), 87% coverage
 
