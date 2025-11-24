@@ -34,15 +34,17 @@ class TestPCAIntegration:
             with pytest.raises(RuntimeError, match="PCA is enabled but not fitted"):
                 await analyzer.analyze("Test query")
 
-    def test_pca_fitting_requires_sufficient_queries(self):
+    @pytest.mark.asyncio
+    async def test_pca_fitting_requires_sufficient_queries(self):
         """Test that PCA fitting requires at least 100 queries."""
         analyzer = QueryAnalyzer(use_pca=True, pca_dimensions=64)
 
         # Too few queries
         with pytest.raises(ValueError, match="at least 100 queries"):
-            analyzer.fit_pca(["query1", "query2", "query3"])
+            await analyzer.fit_pca(["query1", "query2", "query3"])
 
-    def test_pca_fitting_success(self):
+    @pytest.mark.asyncio
+    async def test_pca_fitting_success(self):
         """Test successful PCA fitting on sufficient queries."""
         analyzer = QueryAnalyzer(use_pca=True, pca_dimensions=64)
 
@@ -52,7 +54,7 @@ class TestPCAIntegration:
         ]
 
         # Should not raise
-        analyzer.fit_pca(training_queries)
+        await analyzer.fit_pca(training_queries)
 
         # PCA should now be fitted
         assert hasattr(analyzer.pca, "components_")
@@ -65,7 +67,7 @@ class TestPCAIntegration:
 
         # Fit PCA
         training_queries = [f"Training query {i}" for i in range(150)]
-        analyzer.fit_pca(training_queries)
+        await analyzer.fit_pca(training_queries)
 
         # Analyze query
         features = await analyzer.analyze("What is deep learning?")
@@ -86,7 +88,7 @@ class TestPCAIntegration:
                 pca_model_path=pca_path
             )
             training_queries = [f"Query {i}" for i in range(150)]
-            analyzer1.fit_pca(training_queries)  # Saves to pca_path
+            await analyzer1.fit_pca(training_queries)  # Saves to pca_path
 
             # Create new analyzer that loads the saved PCA
             analyzer2 = QueryAnalyzer(
@@ -126,7 +128,7 @@ class TestPCAIntegration:
         analyzer = QueryAnalyzer(use_pca=True, pca_dimensions=64)
 
         training_queries = [f"Query {i}" for i in range(150)]
-        analyzer.fit_pca(training_queries)
+        await analyzer.fit_pca(training_queries)
 
         features = await analyzer.analyze("What is Python?")
 
@@ -145,12 +147,13 @@ class TestPCAIntegration:
         assert analyzer.pca is None
         assert not analyzer.use_pca
 
-    def test_pca_fit_requires_pca_enabled(self):
+    @pytest.mark.asyncio
+    async def test_pca_fit_requires_pca_enabled(self):
         """Test that fit_pca raises error when PCA not enabled."""
         analyzer = QueryAnalyzer(use_pca=False)
 
         with pytest.raises(ValueError, match="PCA not enabled"):
-            analyzer.fit_pca(["query1", "query2"])
+            await analyzer.fit_pca(["query1", "query2"])
 
     @pytest.mark.asyncio
     async def test_different_pca_dimensions(self):
@@ -168,7 +171,7 @@ class TestPCAIntegration:
                     pca_model_path=pca_path
                 )
                 training_queries = [f"Query {i}" for i in range(300)]
-                analyzer.fit_pca(training_queries)
+                await analyzer.fit_pca(training_queries)
 
                 features = await analyzer.analyze("Test query")
 
