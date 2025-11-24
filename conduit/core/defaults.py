@@ -18,6 +18,15 @@ DEFAULT_REWARD_WEIGHTS = {
     "latency": 0.10,  # 10% weight on response speed
 }
 
+# User Preference Presets
+# Maps optimize_for values to reward weight configurations
+PREFERENCE_WEIGHTS = {
+    "cost": {"quality": 0.4, "cost": 0.5, "latency": 0.1},
+    "speed": {"quality": 0.4, "cost": 0.1, "latency": 0.5},
+    "quality": {"quality": 0.8, "cost": 0.1, "latency": 0.1},
+    "balanced": {"quality": 0.7, "cost": 0.2, "latency": 0.1},
+}
+
 # Success Threshold
 # Minimum reward value to count as "success" for statistics
 SUCCESS_THRESHOLD = 0.85

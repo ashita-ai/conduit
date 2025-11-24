@@ -5,13 +5,20 @@ for context, ensuring consistency across the routing system.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
 from pydantic import BaseModel, Field
 
-from conduit.core.defaults import DEFAULT_REWARD_WEIGHTS, TOKEN_COUNT_NORMALIZATION
+from conduit.core.defaults import (
+    DEFAULT_REWARD_WEIGHTS,
+    PREFERENCE_WEIGHTS,
+    TOKEN_COUNT_NORMALIZATION,
+)
 from conduit.core.models import QueryFeatures
+
+if TYPE_CHECKING:
+    from conduit.core.models import UserPreferences
 
 
 class ModelArm(BaseModel):
@@ -132,6 +139,39 @@ class BanditFeedback(BaseModel):
 
         return reward
 
+    def calculate_reward_with_preferences(
+        self, preferences: "UserPreferences"
+    ) -> float:
+        """Calculate reward using user preferences.
+
+        Convenience method that looks up weights from PREFERENCE_WEIGHTS
+        based on the optimize_for setting.
+
+        Args:
+            preferences: User preferences with optimize_for setting
+
+        Returns:
+            Composite reward in [0, 1] range
+
+        Example:
+            >>> from conduit.core.models import UserPreferences
+            >>> feedback = BanditFeedback(
+            ...     model_id="gpt-4o-mini",
+            ...     cost=0.0001,
+            ...     quality_score=0.95,
+            ...     latency=1.2
+            ... )
+            >>> prefs = UserPreferences(optimize_for="cost")
+            >>> reward = feedback.calculate_reward_with_preferences(prefs)
+            >>> print(f"{reward:.3f}")  # Cost-optimized
+        """
+        weights = PREFERENCE_WEIGHTS[preferences.optimize_for]
+        return self.calculate_reward(
+            quality_weight=weights["quality"],
+            cost_weight=weights["cost"],
+            latency_weight=weights["latency"],
+        )
+
 
 class BanditAlgorithm(ABC):
     """Abstract base class for multi-armed bandit algorithms.
@@ -182,12 +222,18 @@ class BanditAlgorithm(ABC):
         pass
 
     @abstractmethod
-    async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
+    async def update(
+        self,
+        feedback: BanditFeedback,
+        features: QueryFeatures,
+        preferences: "UserPreferences | None" = None,
+    ) -> None:
         """Update algorithm state with feedback from arm pull.
 
         Args:
             feedback: Feedback from model execution
             features: Original query features
+            preferences: Optional user preferences to override default reward weights
 
         Example:
             >>> feedback = BanditFeedback(
@@ -197,6 +243,11 @@ class BanditAlgorithm(ABC):
             ...     latency=1.2
             ... )
             >>> await algorithm.update(feedback, features)
+            >>>
+            >>> # With preferences
+            >>> from conduit.core.models import UserPreferences
+            >>> prefs = UserPreferences(optimize_for="cost")
+            >>> await algorithm.update(feedback, features, preferences=prefs)
         """
         pass
 
@@ -230,6 +281,30 @@ class BanditAlgorithm(ABC):
             "total_queries": self.total_queries,
             "n_arms": self.n_arms,
         }
+
+    def _get_reward_weights_from_preferences(
+        self, preferences: "UserPreferences | None"
+    ) -> dict[str, float]:
+        """Get reward weights from preferences or use defaults.
+
+        Args:
+            preferences: User preferences, or None to use defaults
+
+        Returns:
+            Dictionary with quality, cost, and latency weights
+
+        Example:
+            >>> from conduit.core.models import UserPreferences
+            >>> prefs = UserPreferences(optimize_for="cost")
+            >>> weights = self._get_reward_weights_from_preferences(prefs)
+            >>> print(weights)  # {"quality": 0.4, "cost": 0.5, "latency": 0.1}
+        """
+        if preferences is not None:
+            return PREFERENCE_WEIGHTS[preferences.optimize_for]
+        # Use bandit's default weights if available, otherwise use global defaults
+        if hasattr(self, "reward_weights"):
+            return self.reward_weights  # type: ignore
+        return DEFAULT_REWARD_WEIGHTS
 
     def _extract_features(self, features: QueryFeatures) -> np.ndarray:
         """Extract feature vector from QueryFeatures.

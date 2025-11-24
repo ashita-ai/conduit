@@ -9,12 +9,15 @@ providing a warm start for the contextual algorithm.
 """
 
 import logging
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from conduit.core.models import Query, QueryFeatures, RoutingDecision
 from conduit.engines.analyzer import QueryAnalyzer
 from conduit.engines.bandits import LinUCBBandit, UCB1Bandit
 from conduit.engines.bandits.base import BanditFeedback, ModelArm
+
+if TYPE_CHECKING:
+    from conduit.core.models import UserPreferences
 
 logger = logging.getLogger(__name__)
 
@@ -219,13 +222,17 @@ class HybridRouter:
             )
 
     async def update(
-        self, feedback: BanditFeedback, features: QueryFeatures | None = None
+        self,
+        feedback: BanditFeedback,
+        features: QueryFeatures | None = None,
+        preferences: "UserPreferences | None" = None,
     ) -> None:
         """Update current bandit with feedback.
 
         Args:
             feedback: Feedback from model execution
             features: Query features (required for LinUCB, ignored for UCB1)
+            preferences: Optional user preferences to override default reward weights
 
         Raises:
             ValueError: If in LinUCB phase but features not provided
@@ -239,12 +246,12 @@ class HybridRouter:
                 domain="general",
                 domain_confidence=0.5,
             )
-            await self.ucb1.update(feedback, dummy_features)
+            await self.ucb1.update(feedback, dummy_features, preferences)
         else:
             # LinUCB requires features
             if features is None:
                 raise ValueError("Features required for LinUCB update")
-            await self.linucb.update(feedback, features)
+            await self.linucb.update(feedback, features, preferences)
 
     async def _transition_to_linucb(self) -> None:
         """Transition from UCB1 to LinUCB with knowledge transfer.

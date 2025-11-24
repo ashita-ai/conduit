@@ -12,7 +12,7 @@ Reference: https://en.wikipedia.org/wiki/Multi-armed_bandit#Upper_Confidence_Bou
 
 import math
 from collections import deque
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
 
@@ -20,6 +20,9 @@ from conduit.core.defaults import SUCCESS_THRESHOLD, UCB1_C_DEFAULT
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
+
+if TYPE_CHECKING:
+    from conduit.core.models import UserPreferences
 
 
 class UCB1Bandit(BanditAlgorithm):
@@ -164,7 +167,12 @@ class UCB1Bandit(BanditAlgorithm):
 
         return selected_arm
 
-    async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
+    async def update(
+        self,
+        feedback: BanditFeedback,
+        features: QueryFeatures,
+        preferences: "UserPreferences | None" = None,
+    ) -> None:
         """Update arm statistics with feedback.
 
         Updates running mean reward for the selected arm using multi-objective
@@ -179,7 +187,8 @@ class UCB1Bandit(BanditAlgorithm):
 
         Args:
             feedback: Feedback from model execution
-            context: Original query context (not used)
+            features: Original query features (not used by UCB1)
+            preferences: Optional user preferences to override default reward weights
 
         Example:
             >>> feedback = BanditFeedback(
@@ -188,15 +197,18 @@ class UCB1Bandit(BanditAlgorithm):
             ...     quality_score=0.95,
             ...     latency=1.2
             ... )
-            >>> await bandit.update(feedback, context)
+            >>> await bandit.update(feedback, features)
         """
         model_id = feedback.model_id
 
+        # Get reward weights (from preferences or defaults)
+        weights = self._get_reward_weights_from_preferences(preferences)
+
         # Calculate composite reward from quality, cost, and latency (Phase 3)
         reward = feedback.calculate_reward(
-            quality_weight=self.reward_weights["quality"],
-            cost_weight=self.reward_weights["cost"],
-            latency_weight=self.reward_weights["latency"],
+            quality_weight=weights["quality"],
+            cost_weight=weights["cost"],
+            latency_weight=weights["latency"],
         )
 
         # Add reward to history

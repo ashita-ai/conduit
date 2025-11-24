@@ -22,6 +22,7 @@ from conduit.core.models import (
     Response,
     RoutingDecision,
     RoutingResult,
+    UserPreferences,
 )
 from conduit.core.pricing import ModelPricing
 
@@ -50,6 +51,7 @@ __all__ = [
     "Feedback",
     "ModelState",
     "RoutingResult",
+    "UserPreferences",
     # Pricing
     "ModelPricing",
 ]

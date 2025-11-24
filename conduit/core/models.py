@@ -6,10 +6,33 @@ responses, feedback, and ML model state.
 
 import json
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
+
+
+class UserPreferences(BaseModel):
+    """User preferences for routing optimization.
+    
+    Allows users to specify their optimization priorities, which adjusts
+    the reward function weights used in bandit algorithms.
+    
+    Presets:
+    - cost: Optimize for low cost (50% cost, 40% quality, 10% latency)
+    - speed: Optimize for low latency (50% latency, 40% quality, 10% cost)
+    - quality: Optimize for maximum quality (80% quality, 10% cost, 10% latency)
+    - balanced: Balanced optimization (70% quality, 20% cost, 10% latency) [default]
+    
+    Example:
+        >>> prefs = UserPreferences(optimize_for="cost")
+        >>> query = Query(text="Simple query", preferences=prefs)
+    """
+
+    optimize_for: Literal["cost", "speed", "quality", "balanced"] = Field(
+        default="balanced",
+        description="Optimization priority for routing decisions"
+    )
 
 
 class QueryConstraints(BaseModel):
@@ -38,6 +61,10 @@ class Query(BaseModel):
     )
     constraints: QueryConstraints | None = Field(
         None, description="Routing constraints"
+    )
+    preferences: UserPreferences = Field(
+        default_factory=UserPreferences,
+        description="User preferences for routing optimization"
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
