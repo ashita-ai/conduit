@@ -449,6 +449,9 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_sherman_morrison_vs_direct_inversion(self, test_arms, test_features):
         """Test Sherman-Morrison gives same result as direct matrix inversion."""
+        # Set random seed for reproducibility
+        np.random.seed(42)
+
         # Create two bandits: one with Sherman-Morrison, one using direct inversion for comparison
         bandit_sm = LinUCBBandit(test_arms, window_size=0, alpha=1.0)
 

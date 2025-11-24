@@ -232,7 +232,7 @@ class LinUCBBandit(BanditAlgorithm):
                 self.b[model_id] += obs_r * obs_x
 
             # Recompute A_inv after rebuilding A
-            self.A_inv[model_id] = np.linalg.inv(self.A[model_id])  # type: ignore[assignment]  # justification: np.linalg.inv returns floating[Any] which is compatible with float64
+            self.A_inv[model_id] = np.linalg.inv(self.A[model_id])  # type: ignore[assignment]  # np.linalg.inv returns compatible dtype
         else:
             # No sliding window: Use Sherman-Morrison incremental update
             # Update A and b incrementally
@@ -249,7 +249,7 @@ class LinUCBBandit(BanditAlgorithm):
                 self.A_inv[model_id] -= (a_inv_x @ a_inv_x.T) / denominator
             else:
                 # Fallback to full inversion if numerical issues detected
-                self.A_inv[model_id] = np.linalg.inv(self.A[model_id])  # type: ignore[assignment]  # justification: np.linalg.inv returns floating[Any] which is compatible with float64
+                self.A_inv[model_id] = np.linalg.inv(self.A[model_id])  # type: ignore[assignment]  # np.linalg.inv returns compatible dtype
 
         # Track statistics
         self.arm_pulls[model_id] += 1
