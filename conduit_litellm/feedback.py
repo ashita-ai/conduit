@@ -5,10 +5,13 @@ metadata (cost, latency) and feed it back to Conduit's bandit algorithms,
 enabling ML-based learning from actual usage.
 """
 
+import asyncio
 import logging
 from typing import Any
+from uuid import uuid4
 
 from conduit.core.defaults import QUALITY_ESTIMATION_DEFAULTS
+from conduit.core.models import Query, Response
 from conduit.engines.bandits.base import BanditFeedback
 
 logger = logging.getLogger(__name__)
@@ -49,17 +52,20 @@ class ConduitFeedbackLogger(CustomLogger):
         >>> # Logger automatically updates bandit when LiteLLM requests complete
     """
 
-    def __init__(self, conduit_router: Any):
+    def __init__(self, conduit_router: Any, evaluator: Any | None = None):
         """Initialize feedback logger with Conduit router reference.
 
         Args:
             conduit_router: Conduit Router instance (provides analyzer and bandit)
+            evaluator: Optional ArbiterEvaluator for LLM-as-judge quality assessment
         """
         super().__init__()
         self.router = conduit_router
+        self.evaluator = evaluator
         logger.info(
             f"ConduitFeedbackLogger initialized "
-            f"(hybrid={self.router.hybrid_router is not None})"
+            f"(hybrid={self.router.hybrid_router is not None}, "
+            f"evaluator={'enabled' if evaluator else 'disabled'})"
         )
 
     async def async_log_success_event(
@@ -138,9 +144,38 @@ class ConduitFeedbackLogger(CustomLogger):
             # Update appropriate router component
             await self._update_bandit(feedback, features)
 
+            # Fire-and-forget Arbiter evaluation (if enabled)
+            if self.evaluator:
+                # Create Query and Response objects for Arbiter
+                query_obj = Query(
+                    id=str(uuid4()),
+                    text=query_text,
+                )
+
+                # Extract token count from response (LiteLLM includes usage data)
+                tokens = 0
+                usage = getattr(response_obj, 'usage', None)
+                if usage is not None:
+                    tokens = getattr(usage, 'total_tokens', 0)
+
+                response_obj_conduit = Response(
+                    id=getattr(response_obj, "id", str(uuid4())),
+                    query_id=query_obj.id,
+                    text=response_text,
+                    model=model_id,
+                    cost=cost,
+                    latency=latency,
+                    tokens=tokens,
+                )
+                # Non-blocking evaluation
+                asyncio.create_task(
+                    self.evaluator.evaluate_async(response_obj_conduit, query_obj)
+                )
+
             logger.debug(
                 f"Feedback recorded: model={model_id}, cost=${cost:.6f}, "
                 f"latency={latency:.2f}s, quality={quality_score:.2f}"
+                f"{', arbiter=queued' if self.evaluator else ''}"
             )
 
         except Exception as e:

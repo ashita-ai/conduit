@@ -73,17 +73,22 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
                 - embedding_model (str): Sentence transformer model (default: all-MiniLM-L6-v2)
                 - cache_enabled (bool): Enable Redis caching (default: False)
                 - redis_url (str): Redis connection URL (if cache_enabled=True)
+                - evaluator (ArbiterEvaluator): Optional LLM-as-judge evaluator for quality assessment
 
         Example:
-            >>> # Use hybrid routing with caching
+            >>> # Use hybrid routing with caching and LLM-as-judge
+            >>> from conduit.evaluation import ArbiterEvaluator
+            >>> evaluator = ArbiterEvaluator(db, sample_rate=0.1)
             >>> strategy = ConduitRoutingStrategy(
             ...     use_hybrid=True,
             ...     cache_enabled=True,
-            ...     redis_url="redis://localhost:6379"
+            ...     evaluator=evaluator  # Enable LLM-as-judge quality measurement
             ... )
         """
         super().__init__()
         self.conduit_router = conduit_router
+        # Extract evaluator before passing config to Router
+        self.evaluator = conduit_config.pop('evaluator', None)
         self.conduit_config = conduit_config
         self._initialized = False
         self._router: Any | None = None  # LiteLLM router reference
@@ -265,7 +270,6 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         """
         import asyncio
         import concurrent.futures
-        import threading
 
         try:
             # Try to get running event loop
@@ -339,8 +343,11 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
             if self.feedback_logger is not None and self._feedback_registered:
                 self._unregister_feedback_logger()
 
-            # Create feedback logger
-            self.feedback_logger = ConduitFeedbackLogger(self.conduit_router)
+            # Create feedback logger with optional evaluator
+            self.feedback_logger = ConduitFeedbackLogger(
+                self.conduit_router,
+                evaluator=self.evaluator
+            )
 
             # Register with LiteLLM's callback system
             # LiteLLM will call async_log_success_event and async_log_failure_event
