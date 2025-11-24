@@ -33,14 +33,19 @@ class Router:
     def __init__(
         self,
         models: list[str] | None = None,
-        embedding_model: str = "all-MiniLM-L6-v2",
+        embedding_provider_type: str | None = None,
+        embedding_model: str | None = None,
+        embedding_api_key: str | None = None,
         cache_enabled: bool | None = None,
     ):
         """Initialize router with default components.
 
         Args:
             models: List of available model IDs. If None, uses defaults.
-            embedding_model: Sentence transformer model for query analysis.
+            embedding_provider_type: Embedding provider type (huggingface, openai, cohere, sentence-transformers).
+                If None, uses config default (huggingface).
+            embedding_model: Embedding model identifier (provider-specific, optional).
+            embedding_api_key: API key for embedding provider (if required, optional).
             cache_enabled: Override cache enabled setting. If None, uses config default.
         """
         # Use default models if not specified
@@ -67,9 +72,15 @@ class Router:
         else:
             logger.info("Router initialized with caching disabled")
 
-        # Initialize analyzer
+        # Initialize analyzer with embedding provider
+        embedding_provider_type = embedding_provider_type or settings.embedding_provider
+        embedding_model_config = embedding_model or settings.embedding_model or None
+        embedding_api_key_config = embedding_api_key or settings.embedding_api_key or None
+
         self.analyzer = QueryAnalyzer(
-            embedding_model=embedding_model,
+            embedding_provider_type=embedding_provider_type,
+            embedding_model=embedding_model_config,
+            embedding_api_key=embedding_api_key_config,
             cache_service=cache_service,
             use_pca=settings.use_pca,
             pca_dimensions=settings.pca_dimensions,
@@ -93,6 +104,7 @@ class Router:
             ucb1_c=settings.hybrid_ucb1_c,
             linucb_alpha=settings.hybrid_linucb_alpha,
             reward_weights=reward_weights,
+            window_size=settings.bandit_window_size,
         )
 
         self.cache = cache_service

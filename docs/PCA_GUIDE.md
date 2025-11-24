@@ -401,7 +401,8 @@ if analyzer.pca is None:
 
 Retrain when:
 - **Query distribution changes**: New domains or query types
-- **Embedding model changes**: Different sentence-transformers model
+- **Embedding provider changes**: Different embedding provider (HuggingFace/OpenAI/Cohere) or model
+  - **Note**: PCA models are provider-specific. Re-fit PCA when switching providers.
 - **Significant drift**: >5% drop in routing quality
 
 ```python

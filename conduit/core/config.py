@@ -54,9 +54,18 @@ class Settings(BaseSettings):
     aws_region: str = Field(default="us-east-1", description="AWS Region (for Bedrock)")
     huggingface_api_key: str = Field(default="", description="HuggingFace API key")
 
-    # ML Configuration
+    # ML Configuration - Embedding Provider
+    embedding_provider: str = Field(
+        default="huggingface",
+        description="Embedding provider type (huggingface, openai, cohere, sentence-transformers)",
+    )
     embedding_model: str = Field(
-        default="all-MiniLM-L6-v2", description="Sentence transformer model"
+        default="",
+        description="Embedding model identifier (provider-specific, empty = use provider default)",
+    )
+    embedding_api_key: str = Field(
+        default="",
+        description="API key for embedding provider (if required, defaults to provider-specific env var)",
     )
     default_models: list[str] = Field(
         default=[

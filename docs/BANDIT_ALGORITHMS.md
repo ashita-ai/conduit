@@ -900,15 +900,17 @@ bandit = LinUCBBandit(arms, alpha=1.0)
 ### Extract Query Features
 
 ```python
-from sentence_transformers import SentenceTransformer
+import asyncio
+from conduit.engines.embeddings import create_embedding_provider
 from conduit.core.models import QueryFeatures
 
-# Initialize embedding model (once at startup)
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+# Initialize embedding provider (HuggingFace API default, free, no API key needed)
+embedding_provider = create_embedding_provider("huggingface")
+# Or use OpenAI/Cohere for production (see docs/EMBEDDING_PROVIDERS.md)
 
 # Extract features from query
 query = "Explain quantum computing in simple terms"
-embedding = embedding_model.encode(query).tolist()  # 384 dims
+embedding = await embedding_provider.embed(query)  # 384 dims (HuggingFace default)
 
 features = QueryFeatures(
     embedding=embedding,

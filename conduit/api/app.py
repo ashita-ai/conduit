@@ -35,7 +35,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await database.connect()
 
     # Initialize components (Router now handles analyzer + hybrid routing internally)
-    router = Router(models=settings.default_models, embedding_model=settings.embedding_model)
+    router = Router(
+        models=settings.default_models,
+        embedding_provider_type=settings.embedding_provider,
+        embedding_model=settings.embedding_model if settings.embedding_model else None,
+        embedding_api_key=settings.embedding_api_key if settings.embedding_api_key else None,
+    )
 
     # Load pricing information (if available) and pass to executor.
     # If loading fails, the executor will fall back to built-in pricing.

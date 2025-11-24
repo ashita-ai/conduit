@@ -74,11 +74,27 @@ Create `.env`:
 OPENAI_API_KEY=your_key
 ANTHROPIC_API_KEY=your_key
 
+# Embedding Provider (optional - defaults to HuggingFace API, free, no API key needed)
+EMBEDDING_PROVIDER=huggingface  # Options: huggingface (default), openai, cohere, sentence-transformers
+EMBEDDING_MODEL=  # Optional, uses provider default if empty
+# For OpenAI embeddings:
+OPENAI_API_KEY=sk-...  # Reuses LLM API key
+# For Cohere embeddings:
+COHERE_API_KEY=...  # Separate API key required
+
 # Optional
 DATABASE_URL=postgresql://postgres:password@localhost:5432/conduit
 REDIS_URL=redis://localhost:6379
 LOG_LEVEL=INFO
 ```
+
+**Embedding Provider Options**:
+- **`huggingface`** (default): Free HuggingFace Inference API, no API key needed. Lightweight, works out of the box.
+- **`openai`**: OpenAI embeddings (recommended for production). Requires `OPENAI_API_KEY`. Uses same key as LLM provider.
+- **`cohere`**: Cohere embeddings (recommended for production). Requires `COHERE_API_KEY`.
+- **`sentence-transformers`**: Local embeddings (offline use). Requires `pip install conduit-router[embeddings]`.
+
+See `docs/EMBEDDING_PROVIDERS.md` for detailed configuration and usage examples.
 
 Database setup:
 ```bash
@@ -89,7 +105,7 @@ Database setup:
 
 - Python 3.10+, PydanticAI 1.14+, FastAPI
 - PostgreSQL (history), Redis (caching)
-- numpy, sentence-transformers (embeddings)
+- **Embeddings**: HuggingFace API (free default), OpenAI, Cohere, or sentence-transformers (optional)
 
 ## Development
 
@@ -133,6 +149,7 @@ All algorithms support:
 - **Examples**: See `examples/` for usage patterns and working code
 - **Architecture**: See `docs/ARCHITECTURE.md` for system design
 - **Bandit Algorithms**: See `docs/BANDIT_ALGORITHMS.md` for algorithm details
+- **Embedding Providers**: See `docs/EMBEDDING_PROVIDERS.md` for embedding configuration
 - **LiteLLM Integration**: See `docs/LITELLM_INTEGRATION.md` for integration strategies
 - **Development**: See `AGENTS.md` for development guidelines
 - **Strategic Decisions**: See `notes/2025-11-18_business_panel_analysis.md`
@@ -143,6 +160,7 @@ All algorithms support:
 **Test Coverage**: 87% (64/73 bandit tests passing)
 
 ### Recent Additions
+- ✅ **Lightweight Embeddings**: API-based embeddings (HuggingFace API default, OpenAI, Cohere) - removes heavy sentence-transformers dependency
 - ✅ Arbiter LLM-as-Judge (automatic quality evaluation)
 - ✅ LiteLLM Feedback Loop (zero-config learning, Issue #13)
 - ✅ Hybrid Routing (UCB1→LinUCB, 30% faster convergence)

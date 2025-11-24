@@ -5,14 +5,12 @@ import logging
 import pickle
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-from sentence_transformers import (
-    SentenceTransformer,  # type: ignore[import-untyped,unused-ignore]
-)
+from typing import TYPE_CHECKING, Optional
 
 from conduit.cache import CacheService
 from conduit.core.models import QueryFeatures
+from conduit.engines.embeddings.base import EmbeddingProvider
+from conduit.engines.embeddings.factory import create_embedding_provider
 
 if TYPE_CHECKING:
     from sklearn.decomposition import PCA  # type: ignore[import-untyped,unused-ignore]
@@ -23,38 +21,71 @@ logger = logging.getLogger(__name__)
 class QueryAnalyzer:
     """Extract semantic and structural features from queries.
 
-    Uses sentence-transformers for embeddings and heuristics for
-    complexity scoring and domain classification.
+    Uses configurable embedding providers (HuggingFace API, OpenAI, Cohere, or
+    sentence-transformers) for embeddings and heuristics for complexity scoring
+    and domain classification.
 
     Features caching with Redis for performance optimization of the
     expensive embedding computation (200ms -> 5ms on cache hit).
+
+    Default: HuggingFace Inference API (free, no API key needed)
+    Recommended: OpenAI or Cohere (better quality, requires API keys)
     """
 
     def __init__(
         self,
-        embedding_model: str = "all-MiniLM-L6-v2",
+        embedding_provider: Optional[EmbeddingProvider] = None,
+        embedding_provider_type: str = "huggingface",
+        embedding_model: Optional[str] = None,
+        embedding_api_key: Optional[str] = None,
         cache_service: CacheService | None = None,
         use_pca: bool = False,
         pca_dimensions: int = 64,
         pca_model_path: str = "models/pca.pkl",
     ):
-        """Initialize analyzer with embedding model and optional cache.
+        """Initialize analyzer with embedding provider and optional cache.
 
         Args:
-            embedding_model: HuggingFace model for embeddings
+            embedding_provider: Pre-configured embedding provider (optional)
+            embedding_provider_type: Provider type ("huggingface", "openai", "cohere", "sentence-transformers")
+            embedding_model: Model identifier (provider-specific, optional)
+            embedding_api_key: API key for providers that require it (optional)
             cache_service: Optional cache service for feature caching
             use_pca: Enable PCA dimensionality reduction (default: False)
             pca_dimensions: Target dimensions after PCA (default: 64)
             pca_model_path: Path to fitted PCA model (default: models/pca.pkl)
 
         Example:
-            >>> # Standard 384-dim embeddings
+            >>> # Free default (HuggingFace API, no API key needed)
             >>> analyzer = QueryAnalyzer()
+            >>>
+            >>> # OpenAI (recommended for production)
+            >>> analyzer = QueryAnalyzer(
+            ...     embedding_provider_type="openai",
+            ...     embedding_model="text-embedding-3-small",
+            ...     embedding_api_key="sk-..."
+            ... )
+            >>>
+            >>> # Cohere (recommended for production)
+            >>> analyzer = QueryAnalyzer(
+            ...     embedding_provider_type="cohere",
+            ...     embedding_api_key="..."
+            ... )
             >>>
             >>> # Reduced 64-dim embeddings with PCA
             >>> analyzer = QueryAnalyzer(use_pca=True, pca_dimensions=64)
         """
-        self.embedder = SentenceTransformer(embedding_model)
+        # Use provided provider or create one
+        if embedding_provider is not None:
+            self.embedding_provider = embedding_provider
+        else:
+            # Create provider based on type
+            self.embedding_provider = create_embedding_provider(
+                provider=embedding_provider_type,
+                model=embedding_model,
+                api_key=embedding_api_key,
+            )
+
         self.domain_classifier = DomainClassifier()
         self.cache = cache_service
 
@@ -103,8 +134,8 @@ class QueryAnalyzer:
                 return cached_features
 
         # Cache miss or no cache - compute features
-        # Generate embedding (offload CPU work to thread pool to avoid blocking event loop)
-        embedding_tensor = await asyncio.to_thread(self.embedder.encode, query)
+        # Generate embedding using provider
+        embedding_list = await self.embedding_provider.embed(query)
 
         # Apply PCA if enabled
         if self.use_pca and self.pca is not None:
@@ -113,11 +144,12 @@ class QueryAnalyzer:
                 raise RuntimeError(
                     "PCA is enabled but not fitted. Call fit_pca() with training data first."
                 )
-            # Transform to reduced dimensions
-            embedding_tensor = self.pca.transform([embedding_tensor])[0]
+            # Transform to reduced dimensions (PCA expects numpy array)
+            import numpy as np
 
-        # sentence_transformers returns numpy array-like objects
-        embedding_list: list[float] = embedding_tensor.tolist()
+            embedding_array = np.array(embedding_list)
+            embedding_array = self.pca.transform([embedding_array])[0]
+            embedding_list = embedding_array.tolist()
 
         # Estimate token count (rough approximation)
         token_count = self._estimate_tokens(query)
@@ -215,7 +247,7 @@ class QueryAnalyzer:
 
         return min(1.0, max(0.0, complexity))
 
-    def fit_pca(self, queries: list[str]) -> None:
+    async def fit_pca(self, queries: list[str]) -> None:
         """Fit PCA on representative query set (one-time setup).
 
         Args:
@@ -239,8 +271,13 @@ class QueryAnalyzer:
                 f"Need at least 100 queries for PCA fitting, got {len(queries)}"
             )
 
-        # Generate embeddings for all queries
-        embeddings = self.embedder.encode(queries)
+        # Generate embeddings for all queries using provider
+        embeddings_list = await self.embedding_provider.embed_batch(queries)
+
+        # Convert to numpy array for PCA
+        import numpy as np
+
+        embeddings = np.array(embeddings_list)
 
         # Fit PCA
         self.pca.fit(embeddings)
@@ -293,14 +330,22 @@ class QueryAnalyzer:
             >>> # Without PCA
             >>> analyzer = QueryAnalyzer()
             >>> analyzer.feature_dim
-            387  # 384 + 3
+            387  # 384 + 3 (HuggingFace default)
 
             >>> # With PCA
             >>> analyzer = QueryAnalyzer(use_pca=True, pca_dimensions=64)
             >>> analyzer.feature_dim
             67  # 64 + 3
+
+            >>> # OpenAI embeddings (1536 dims)
+            >>> analyzer = QueryAnalyzer(embedding_provider_type="openai")
+            >>> analyzer.feature_dim
+            1539  # 1536 + 3
         """
-        embedding_dim = self.pca_dimensions if self.use_pca else 384
+        if self.use_pca:
+            embedding_dim = self.pca_dimensions
+        else:
+            embedding_dim = self.embedding_provider.dimension
         metadata_dim = 3  # token_count, complexity_score, domain_confidence
         return embedding_dim + metadata_dim
 

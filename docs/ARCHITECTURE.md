@@ -69,8 +69,18 @@ conduit/api/
 class QueryAnalyzer:
     """Extract features from query for routing decision."""
 
-    def __init__(self, embedding_model: str = "all-MiniLM-L6-v2"):
-        self.embedder = SentenceTransformer(embedding_model)
+    def __init__(
+        self,
+        embedding_provider_type: str = "huggingface",
+        embedding_model: Optional[str] = None,
+        embedding_api_key: Optional[str] = None,
+    ):
+        # Uses configurable embedding provider (HuggingFace API default)
+        self.embedding_provider = create_embedding_provider(
+            provider=embedding_provider_type,
+            model=embedding_model,
+            api_key=embedding_api_key,
+        )
         self.domain_classifier = DomainClassifier()
 
     async def analyze(self, query: str) -> QueryFeatures:
@@ -80,8 +90,8 @@ class QueryAnalyzer:
         Returns:
             QueryFeatures with embedding, complexity, domain
         """
-        # Parallel feature extraction
-        embedding = await self.compute_embedding(query)
+        # Generate embedding using provider (HuggingFace/OpenAI/Cohere/sentence-transformers)
+        embedding = await self.embedding_provider.embed(query)
         complexity = self.compute_complexity(query)
         domain = await self.classify_domain(query)
 
@@ -93,6 +103,14 @@ class QueryAnalyzer:
             domain_confidence=domain.confidence
         )
 ```
+
+**Embedding Providers** (`conduit/engines/embeddings/`):
+- **HuggingFace API** (default): Free, no API key required
+- **OpenAI**: High-quality embeddings, requires API key
+- **Cohere**: Optimized for semantic search, requires API key
+- **sentence-transformers**: Local embeddings, optional dependency
+
+See `docs/EMBEDDING_PROVIDERS.md` for detailed provider documentation.
 
 **RoutingEngine** (`conduit/engines/router.py`):
 ```python
