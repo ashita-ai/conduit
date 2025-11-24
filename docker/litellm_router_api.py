@@ -111,18 +111,25 @@ async def health():
 
 @app.get("/v1/models")
 async def list_models():
-    """OpenAI-compatible models endpoint."""
-    return {
-        "object": "list",
-        "data": [
-            {
-                "id": m["model_info"]["id"],
+    """OpenAI-compatible models endpoint.
+
+    Shows unique model_names (not deployment IDs) so Conduit can route between deployments.
+    """
+    # Get unique model names (not deployment IDs)
+    unique_models = {}
+    for m in model_list:
+        model_name = m["model_name"]
+        if model_name not in unique_models:
+            unique_models[model_name] = {
+                "id": model_name,  # Use model_name as ID, not deployment ID
                 "object": "model",
                 "created": 1677610602,
                 "owned_by": m["litellm_params"]["model"].split("/")[0] if "/" in m["litellm_params"]["model"] else "openai"
             }
-            for m in model_list
-        ]
+
+    return {
+        "object": "list",
+        "data": list(unique_models.values())
     }
 
 
