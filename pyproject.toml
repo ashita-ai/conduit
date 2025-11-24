@@ -44,6 +44,7 @@ dependencies = [
     "greenlet>=3.2.4",
     "psycopg2-binary>=2.9.11",
     "arbiter",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -134,4 +135,5 @@ dev = [
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.1",
     "ruff>=0.14.6",
+    "types-pyyaml>=6.0.12.20250915",
 ]

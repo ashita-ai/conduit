@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from conduit.cache import CacheConfig, CacheService
-from conduit.core.config import settings
+from conduit.core.config import load_preference_weights, settings
 from conduit.core.models import (
     Query,
     QueryConstraints,
@@ -116,6 +116,12 @@ class Router:
             >>> decision = await router.route(query)
             >>> print(f"Use {decision.selected_model} (confidence: {decision.confidence:.2f})")
         """
+        # Apply user preferences to reward weights
+        if query.preferences:
+            weights = load_preference_weights(query.preferences.optimize_for)
+            self.hybrid_router.ucb1.reward_weights = weights
+            self.hybrid_router.linucb.reward_weights = weights
+
         return await self.hybrid_router.route(query)
 
     def get_cache_stats(self) -> dict[str, Any] | None:

@@ -4,6 +4,10 @@ This module provides centralized configuration loading from environment
 variables with validation and type safety.
 """
 
+import yaml
+from pathlib import Path
+from typing import Literal
+
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -233,6 +237,53 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         """Check if running in production environment."""
         return self.environment.lower() == "production"
+
+
+def load_preference_weights(optimize_for: Literal["balanced", "quality", "cost", "speed"]) -> dict[str, float]:
+    """Load reward weights for user preference preset from conduit.yaml.
+
+    Args:
+        optimize_for: User's optimization preference preset
+
+    Returns:
+        Dictionary with quality, cost, and latency weights
+
+    Example:
+        >>> weights = load_preference_weights("cost")
+        >>> print(weights)
+        {"quality": 0.4, "cost": 0.5, "latency": 0.1}
+    """
+    config_path = Path("conduit.yaml")
+
+    # Default weights if config not found
+    defaults = {
+        "balanced": {"quality": 0.7, "cost": 0.2, "latency": 0.1},
+        "quality": {"quality": 0.8, "cost": 0.1, "latency": 0.1},
+        "cost": {"quality": 0.4, "cost": 0.5, "latency": 0.1},
+        "speed": {"quality": 0.4, "cost": 0.1, "latency": 0.5},
+    }
+
+    if not config_path.exists():
+        return defaults[optimize_for]
+
+    try:
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
+            if not isinstance(config, dict):
+                return defaults[optimize_for]
+            routing = config.get("routing", {})
+            if not isinstance(routing, dict):
+                return defaults[optimize_for]
+            presets = routing.get("presets", {})
+            if not isinstance(presets, dict):
+                return defaults[optimize_for]
+            preset = presets.get(optimize_for)
+            if not isinstance(preset, dict):
+                return defaults[optimize_for]
+            return preset
+    except Exception:
+        # Fallback to defaults if YAML parsing fails
+        return defaults[optimize_for]
 
 
 # Global settings instance

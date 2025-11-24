@@ -1,0 +1,31 @@
+# Conduit Configuration
+# See docs/configuration.md for detailed documentation
+
+routing:
+  # Default optimization strategy
+  # Options: balanced, quality, cost, speed
+  default_optimization: balanced
+
+  # Reward weight presets for routing decisions
+  # Each preset balances quality, cost, and latency differently
+  # Weights must sum to 1.0
+  presets:
+    balanced:
+      quality: 0.7    # Prioritize quality
+      cost: 0.2       # Moderate cost concern
+      latency: 0.1    # Low latency concern
+
+    quality:
+      quality: 0.8    # Maximize quality
+      cost: 0.1       # Minimal cost concern
+      latency: 0.1    # Minimal latency concern
+
+    cost:
+      quality: 0.4    # Acceptable quality
+      cost: 0.5       # Minimize cost
+      latency: 0.1    # Low latency concern
+
+    speed:
+      quality: 0.4    # Acceptable quality
+      cost: 0.1       # Low cost concern
+      latency: 0.5    # Minimize latency
