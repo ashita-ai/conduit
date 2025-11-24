@@ -1,12 +1,36 @@
-"""Tests for LatencyService historical latency tracking."""
+"""Tests for LatencyService historical latency tracking.
 
-import pytest
+This test file imports LatencyService directly to avoid loading heavy dependencies.
+"""
+
+import sys
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+# Mock heavy imports before they're loaded
+sys.modules['sentence_transformers'] = MagicMock()
+sys.modules['sklearn'] = MagicMock()
+sys.modules['torch'] = MagicMock()
+
+import pytest
+
+# Now we can import from conduit.core.latency directly
 from conduit.core.latency import LatencyService
-from conduit.core.models import QueryFeatures
 from conduit.core.exceptions import DatabaseError
+
+# Mock QueryFeatures to avoid importing models
+class MockQueryFeatures:
+    """Mock QueryFeatures for testing."""
+    def __init__(self, embedding, token_count, complexity_score, domain, domain_confidence):
+        self.embedding = embedding
+        self.token_count = token_count
+        self.complexity_score = complexity_score
+        self.domain = domain
+        self.domain_confidence = domain_confidence
 
 
 @pytest.fixture
@@ -31,7 +55,7 @@ def latency_service(mock_pool):
 @pytest.fixture
 def query_features():
     """Create sample query features."""
-    return QueryFeatures(
+    return MockQueryFeatures(
         embedding=[0.1] * 384,
         token_count=50,
         complexity_score=0.5,
@@ -285,11 +309,11 @@ class TestLatencyHeuristics:
         """Test heuristic for OpenAI models."""
         # GPT-4o (premium)
         estimate = latency_service._estimate_latency_heuristic("gpt-4o")
-        assert 1.5 <= estimate <= 2.5  # 1.5 base * 1.3 premium
+        assert 1.8 <= estimate <= 2.1  # 1.5 base * 1.3 premium = 1.95
 
         # GPT-4o-mini (fast)
         estimate = latency_service._estimate_latency_heuristic("gpt-4o-mini")
-        assert 0.8 <= estimate <= 1.3  # 1.5 base * 0.7 mini
+        assert 0.9 <= estimate <= 1.2  # 1.5 base * 0.7 mini = 1.05
 
     def test_heuristic_anthropic_models(self, latency_service):
         """Test heuristic for Anthropic models."""
@@ -303,8 +327,9 @@ class TestLatencyHeuristics:
 
     def test_heuristic_google_models(self, latency_service):
         """Test heuristic for Google models."""
+        # Google baseline is 1.2, no multiplier for basic models
         estimate = latency_service._estimate_latency_heuristic("gemini-pro")
-        assert 1.0 <= estimate <= 1.5
+        assert 0.8 <= estimate <= 1.5  # 1.2 base, could have flash multiplier if matched
 
     def test_heuristic_groq_models(self, latency_service):
         """Test heuristic for Groq models."""

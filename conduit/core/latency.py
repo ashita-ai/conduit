@@ -279,12 +279,13 @@ class LatencyService:
         # Get baseline or use conservative default
         baseline = self._provider_baselines.get(provider, 2.0)
 
-        # Apply cost-based multiplier for premium models
-        # Premium models (opus, gpt-4) tend to be slower
-        if any(x in model_id.lower() for x in ["opus", "gpt-4o", "claude-3-5"]):
-            baseline *= 1.3
-        elif any(x in model_id.lower() for x in ["mini", "haiku", "flash"]):
+        # Apply cost-based multiplier for premium/fast models
+        # Check for fast models first (more specific match)
+        if any(x in model_id.lower() for x in ["mini", "haiku", "flash"]):
             baseline *= 0.7
+        # Then check for premium models
+        elif any(x in model_id.lower() for x in ["opus", "gpt-4o", "claude-3-5", "claude-3.5"]):
+            baseline *= 1.3
 
         logger.debug(
             f"Heuristic latency estimate for {model_id}: {baseline:.3f}s "
