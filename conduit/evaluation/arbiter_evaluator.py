@@ -9,7 +9,17 @@ import os
 import random
 from typing import Optional
 
-from arbiter import evaluate
+try:
+    # Try to import from pydantic_evals (newer API)
+    from pydantic_evals.evaluators import LLMJudge as evaluate  # type: ignore
+except ImportError:
+    # Fallback to stub for testing/development
+    async def evaluate(*args, **kwargs):  # type: ignore
+        """Stub evaluate function for when pydantic_evals is not available."""
+        raise NotImplementedError(
+            "Arbiter evaluation requires pydantic_evals package. "
+            "Install with: pip install pydantic-evals"
+        )
 
 from conduit.core.database import Database
 from conduit.core.models import Feedback, Query, Response
