@@ -13,7 +13,7 @@ Tutorial: http://proceedings.mlr.press/v28/agrawal13.pdf
 """
 
 from collections import deque
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
 
@@ -21,6 +21,9 @@ from conduit.core.defaults import SUCCESS_THRESHOLD, THOMPSON_LAMBDA_DEFAULT
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
+
+if TYPE_CHECKING:
+    from conduit.core.models import UserPreferences
 
 
 class ContextualThompsonSamplingBandit(BanditAlgorithm):
@@ -189,7 +192,12 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
 
         return selected_arm
 
-    async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
+    async def update(
+        self,
+        feedback: BanditFeedback,
+        features: QueryFeatures,
+        preferences: "UserPreferences | None" = None,
+    ) -> None:
         """Update posterior distribution with feedback.
 
         Uses Bayesian linear regression to update posterior:
@@ -219,10 +227,14 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
         model_id = feedback.model_id
 
         # Calculate composite reward from quality, cost, and latency (Phase 3)
+        # Get reward weights (from preferences or defaults)
+        weights = self._get_reward_weights_from_preferences(preferences)
+
+        # Calculate composite reward from quality, cost, and latency
         reward = feedback.calculate_reward(
-            quality_weight=self.reward_weights["quality"],
-            cost_weight=self.reward_weights["cost"],
-            latency_weight=self.reward_weights["latency"],
+            quality_weight=weights["quality"],
+            cost_weight=weights["cost"],
+            latency_weight=weights["latency"],
         )
 
         x = self._extract_features(features)

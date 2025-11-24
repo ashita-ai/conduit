@@ -8,10 +8,14 @@ These baselines provide reference points for evaluating bandit performance:
 """
 
 import random
+from typing import TYPE_CHECKING
 
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
+
+if TYPE_CHECKING:
+    from conduit.core.models import UserPreferences
 
 
 class RandomBaseline(BanditAlgorithm):
@@ -61,7 +65,12 @@ class RandomBaseline(BanditAlgorithm):
 
         return selected_arm
 
-    async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
+    async def update(
+        self,
+        feedback: BanditFeedback,
+        features: QueryFeatures,
+        preferences: "UserPreferences | None" = None,
+    ) -> None:
         """No-op update (random baseline doesn't learn)."""
         pass
 
@@ -149,7 +158,12 @@ class OracleBaseline(BanditAlgorithm):
 
         return selected_arm
 
-    async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
+    async def update(
+        self,
+        feedback: BanditFeedback,
+        features: QueryFeatures,
+        preferences: "UserPreferences | None" = None,
+    ) -> None:
         """Store oracle reward for this query+arm combination.
 
         Args:
@@ -217,7 +231,12 @@ class AlwaysBestBaseline(BanditAlgorithm):
         self.total_queries += 1
         return self.best_arm
 
-    async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
+    async def update(
+        self,
+        feedback: BanditFeedback,
+        features: QueryFeatures,
+        preferences: "UserPreferences | None" = None,
+    ) -> None:
         """No-op update (static policy)."""
         pass
 
@@ -280,7 +299,12 @@ class AlwaysCheapestBaseline(BanditAlgorithm):
         self.total_queries += 1
         return self.cheapest_arm
 
-    async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
+    async def update(
+        self,
+        feedback: BanditFeedback,
+        features: QueryFeatures,
+        preferences: "UserPreferences | None" = None,
+    ) -> None:
         """No-op update (static policy)."""
         pass
 

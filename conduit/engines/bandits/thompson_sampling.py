@@ -13,13 +13,16 @@ Reference: https://en.wikipedia.org/wiki/Thompson_sampling
 
 import random
 from collections import deque
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import numpy as np  # type: ignore[import-untyped,unused-ignore]
 
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
+
+if TYPE_CHECKING:
+    from conduit.core.models import UserPreferences
 
 
 class ThompsonSamplingBandit(BanditAlgorithm):
@@ -153,7 +156,12 @@ class ThompsonSamplingBandit(BanditAlgorithm):
 
         return selected_arm
 
-    async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
+    async def update(
+        self,
+        feedback: BanditFeedback,
+        features: QueryFeatures,
+        preferences: "UserPreferences | None" = None,
+    ) -> None:
         """Update Beta distribution with feedback.
 
         Uses multi-objective reward (quality + cost + latency) as success probability.
@@ -181,10 +189,14 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         model_id = feedback.model_id
 
         # Calculate composite reward from quality, cost, and latency (Phase 3)
+        # Get reward weights (from preferences or defaults)
+        weights = self._get_reward_weights_from_preferences(preferences)
+
+        # Calculate composite reward from quality, cost, and latency
         reward = feedback.calculate_reward(
-            quality_weight=self.reward_weights["quality"],
-            cost_weight=self.reward_weights["cost"],
-            latency_weight=self.reward_weights["latency"],
+            quality_weight=weights["quality"],
+            cost_weight=weights["cost"],
+            latency_weight=weights["latency"],
         )
 
         # Add reward to history
