@@ -61,7 +61,7 @@ class TestUCB1Bandit:
         assert bandit.name == "ucb1"
         assert len(bandit.arms) == 3
         assert bandit.total_queries == 0
-        assert bandit.c == math.sqrt(2)  # Default exploration parameter
+        assert bandit.c == 1.5  # Default exploration parameter (UCB1_C_DEFAULT)
 
         # Check initial state
         for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
