@@ -8,7 +8,7 @@ ML-powered routing strategy for LiteLLM's 100+ providers with automatic feedback
 pip install conduit[litellm]
 ```
 
-## Usage
+## Quick Start
 
 ```python
 from litellm import Router
@@ -52,6 +52,16 @@ finally:
 - **Resource Management**: Cleanup method prevents memory leaks
 - **Async & Sync**: Supports both contexts (Issue #31 fixed)
 
+## Documentation
+
+**Comprehensive Guide**: See [../docs/LITELLM_PLUGIN.md](../docs/LITELLM_PLUGIN.md) for:
+- Detailed configuration options and examples
+- All supported bandit algorithms
+- Troubleshooting common issues
+- Performance characteristics and benchmarks
+- When to use plugin vs standalone Conduit
+- Advanced usage patterns
+
 ## Configuration Options
 
 ```python
@@ -61,6 +71,8 @@ strategy = ConduitRoutingStrategy(
     redis_url="redis://localhost:6379"
 )
 ```
+
+See [configuration docs](../docs/LITELLM_PLUGIN.md#configuration) for all options.
 
 ## Testing
 
@@ -92,7 +104,7 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
 ## Related Issues
 
 - #9 - LiteLLM integration (parent issue)
-- #13 - Feedback collection and learning
+- #13 - Feedback collection and learning ✅ Complete
 - #14 - LiteLLM integration examples
-- #15 - LiteLLM plugin usage documentation
-- #31 - **Fixed**: RuntimeError in async contexts
+- #15 - LiteLLM plugin usage documentation ✅ Complete
+- #31 - RuntimeError in async contexts ✅ Fixed
