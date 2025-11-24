@@ -321,7 +321,7 @@ class ConduitFeedbackLogger(CustomLogger):
             True if model exists in arms, False otherwise
         """
         # Check hybrid router arms
-        if self.router.hybrid_router is not None:
+        if hasattr(self.router, "hybrid_router") and self.router.hybrid_router is not None:
             if hasattr(self.router.hybrid_router, "linucb_bandit"):
                 bandit = self.router.hybrid_router.linucb_bandit
                 return model_id in bandit.arms if bandit else False
@@ -330,7 +330,7 @@ class ConduitFeedbackLogger(CustomLogger):
                 return model_id in bandit.arms if bandit else False
 
         # Check standard bandit arms
-        if self.router.bandit is not None:
+        if hasattr(self.router, "bandit") and self.router.bandit is not None:
             return model_id in self.router.bandit.arms
 
         return False
@@ -342,7 +342,7 @@ class ConduitFeedbackLogger(CustomLogger):
             List of model IDs available in router
         """
         # Check hybrid router
-        if self.router.hybrid_router is not None:
+        if hasattr(self.router, "hybrid_router") and self.router.hybrid_router is not None:
             if hasattr(self.router.hybrid_router, "linucb_bandit"):
                 bandit = self.router.hybrid_router.linucb_bandit
                 return list(bandit.arms.keys()) if bandit else []
@@ -351,7 +351,7 @@ class ConduitFeedbackLogger(CustomLogger):
                 return list(bandit.arms.keys()) if bandit else []
 
         # Check standard bandit
-        if self.router.bandit is not None:
+        if hasattr(self.router, "bandit") and self.router.bandit is not None:
             return list(self.router.bandit.arms.keys())
 
         return []
@@ -364,13 +364,13 @@ class ConduitFeedbackLogger(CustomLogger):
             features: Query features for contextual learning
         """
         # Hybrid mode: Update HybridRouter
-        if self.router.hybrid_router is not None:
+        if hasattr(self.router, "hybrid_router") and self.router.hybrid_router is not None:
             await self.router.hybrid_router.update(feedback, features)
             logger.debug("Updated HybridRouter with feedback")
             return
 
         # Standard mode: Update ContextualBandit
-        if self.router.bandit is not None:
+        if hasattr(self.router, "bandit") and self.router.bandit is not None:
             await self.router.bandit.update(feedback, features)
             logger.debug("Updated ContextualBandit with feedback")
             return
