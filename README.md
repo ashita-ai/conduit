@@ -10,6 +10,7 @@ Conduit uses contextual bandits (Thompson Sampling) to intelligently route queri
 
 - **ML-Driven Routing**: Learns from usage patterns vs static IF/ELSE rules
 - **Multi-Objective Optimization**: Balance cost, latency, and quality constraints
+- **Automatic Model Discovery**: Zero-config - detects providers from API keys (3 models per provider)
 - **Flexible Provider Support**:
   - Direct: 8 providers via PydanticAI - OpenAI, Anthropic, Google, Groq, Mistral, Cohere, AWS Bedrock, HuggingFace (structured outputs, type safety)
   - Extended: 100+ providers via LiteLLM integration (see `conduit_litellm/` and `docs/LITELLM_INTEGRATION.md`)
@@ -20,7 +21,6 @@ Conduit uses contextual bandits (Thompson Sampling) to intelligently route queri
 - **Multi-Objective Rewards**: Composite rewards (70% quality + 20% cost + 10% latency)
 - **Non-Stationarity Handling**: Sliding window adaptation for changing model quality/costs
 - **Dynamic Pricing**: 71+ models with auto-updated pricing from llm-prices.com (24h cache)
-- **Model Discovery**: Auto-detects available models based on your API keys (zero configuration)
 
 ## Quick Start
 
@@ -40,7 +40,7 @@ asyncio.run(main())
 
 **See `examples/` for complete usage:**
 - **01_quickstart/**: hello_world.py (5 lines), simple_router.py
-- **02_routing/**: basic_routing.py, hybrid_routing.py, with_constraints.py
+- **02_routing/**: basic_routing.py, hybrid_routing.py, with_constraints.py, **model_discovery.py (NEW)**
 - **03_optimization/**: caching.py, explicit_feedback.py
 
 ## Installation & Setup
@@ -84,6 +84,55 @@ Database setup:
 ```bash
 ./migrate.sh  # or: psql $DATABASE_URL < migrations/001_initial_schema.sql
 ```
+
+## Model Discovery
+
+Conduit automatically discovers available models based on your configured API keys. **No manual model configuration needed!**
+
+### How It Works
+
+1. **Auto-Detection**: Checks which API keys are set in your environment
+2. **Representative Models**: Uses 3 current, popular models per provider
+3. **Zero Config**: Just set your API keys, Conduit does the rest
+
+### Supported Providers
+
+| Provider | API Key | Models Included |
+|----------|---------|----------------|
+| OpenAI | `OPENAI_API_KEY` | gpt-4o, gpt-4o-mini, gpt-4-turbo |
+| Anthropic | `ANTHROPIC_API_KEY` | claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022, claude-3-opus-20240229 |
+| Google | `GOOGLE_API_KEY` | gemini-1.5-pro, gemini-1.5-flash, gemini-2.0-flash-exp |
+| Groq | `GROQ_API_KEY` | llama-3.1-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768 |
+| Mistral | `MISTRAL_API_KEY` | mistral-large-latest, mistral-medium-latest, mistral-small-latest |
+| Cohere | `COHERE_API_KEY` | command-r-plus, command-r, command |
+
+### Usage Patterns
+
+```python
+# 1. Auto-Discovery (Recommended) - Zero configuration
+router = Router()  # Detects providers from API keys
+
+# 2. Explicit Models - Full control
+router = Router(models=["gpt-4o-mini", "claude-3-5-sonnet-20241022"])
+
+# 3. YAML Config - Production deployments
+router = Router(model_config_path="models.yaml")
+```
+
+**YAML Config Format** (`models.yaml`):
+```yaml
+models:
+  - gpt-4o-mini
+  - claude-3-5-sonnet-20241022
+  - gemini-1.5-flash
+```
+
+**Best Practices**:
+- **Development**: Use auto-discovery (just set API keys in `.env`)
+- **Production**: Use YAML config for consistency across deploys
+- **Testing**: Use explicit models for controlled experiments
+
+See `examples/02_routing/model_discovery.py` for complete examples.
 
 ## Tech Stack
 
