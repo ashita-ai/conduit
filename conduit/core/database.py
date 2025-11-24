@@ -380,3 +380,69 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to get response: {e}")
             raise DatabaseError(f"Failed to get response: {e}") from e
+
+    async def fetch_latest_evaluation_metrics(
+        self, time_window: str = "last_hour"
+    ) -> dict[str, float | None]:
+        """Fetch latest evaluation metrics for OTEL export.
+
+        Args:
+            time_window: Time window to filter metrics (last_hour, last_day, etc.)
+
+        Returns:
+            Dictionary with metric names and their latest values:
+                - regret_oracle: Latest regret vs oracle baseline
+                - regret_random: Latest regret vs random baseline
+                - quality_trend: Latest quality trend value
+                - cost_efficiency: Latest cost efficiency value
+                - convergence_rate: Latest convergence rate
+
+        Note:
+            Returns None for metrics that don't exist in the table.
+        """
+        if not self.pool:
+            raise DatabaseError("Database connection pool not initialized")
+
+        try:
+            async with self.pool.acquire() as conn:
+                # Fetch latest value for each metric type
+                query = """
+                    SELECT DISTINCT ON (metric_name)
+                        metric_name,
+                        metric_value
+                    FROM evaluation_metrics
+                    WHERE time_window = $1
+                    ORDER BY metric_name, created_at DESC
+                """
+                rows = await conn.fetch(query, time_window)
+
+                # Convert to dictionary
+                metrics: dict[str, float | None] = {
+                    "regret_oracle": None,
+                    "regret_random": None,
+                    "quality_trend": None,
+                    "cost_efficiency": None,
+                    "convergence_rate": None,
+                }
+
+                for row in rows:
+                    metric_name = row["metric_name"]
+                    metric_value = float(row["metric_value"])
+
+                    # Map database metric names to our keys
+                    if metric_name == "regret_vs_oracle":
+                        metrics["regret_oracle"] = metric_value
+                    elif metric_name == "regret_vs_random":
+                        metrics["regret_random"] = metric_value
+                    elif metric_name == "quality_trend":
+                        metrics["quality_trend"] = metric_value
+                    elif metric_name == "cost_efficiency":
+                        metrics["cost_efficiency"] = metric_value
+                    elif metric_name == "convergence_rate":
+                        metrics["convergence_rate"] = metric_value
+
+                return metrics
+
+        except Exception as e:
+            logger.error(f"Failed to fetch evaluation metrics: {e}")
+            raise DatabaseError(f"Failed to fetch evaluation metrics: {e}") from e

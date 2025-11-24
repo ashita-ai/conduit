@@ -10,9 +10,15 @@ Instrumented Components:
     - Thompson Sampling confidence scores
     - Cache hit rates
     - Feedback integration rates
+    - Evaluation metrics (regret, convergence, quality)
 """
 
-from conduit.observability.metrics import get_meter, record_routing_decision
+from conduit.observability.evaluation_exporter import EvaluationMetricsExporter
+from conduit.observability.metrics import (
+    get_meter,
+    record_evaluation_metrics,
+    record_routing_decision,
+)
 from conduit.observability.setup import setup_telemetry, shutdown_telemetry
 from conduit.observability.tracing import get_tracer, trace_operation
 
@@ -23,4 +29,6 @@ __all__ = [
     "get_meter",
     "trace_operation",
     "record_routing_decision",
+    "record_evaluation_metrics",
+    "EvaluationMetricsExporter",
 ]

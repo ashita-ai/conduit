@@ -35,6 +35,13 @@ _cache_hits_counter: metrics.Counter | None = None
 _cache_misses_counter: metrics.Counter | None = None
 _feedback_submissions_counter: metrics.Counter | None = None
 
+# Evaluation metric instruments (histograms for distribution tracking)
+_evaluation_regret_oracle_histogram: metrics.Histogram | None = None
+_evaluation_regret_random_histogram: metrics.Histogram | None = None
+_evaluation_convergence_histogram: metrics.Histogram | None = None
+_evaluation_quality_histogram: metrics.Histogram | None = None
+_evaluation_cost_efficiency_histogram: metrics.Histogram | None = None
+
 
 def get_meter(name: str = "conduit") -> metrics.Meter:
     """Get OpenTelemetry meter instance.
@@ -63,6 +70,11 @@ def _ensure_instruments() -> None:
     global _cache_hits_counter
     global _cache_misses_counter
     global _feedback_submissions_counter
+    global _evaluation_regret_oracle_histogram
+    global _evaluation_regret_random_histogram
+    global _evaluation_convergence_histogram
+    global _evaluation_quality_histogram
+    global _evaluation_cost_efficiency_histogram
 
     meter = get_meter()
 
@@ -113,6 +125,42 @@ def _ensure_instruments() -> None:
             name="conduit.feedback.submissions",
             description="Number of feedback submissions",
             unit="1",
+        )
+
+    # Evaluation metrics (all histograms for distribution tracking)
+    if _evaluation_regret_oracle_histogram is None:
+        _evaluation_regret_oracle_histogram = meter.create_histogram(
+            name="conduit.evaluation.regret_oracle",
+            description="Regret vs Oracle baseline (0.0 = perfect)",
+            unit="1",
+        )
+
+    if _evaluation_regret_random_histogram is None:
+        _evaluation_regret_random_histogram = meter.create_histogram(
+            name="conduit.evaluation.regret_random",
+            description="Regret vs Random baseline",
+            unit="1",
+        )
+
+    if _evaluation_convergence_histogram is None:
+        _evaluation_convergence_histogram = meter.create_histogram(
+            name="conduit.evaluation.convergence",
+            description="Convergence status (1 = converged, 0 = not converged)",
+            unit="1",
+        )
+
+    if _evaluation_quality_histogram is None:
+        _evaluation_quality_histogram = meter.create_histogram(
+            name="conduit.evaluation.quality_score",
+            description="Quality score distribution from evaluations",
+            unit="1",
+        )
+
+    if _evaluation_cost_efficiency_histogram is None:
+        _evaluation_cost_efficiency_histogram = meter.create_histogram(
+            name="conduit.evaluation.cost_efficiency",
+            description="Quality achieved per dollar spent",
+            unit="quality/USD",
         )
 
 
@@ -212,3 +260,50 @@ def get_metrics_summary() -> dict[str, Any]:
         "service_name": settings.otel_service_name,
         "exporter_endpoint": settings.otel_exporter_otlp_endpoint,
     }
+
+
+def record_evaluation_metrics(
+    regret_oracle: float | None = None,
+    regret_random: float | None = None,
+    converged: bool | None = None,
+    quality_score: float | None = None,
+    cost_efficiency: float | None = None,
+    time_window: str = "last_hour",
+) -> None:
+    """Record evaluation metrics from evaluation_metrics table.
+
+    Args:
+        regret_oracle: Regret vs Oracle baseline (0.0 = perfect routing)
+        regret_random: Regret vs Random baseline
+        converged: True if bandit has converged, False otherwise
+        quality_score: Quality score to record in histogram
+        cost_efficiency: Quality per dollar spent
+        time_window: Time window for the metrics (for attributes)
+    """
+    if not settings.otel_enabled or not settings.otel_metrics_enabled:
+        return
+
+    _ensure_instruments()
+
+    attributes = {"time_window": time_window}
+
+    # Record regret vs oracle
+    if regret_oracle is not None and _evaluation_regret_oracle_histogram:
+        _evaluation_regret_oracle_histogram.record(regret_oracle, attributes)
+
+    # Record regret vs random
+    if regret_random is not None and _evaluation_regret_random_histogram:
+        _evaluation_regret_random_histogram.record(regret_random, attributes)
+
+    # Record convergence status
+    if converged is not None and _evaluation_convergence_histogram:
+        convergence_value = 1.0 if converged else 0.0
+        _evaluation_convergence_histogram.record(convergence_value, attributes)
+
+    # Record quality score distribution
+    if quality_score is not None and _evaluation_quality_histogram:
+        _evaluation_quality_histogram.record(quality_score, attributes)
+
+    # Record cost efficiency
+    if cost_efficiency is not None and _evaluation_cost_efficiency_histogram:
+        _evaluation_cost_efficiency_histogram.record(cost_efficiency, attributes)
