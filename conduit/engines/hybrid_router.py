@@ -15,6 +15,7 @@ from conduit.core.models import Query, QueryFeatures, RoutingDecision
 from conduit.engines.analyzer import QueryAnalyzer
 from conduit.engines.bandits import LinUCBBandit, UCB1Bandit
 from conduit.engines.bandits.base import BanditFeedback, ModelArm
+from conduit.engines.constraints import ConstraintFilter
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ class HybridRouter:
         ucb1_c: float = 1.5,
         linucb_alpha: float = 1.0,
         reward_weights: dict[str, float] | None = None,
+        constraint_filter: ConstraintFilter | None = None,
     ):
         """Initialize hybrid router.
 
@@ -70,6 +72,7 @@ class HybridRouter:
             ucb1_c: UCB1 exploration parameter (default: 1.5)
             linucb_alpha: LinUCB exploration parameter (default: 1.0)
             reward_weights: Multi-objective reward weights (quality, cost, latency)
+            constraint_filter: Constraint filter service (created if None)
 
         Example:
             >>> # Standard 387-dim features
@@ -118,6 +121,9 @@ class HybridRouter:
 
         # Query analyzer (for LinUCB phase)
         self.analyzer = analyzer if analyzer is not None else QueryAnalyzer()
+        
+        # Constraint filter service
+        self.constraint_filter = constraint_filter if constraint_filter is not None else ConstraintFilter()
 
         logger.info(
             f"HybridRouter initialized: {len(models)} models, "
@@ -162,12 +168,31 @@ class HybridRouter:
             - Phase 1 (queries < threshold): Uses UCB1, no feature extraction
             - Phase 2 (queries >= threshold): Uses LinUCB with full features
             - Transition at threshold: Transfers UCB1 knowledge to LinUCB
+            - Constraint filtering: Applied before bandit selection
         """
         self.query_count += 1
 
         # Check if should transition to LinUCB
         if self.current_phase == "ucb1" and self.query_count >= self.switch_threshold:
             await self._transition_to_linucb()
+
+        # Filter models by constraints (if any)
+        filter_result = self.constraint_filter.filter_models(
+            models=self.models,
+            constraints=query.constraints,
+            allow_relaxation=True,
+        )
+        
+        eligible_models = filter_result.eligible_models
+        
+        # If no models pass constraints, fall back to default model
+        if not eligible_models:
+            logger.warning(
+                f"No models satisfied constraints even after relaxation. "
+                f"Falling back to first model: {self.models[0]}"
+            )
+            eligible_models = [self.models[0]]
+            filter_result.relaxed = True
 
         # Route based on current phase
         if self.current_phase == "ucb1":
@@ -180,7 +205,19 @@ class HybridRouter:
                 domain="general",
                 domain_confidence=0.5,
             )
-            arm = await self.ucb1.select_arm(dummy_features)
+            
+            # Filter arms to only eligible models
+            eligible_arms = [arm for arm in self.arms if arm.model_id in eligible_models]
+            if eligible_arms:
+                # Temporarily replace arms for selection
+                original_arms = self.ucb1.arms
+                self.ucb1.arms = eligible_arms
+                arm = await self.ucb1.select_arm(dummy_features)
+                self.ucb1.arms = original_arms
+            else:
+                # Fallback: use original selection
+                arm = await self.ucb1.select_arm(dummy_features)
+            
             confidence = self._calculate_ucb1_confidence(arm.model_id)
 
             return RoutingDecision(
@@ -193,12 +230,25 @@ class HybridRouter:
                     "phase": "ucb1",
                     "query_count": self.query_count,
                     "switch_threshold": self.switch_threshold,
+                    "constraints_relaxed": filter_result.relaxed,
+                    "excluded_count": len(filter_result.excluded_models),
                 },
             )
         else:
             # LinUCB: Contextual routing (extract features)
             features = await self.analyzer.analyze(query.text)
-            arm = await self.linucb.select_arm(features)
+            
+            # Filter arms to only eligible models
+            eligible_arms = [arm for arm in self.arms if arm.model_id in eligible_models]
+            if eligible_arms:
+                # Temporarily replace arms for selection
+                original_arms = self.linucb.arms
+                self.linucb.arms = eligible_arms
+                arm = await self.linucb.select_arm(features)
+                self.linucb.arms = original_arms
+            else:
+                # Fallback: use original selection
+                arm = await self.linucb.select_arm(features)
 
             # Get LinUCB confidence (based on uncertainty)
             stats = self.linucb.get_stats()
@@ -215,6 +265,8 @@ class HybridRouter:
                     "phase": "linucb",
                     "query_count": self.query_count,
                     "queries_since_transition": self.query_count - self.switch_threshold,
+                    "constraints_relaxed": filter_result.relaxed,
+                    "excluded_count": len(filter_result.excluded_models),
                 },
             )
 
