@@ -218,9 +218,9 @@ wheels = [
 ]
 
 [[package]]
-name = "arbiter"
-version = "0.1.0"
-source = { git = "https://github.com/evanvolgas/arbiter#3394323660a042bb3260abe9304a5a17e78a3d4f" }
+name = "arbiter-ai"
+version = "0.1.0a0"
+source = { git = "https://github.com/ashita-ai/arbiter#918886fabf038ab2b629c030f1f32a8219a2c0d6" }
 dependencies = [
     { name = "aiofiles" },
     { name = "httpx" },
@@ -600,7 +600,7 @@ version = "0.0.4a0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
-    { name = "arbiter" },
+    { name = "arbiter-ai" },
     { name = "asyncpg" },
     { name = "click" },
     { name = "fastapi" },
@@ -654,7 +654,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.13.0" },
-    { name = "arbiter", git = "https://github.com/evanvolgas/arbiter" },
+    { name = "arbiter-ai", git = "https://github.com/ashita-ai/arbiter" },
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=25.0.0" },
     { name = "click", specifier = ">=8.0.0" },

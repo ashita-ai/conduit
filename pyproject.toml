@@ -43,7 +43,7 @@ dependencies = [
     "opentelemetry-exporter-otlp>=1.20.0",
     "greenlet>=3.2.4",
     "psycopg2-binary>=2.9.11",
-    "arbiter",
+    "arbiter-ai",
 ]
 
 [project.optional-dependencies]
@@ -123,7 +123,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 
 [tool.uv.sources]
-arbiter = { git = "https://github.com/evanvolgas/arbiter" }
+arbiter-ai = { git = "https://github.com/ashita-ai/arbiter" }
 
 [dependency-groups]
 dev = [
