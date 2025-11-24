@@ -133,6 +133,7 @@ All algorithms support:
 - **Examples**: See `examples/` for usage patterns and working code
 - **Architecture**: See `docs/ARCHITECTURE.md` for system design
 - **Bandit Algorithms**: See `docs/BANDIT_ALGORITHMS.md` for algorithm details
+- **Troubleshooting**: See `docs/TROUBLESHOOTING.md` for debugging common issues
 - **LiteLLM Integration**: See `docs/LITELLM_INTEGRATION.md` for integration strategies
 - **Development**: See `AGENTS.md` for development guidelines
 - **Strategic Decisions**: See `notes/2025-11-18_business_panel_analysis.md`
