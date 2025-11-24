@@ -147,9 +147,13 @@ class UCB1Bandit(BanditAlgorithm):
             mean = self.mean_reward[model_id]
             pulls = self.arm_pulls[model_id]
 
-            # UCB = mean + c * sqrt(ln(total) / pulls)
-            exploration_term = self.c * math.sqrt(math.log(self.total_queries) / pulls)
-            ucb_values[model_id] = mean + exploration_term
+            # If arm has no pulls yet (explored but no feedback), use infinite UCB
+            if pulls == 0:
+                ucb_values[model_id] = float("inf")
+            else:
+                # UCB = mean + c * sqrt(ln(total) / pulls)
+                exploration_term = self.c * math.sqrt(math.log(self.total_queries) / pulls)
+                ucb_values[model_id] = mean + exploration_term
 
         # Select arm with highest UCB
         selected_id = max(ucb_values, key=ucb_values.get)  # type: ignore

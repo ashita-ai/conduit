@@ -304,9 +304,14 @@ class HybridRouter:
         stats = self.ucb1.get_stats()
         pulls = stats["arm_pulls"].get(model_id, 0)
 
-        # Confidence increases with pulls, caps at 0.9
-        # Reaches 0.8 confidence after ~500 pulls
-        return min(0.9, pulls / 500.0) if pulls > 0 else 0.1
+        # Confidence increases with pulls, caps at 0.95
+        # Uses logarithmic scale for faster initial growth
+        # pulls=1 → 0.15, pulls=10 → 0.35, pulls=100 → 0.6, pulls=1000 → 0.8
+        if pulls == 0:
+            return 0.1
+        else:
+            import math
+            return min(0.95, 0.1 + 0.25 * math.log10(pulls + 1))
 
     def get_stats(self) -> dict[str, Any]:
         """Get routing statistics.

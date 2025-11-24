@@ -72,18 +72,19 @@ def mock_router():
     """Mock routing engine."""
     router = AsyncMock()
     router.models = ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4"]
+    # Router now uses HybridRouter which has .models attribute
+    router.hybrid_router = AsyncMock()
+    router.hybrid_router.models = ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4"]
     return router
 
 
 @pytest.fixture
-def service(mock_database, mock_analyzer, mock_bandit, mock_executor, mock_router):
+def service(mock_database, mock_executor, mock_router):
     """Create RoutingService instance with mocks."""
     return RoutingService(
         database=mock_database,
-        analyzer=mock_analyzer,
-        bandit=mock_bandit,
-        executor=mock_executor,
         router=mock_router,
+        executor=mock_executor,
     )
 
 
@@ -140,7 +141,7 @@ class TestComplete:
         mock_router.route.assert_called_once()
         mock_executor.execute.assert_called_once()
         mock_database.save_complete_interaction.assert_called_once()
-        mock_database.update_model_state.assert_called_once()
+        # Note: update_model_state no longer called - HybridRouter manages state internally
 
     @pytest.mark.asyncio
     async def test_complete_with_constraints(
@@ -262,7 +263,7 @@ class TestSubmitFeedback:
     """Tests for RoutingService.submit_feedback()."""
 
     @pytest.mark.asyncio
-    async def test_submit_feedback_success(self, service, mock_database, mock_bandit):
+    async def test_submit_feedback_success(self, service, mock_database, mock_router):
         """Test successful feedback submission."""
         # Setup mock response
         mock_database.get_response_by_id = AsyncMock(
@@ -276,6 +277,31 @@ class TestSubmitFeedback:
                 tokens=20,
             )
         )
+
+        # Setup mock query for feature regeneration
+        mock_database.get_query_by_id = AsyncMock(
+            return_value=Query(
+                id="query-123",
+                text="test query",
+                user_id="test-user"
+            )
+        )
+
+        # Mock router.analyzer.analyze for feature regeneration
+        mock_router.analyzer = AsyncMock()
+        mock_router.analyzer.analyze = AsyncMock(
+            return_value=QueryFeatures(
+                embedding=[0.1] * 384,
+                token_count=2,
+                complexity_score=0.3,
+                domain="general",
+                domain_confidence=0.7
+            )
+        )
+
+        # Mock hybrid_router.update for bandit feedback
+        mock_router.hybrid_router = AsyncMock()
+        mock_router.hybrid_router.update = AsyncMock()
 
         # Submit feedback
         feedback = await service.submit_feedback(
@@ -297,10 +323,8 @@ class TestSubmitFeedback:
         # Verify interactions
         mock_database.get_response_by_id.assert_called_once_with("response-123")
         mock_database.save_complete_interaction.assert_called_once()
-        mock_bandit.update.assert_called_once_with(
-            model="gpt-4o-mini", reward=0.9, query_id="query-123"
-        )
-        mock_database.update_model_state.assert_called_once()
+        # Note: Bandit updated via router.hybrid_router.update() with BanditFeedback
+        mock_router.hybrid_router.update.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_submit_feedback_response_not_found(self, service, mock_database):
