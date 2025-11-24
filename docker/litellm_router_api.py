@@ -1,10 +1,18 @@
 """OpenAI-compatible FastAPI server with Conduit + LiteLLM routing."""
 import os
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from litellm import Router
 from conduit_litellm import ConduitRoutingStrategy
+
+# Configure logging to see debug messages
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Conduit + LiteLLM Router", version="1.0.0")
 
