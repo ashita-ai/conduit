@@ -128,6 +128,76 @@ All algorithms support:
 - **Multi-objective rewards**: Quality (70%) + Cost (20%) + Latency (10%)
 - **Non-stationarity**: Sliding window adaptation (configurable window_size)
 
+## Observability & Monitoring
+
+Conduit includes OpenTelemetry (OTEL) instrumentation for comprehensive monitoring.
+
+### Metrics Exported
+
+**Routing Metrics** (automatic):
+- `conduit.routing.decisions` - Count of routing decisions by model and domain
+- `conduit.routing.cost` - LLM query cost distribution (USD)
+- `conduit.routing.latency` - Query latency distribution (ms)
+- `conduit.routing.confidence` - Thompson Sampling confidence scores
+- `conduit.cache.hits` / `conduit.cache.misses` - Cache performance
+- `conduit.feedback.submissions` - Feedback by type (explicit/implicit)
+
+**Evaluation Metrics** (periodic export from `evaluation_metrics` table):
+- `conduit.evaluation.regret_oracle` - Regret vs Oracle baseline (0.0 = perfect)
+- `conduit.evaluation.regret_random` - Regret vs Random baseline
+- `conduit.evaluation.convergence` - Convergence status (1=converged, 0=not)
+- `conduit.evaluation.quality_score` - Quality score distribution
+- `conduit.evaluation.cost_efficiency` - Quality per dollar spent
+
+### Configuration
+
+Set in `.env`:
+```bash
+# Enable OpenTelemetry
+OTEL_ENABLED=true
+OTEL_SERVICE_NAME=conduit-router
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_EXPORTER_OTLP_HEADERS=api-key=your_key  # Optional
+
+# Enable traces and/or metrics
+OTEL_TRACES_ENABLED=true
+OTEL_METRICS_ENABLED=true
+```
+
+### Periodic Evaluation Metrics Export
+
+To export evaluation metrics at regular intervals:
+
+```python
+from conduit.core.database import Database
+from conduit.observability import setup_telemetry, EvaluationMetricsExporter
+
+# Initialize OTEL
+setup_telemetry()
+
+# Connect to database
+db = Database()
+await db.connect()
+
+# Create exporter (exports every 60 seconds)
+exporter = EvaluationMetricsExporter(db, interval_seconds=60)
+
+# Run in background
+asyncio.create_task(exporter.start())
+```
+
+See `examples/evaluation_metrics_export.py` for complete example.
+
+### Compatible Backends
+
+Any OTLP-compatible backend:
+- Grafana Cloud (recommended)
+- Honeycomb
+- Datadog
+- New Relic
+- Jaeger + Prometheus
+- Self-hosted Tempo + Mimir
+
 ## Documentation
 
 - **Examples**: See `examples/` for usage patterns and working code
