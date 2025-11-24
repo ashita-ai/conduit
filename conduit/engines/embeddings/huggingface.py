@@ -43,8 +43,8 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
         self.timeout = timeout
         self._dimension = 384  # all-MiniLM-L6-v2 dimension
 
-        # Build API URL
-        self.api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model}"
+        # Build API URL (router.huggingface.co replaced deprecated api-inference.huggingface.co)
+        self.api_url = f"https://router.huggingface.co/hf-inference/pipeline/feature-extraction/{model}"
 
         # Build headers
         self.headers = {"Content-Type": "application/json"}
