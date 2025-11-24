@@ -62,6 +62,40 @@ strategy = ConduitRoutingStrategy(
 )
 ```
 
+## Quality Measurement with Arbiter (Issue #52)
+
+Enable LLM-as-judge quality assessment using Arbiter evaluator (optional):
+
+```python
+from conduit.evaluation import ArbiterEvaluator
+from conduit_litellm import ConduitRoutingStrategy
+
+# Initialize Arbiter evaluator with your database
+evaluator = ArbiterEvaluator(
+    db=database,
+    sample_rate=0.1  # Evaluate 10% of queries to control costs
+)
+
+# Pass evaluator to routing strategy
+strategy = ConduitRoutingStrategy(
+    use_hybrid=True,
+    evaluator=evaluator  # Enable LLM-as-judge quality measurement
+)
+ConduitRoutingStrategy.setup_strategy(router, strategy)
+
+# Quality scores now feed back to bandit learning
+# - Semantic similarity (reference-free)
+# - Factuality assessment
+# - Fire-and-forget (doesn't block routing)
+```
+
+**Features**:
+- Non-blocking fire-and-forget evaluation
+- Configurable sampling rate to control API costs
+- Automatic cost tracking via Arbiter framework
+- Stores feedback for bandit learning
+- Backward compatible (evaluator is optional)
+
 ## Testing
 
 **Note**: LiteLLM is an optional dependency. Tests require `pip install conduit[litellm]`.
@@ -92,7 +126,8 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
 ## Related Issues
 
 - #9 - LiteLLM integration (parent issue)
-- #13 - Feedback collection and learning
+- #13 - **Complete**: Feedback collection and learning
 - #14 - LiteLLM integration examples
 - #15 - LiteLLM plugin usage documentation
 - #31 - **Fixed**: RuntimeError in async contexts
+- #52 - **Complete**: Arbiter LLM-as-judge integration
