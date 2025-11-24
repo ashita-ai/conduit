@@ -59,6 +59,7 @@ class HybridRouter:
         ucb1_c: float = 1.5,
         linucb_alpha: float = 1.0,
         reward_weights: dict[str, float] | None = None,
+        window_size: int = 0,
     ):
         """Initialize hybrid router.
 
@@ -69,7 +70,10 @@ class HybridRouter:
             feature_dim: Feature dimensionality for LinUCB (default: 387, or 67 with PCA)
             ucb1_c: UCB1 exploration parameter (default: 1.5)
             linucb_alpha: LinUCB exploration parameter (default: 1.0)
+            ucb1_c: UCB1 exploration parameter (default: 1.5)
+            linucb_alpha: LinUCB exploration parameter (default: 1.0)
             reward_weights: Multi-objective reward weights (quality, cost, latency)
+            window_size: Sliding window size for non-stationarity (default: 0)
 
         Example:
             >>> # Standard 387-dim features
@@ -80,7 +84,8 @@ class HybridRouter:
             >>> router2 = HybridRouter(
             ...     models=["gpt-4o-mini", "gpt-4o"],
             ...     analyzer=analyzer_pca,
-            ...     feature_dim=67  # 64 + 3 metadata
+            ...     feature_dim=67,  # 64 + 3 metadata
+            ...     window_size=1000
             ... )
         """
         self.models = models
@@ -114,6 +119,7 @@ class HybridRouter:
             alpha=linucb_alpha,
             feature_dim=feature_dim,
             reward_weights=reward_weights,
+            window_size=window_size,
         )
 
         # Query analyzer (for LinUCB phase)
