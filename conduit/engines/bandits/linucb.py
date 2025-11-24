@@ -48,6 +48,7 @@ class LinUCBBandit(BanditAlgorithm):
         feature_dim: Dimensionality of context features
         A: Design matrix for each arm (d×d)
         b: Response vector for each arm (d×1)
+        A_inv: Cached inverse of A for each arm (updated incrementally via Sherman-Morrison)
         arm_pulls: Number of times each arm was selected
     """
 
@@ -108,17 +109,13 @@ class LinUCBBandit(BanditAlgorithm):
             }
         else:
             # Use deque for unlimited history (no maxlen)
-            self.observation_history = {
-                arm.model_id: deque() for arm in arms
-            }
+            self.observation_history = {arm.model_id: deque() for arm in arms}
 
         # Initialize A as identity matrix and b as zero vector for each arm
-        self.A = {
-            arm.model_id: np.identity(feature_dim) for arm in arms
-        }
-        self.b = {
-            arm.model_id: np.zeros((feature_dim, 1)) for arm in arms
-        }
+        self.A = {arm.model_id: np.identity(feature_dim) for arm in arms}
+        self.b = {arm.model_id: np.zeros((feature_dim, 1)) for arm in arms}
+        # Store A_inv for efficient computation (Sherman-Morrison incremental update)
+        self.A_inv = {arm.model_id: np.identity(feature_dim) for arm in arms}
 
         # Track arm pulls and successes
         self.arm_pulls = {arm.model_id: 0 for arm in arms}
@@ -157,13 +154,14 @@ class LinUCBBandit(BanditAlgorithm):
 
         ucb_values = {}
         for model_id in self.arms:
-            # Compute theta = A_inv @ b (ridge regression coefficients)
-            A_inv = np.linalg.inv(self.A[model_id])
-            theta = A_inv @ self.b[model_id]
+            # Use cached A_inv (no inversion needed - Sherman-Morrison keeps it updated)
+            theta = self.A_inv[model_id] @ self.b[model_id]
 
             # Compute UCB = theta^T @ x + alpha * sqrt(x^T @ A_inv @ x)
             mean_reward = float((theta.T @ x)[0, 0])  # Expected reward
-            uncertainty = float(np.sqrt((x.T @ A_inv @ x)[0, 0]))  # Confidence radius
+            uncertainty = float(
+                np.sqrt((x.T @ self.A_inv[model_id] @ x)[0, 0])
+            )  # Confidence radius
             ucb = mean_reward + self.alpha * uncertainty
 
             ucb_values[model_id] = float(ucb)
@@ -218,15 +216,40 @@ class LinUCBBandit(BanditAlgorithm):
         # Add observation to history
         self.observation_history[model_id].append((x, reward))
 
-        # Recalculate A and b from windowed history
-        # A = I + sum(x_i @ x_i^T for all i)
-        # b = sum(r_i * x_i for all i)
-        self.A[model_id] = np.identity(self.feature_dim)
-        self.b[model_id] = np.zeros((self.feature_dim, 1))
+        # Two update strategies:
+        # 1. Sliding window: Recalculate A, b, and A_inv from windowed history
+        # 2. No window: Use Sherman-Morrison for incremental A_inv update
 
-        for obs_x, obs_r in self.observation_history[model_id]:
-            self.A[model_id] += obs_x @ obs_x.T
-            self.b[model_id] += obs_r * obs_x
+        if self.window_size > 0:
+            # Sliding window: Recalculate from history (observations may have been dropped)
+            # A = I + sum(x_i @ x_i^T for all i in window)
+            # b = sum(r_i * x_i for all i in window)
+            self.A[model_id] = np.identity(self.feature_dim)
+            self.b[model_id] = np.zeros((self.feature_dim, 1))
+
+            for obs_x, obs_r in self.observation_history[model_id]:
+                self.A[model_id] += obs_x @ obs_x.T
+                self.b[model_id] += obs_r * obs_x
+
+            # Recompute A_inv after rebuilding A
+            self.A_inv[model_id] = np.linalg.inv(self.A[model_id])  # type: ignore[assignment]  # np.linalg.inv returns compatible dtype
+        else:
+            # No sliding window: Use Sherman-Morrison incremental update
+            # Update A and b incrementally
+            self.A[model_id] += x @ x.T
+            self.b[model_id] += reward * x
+
+            # Sherman-Morrison formula: (A + xx^T)^-1 = A^-1 - (A^-1 x x^T A^-1) / (1 + x^T A^-1 x)
+            a_inv_x = self.A_inv[model_id] @ x  # d×1 vector
+            denominator = 1.0 + float((x.T @ a_inv_x)[0, 0])  # scalar
+
+            # Numerical stability check: denominator should be positive
+            if denominator > 1e-10:
+                # Update A_inv incrementally using Sherman-Morrison
+                self.A_inv[model_id] -= (a_inv_x @ a_inv_x.T) / denominator
+            else:
+                # Fallback to full inversion if numerical issues detected
+                self.A_inv[model_id] = np.linalg.inv(self.A[model_id])  # type: ignore[assignment]  # np.linalg.inv returns compatible dtype
 
         # Track statistics
         self.arm_pulls[model_id] += 1
@@ -243,11 +266,12 @@ class LinUCBBandit(BanditAlgorithm):
             >>> bandit.total_queries
             0
         """
-        self.A = {
-            arm.model_id: np.identity(self.feature_dim) for arm in self.arm_list
-        }
+        self.A = {arm.model_id: np.identity(self.feature_dim) for arm in self.arm_list}
         self.b = {
             arm.model_id: np.zeros((self.feature_dim, 1)) for arm in self.arm_list
+        }
+        self.A_inv = {
+            arm.model_id: np.identity(self.feature_dim) for arm in self.arm_list
         }
         self.arm_pulls = {arm.model_id: 0 for arm in self.arm_list}
         self.arm_successes = {arm.model_id: 0 for arm in self.arm_list}
@@ -287,8 +311,7 @@ class LinUCBBandit(BanditAlgorithm):
         # Calculate theta norms (model confidence)
         theta_norms = {}
         for model_id in self.arms:
-            A_inv = np.linalg.inv(self.A[model_id])
-            theta = A_inv @ self.b[model_id]
+            theta = self.A_inv[model_id] @ self.b[model_id]
             theta_norms[model_id] = float(np.linalg.norm(theta))
 
         return {

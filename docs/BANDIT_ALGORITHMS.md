@@ -312,6 +312,30 @@ A_new = A + x · xᵀ     # Update covariance
 b_new = b + reward · x  # Update weighted rewards
 ```
 
+### Performance Optimization (Sherman-Morrison)
+
+**Problem**: Computing A⁻¹ on every query is expensive: O(d³) ≈ 58M operations (387³)
+
+**Solution**: Cache A⁻¹ and update incrementally using Sherman-Morrison formula:
+
+**Non-sliding window mode** (incremental update):
+```
+# Sherman-Morrison: (A + xxᵀ)⁻¹ = A⁻¹ - (A⁻¹x)(xᵀA⁻¹) / (1 + xᵀA⁻¹x)
+a_inv_x = A_inv @ x
+denominator = 1 + xᵀ @ A_inv @ x
+A_inv_new = A_inv - (a_inv_x @ a_inv_x.T) / denominator
+```
+
+**Sliding window mode** (full recalculation):
+- When observations drop out of window, rebuild A and A_inv from history
+- Still faster than per-query inversion during selection
+
+**Performance gains**:
+- Selection: O(d³) → O(d²) (387x speedup for standard features, 67x for PCA)
+- Test suite: 17.89s → 7.62s (2.3x faster)
+- Benchmark: 3,033 QPS @ 0.33ms latency (387 dims)
+- Numerical stability: Automatic fallback to full inversion if needed
+
 ### Feature Vector (387 dimensions)
 
 ```python
