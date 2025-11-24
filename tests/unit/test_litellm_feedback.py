@@ -108,6 +108,14 @@ def litellm_response():
     response.id = "resp_123"
     response._hidden_params = {"response_cost": 0.00015}
     response.response_cost = 0.00015  # Fallback attribute
+
+    # Mock choices structure for text extraction
+    message = Mock()
+    message.content = "4"  # Sample response content
+    choice = Mock()
+    choice.message = message
+    response.choices = [choice]
+
     return response
 
 
@@ -148,7 +156,8 @@ class TestConduitFeedbackLogger:
         assert isinstance(feedback, BanditFeedback)
         assert feedback.model_id == "gpt-4o-mini"
         assert feedback.cost == 0.00015
-        assert feedback.quality_score == 0.9  # Success = high quality
+        # Quality is estimated from content (short response "4" gets lower score)
+        assert 0.5 <= feedback.quality_score <= 0.6  # Estimated quality
         assert feedback.latency == 1.5  # end_time - start_time
         assert feedback.success is True
         assert feedback.metadata["source"] == "litellm"
