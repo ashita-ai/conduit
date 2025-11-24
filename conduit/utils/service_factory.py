@@ -38,6 +38,10 @@ async def create_service(
 
     # Note: Model state loading removed - HybridRouter doesn't support load_states()
     # TODO: Implement state persistence for HybridRouter (UCB1 + LinUCB)
+    
+    # TODO: Load pricing data from database and pass to Router/ConstraintFilter
+    # pricing_data = await database.get_model_prices()
+    # This would improve constraint filtering accuracy vs heuristics
 
     # Create service
     service = RoutingService(

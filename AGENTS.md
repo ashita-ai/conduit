@@ -319,8 +319,12 @@ uv run python examples/02_routing/basic_routing.py
 conduit/
 ├── conduit/                    # Source code
 │   ├── core/                   # Models, config, exceptions
-│   ├── engines/                # Routing engine, bandit algorithms
-│   │   └── bandits/            # LinUCB, UCB1, Thompson Sampling, Epsilon-Greedy
+│   ├── engines/                # Routing engine, bandit algorithms, constraint filtering
+│   │   ├── bandits/            # LinUCB, UCB1, Thompson Sampling, Epsilon-Greedy
+│   │   ├── constraints.py      # Constraint filtering service (NEW)
+│   │   ├── router.py           # High-level Router interface
+│   │   ├── hybrid_router.py    # UCB1→LinUCB hybrid routing
+│   │   └── analyzer.py         # Query feature extraction
 │   ├── cache/                  # Redis caching with circuit breaker
 │   ├── feedback/               # Implicit feedback detection
 │   ├── api/                    # FastAPI routes and middleware
@@ -588,6 +592,34 @@ features = embedding + [
 # Total: 387 dimensions
 ```
 
+### Constraint Filtering
+- **Purpose**: Filter models by cost, quality, latency, and provider constraints
+- **Service**: `ConstraintFilter` in `conduit/engines/constraints.py`
+- **Integration**: Applied before bandit selection in HybridRouter
+- **Relaxation**: Automatic constraint relaxation when no models pass strict filtering
+- **Usage**:
+```python
+from conduit.core.models import Query, QueryConstraints
+
+# Create query with constraints
+query = Query(
+    text="Explain quantum physics",
+    constraints=QueryConstraints(
+        max_cost=0.001,      # Maximum cost per query
+        min_quality=0.80,     # Minimum quality score
+        max_latency=5.0,      # Maximum latency in seconds
+        preferred_provider="openai"  # Preferred provider
+    )
+)
+
+# Router automatically filters models before selection
+decision = await router.route(query)
+
+# Check if constraints were relaxed
+if decision.metadata["constraints_relaxed"]:
+    print("Constraints were relaxed to find eligible models")
+```
+
 ### Feedback Loop
 - **Explicit**: User ratings (quality_score, user_rating, met_expectations)
 - **Implicit**: System signals (errors, latency, retries), weighted 30%
@@ -624,6 +656,37 @@ features = embedding + [
 3. Test manually: `uv run python examples/XX/file.py`
 4. Verify graceful degradation (works without Redis)
 5. Add to AGENTS.md examples list
+
+### Use Constraint Filtering
+```python
+# Standalone ConstraintFilter usage
+from conduit.engines.constraints import ConstraintFilter, QueryConstraints
+from conduit.core.pricing import ModelPricing
+
+# Create filter with pricing data
+pricing = {
+    "gpt-4o-mini": ModelPricing(
+        model_id="gpt-4o-mini",
+        input_cost_per_million=0.15,
+        output_cost_per_million=0.60,
+    ),
+    "gpt-4o": ModelPricing(
+        model_id="gpt-4o",
+        input_cost_per_million=5.0,
+        output_cost_per_million=15.0,
+    ),
+}
+filter_service = ConstraintFilter(model_pricing=pricing)
+
+# Filter models by constraints
+models = ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]
+constraints = QueryConstraints(max_cost=0.001, min_quality=0.70)
+result = filter_service.filter_models(models, constraints)
+
+print(f"Eligible: {result.eligible_models}")
+print(f"Excluded: {result.excluded_models}")
+print(f"Relaxed: {result.relaxed}")
+```
 
 ---
 
