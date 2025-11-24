@@ -100,6 +100,15 @@ ruff check conduit/   # Linting
 black conduit/        # Formatting
 ```
 
+## Security
+
+**Automated Dependency Scanning**: GitHub Dependabot monitors dependencies weekly for security vulnerabilities (CVEs). Security updates are automatically flagged and can be reviewed in the repository's Security tab.
+
+- Configuration: `.github/dependabot.yml`
+- Schedule: Weekly scans every Monday
+- Alerts: Automatic PRs for security patches
+- See `AGENTS.md` for detailed security practices
+
 ## Architecture
 
 ```

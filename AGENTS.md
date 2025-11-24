@@ -567,6 +567,48 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
+## Security
+
+### Automated Dependency Scanning
+
+**GitHub Dependabot** is configured to automatically scan dependencies for security vulnerabilities:
+
+- **Configuration**: `.github/dependabot.yml`
+- **Schedule**: Weekly scans every Monday at 9:00 AM ET
+- **Scope**: All Python dependencies in `pyproject.toml`
+- **Alerts**: Security updates get separate PRs with critical priority
+- **Grouping**: Non-security updates are grouped to reduce PR noise
+  - Production dependencies: All runtime deps (pydantic, fastapi, etc.)
+  - Development dependencies: Testing and linting tools (pytest, black, ruff, mypy)
+
+**How It Works**:
+1. Dependabot scans dependencies weekly for known CVEs
+2. Security vulnerabilities trigger immediate PRs (separate from grouped updates)
+3. Maintainers review and merge security patches
+4. Non-security updates are grouped and reviewed on the weekly schedule
+
+**Viewing Security Alerts**:
+- Navigate to repository → Security tab → Dependabot alerts
+- Each alert shows CVE details, affected versions, and remediation steps
+- PRs are auto-created with version updates to fix vulnerabilities
+
+**Best Practices**:
+- Review and merge security PRs promptly (within 24-48 hours)
+- Test security updates before merging to production
+- Monitor Dependabot alerts in the Security tab
+- Keep dependencies up to date to minimize vulnerability exposure
+
+**Detection Commands**:
+```bash
+# Validate Dependabot configuration
+cat .github/dependabot.yml
+
+# Check for any credentials that shouldn't be committed
+grep -r "API_KEY\|SECRET\|PASSWORD" conduit/ tests/ examples/ && echo "🚨 CREDENTIALS FOUND" || echo "✅ No credentials"
+```
+
+---
+
 ## Key Concepts
 
 ### Contextual Bandits
