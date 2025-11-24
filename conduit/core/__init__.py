@@ -13,6 +13,7 @@ from conduit.core.exceptions import (
     RoutingError,
     ValidationError,
 )
+from conduit.core.model_discovery import ModelDiscovery, PROVIDER_DEFAULTS
 from conduit.core.models import (
     Feedback,
     ModelState,
@@ -41,6 +42,9 @@ __all__ = [
     "ConfigurationError",
     "CircuitBreakerOpenError",
     "RateLimitError",
+    # Model Discovery
+    "ModelDiscovery",
+    "PROVIDER_DEFAULTS",
     # Models
     "Query",
     "QueryConstraints",

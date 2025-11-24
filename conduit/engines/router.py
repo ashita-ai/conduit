@@ -1,14 +1,14 @@
 """Routing engine for ML-powered model selection."""
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from conduit.cache import CacheConfig, CacheService
 from conduit.core.config import settings
+from conduit.core.model_discovery import ModelDiscovery
 from conduit.core.models import (
     Query,
-    QueryConstraints,
-    QueryFeatures,
     RoutingDecision,
 )
 from conduit.engines.analyzer import QueryAnalyzer
@@ -35,17 +35,33 @@ class Router:
         models: list[str] | None = None,
         embedding_model: str = "all-MiniLM-L6-v2",
         cache_enabled: bool | None = None,
+        model_config_path: str | Path | None = None,
     ):
         """Initialize router with default components.
 
         Args:
-            models: List of available model IDs. If None, uses defaults.
+            models: List of available model IDs. If None, uses programmatic discovery
+                based on configured API keys (3 models per provider).
             embedding_model: Sentence transformer model for query analysis.
             cache_enabled: Override cache enabled setting. If None, uses config default.
+            model_config_path: Optional path to YAML config file with model list.
+                Takes precedence over auto-discovery if provided.
+
+        Example:
+            >>> # Auto-discovery (recommended)
+            >>> router = Router()  # Uses models from configured providers
+
+            >>> # Explicit model list
+            >>> router = Router(models=["gpt-4o-mini", "claude-3-5-sonnet-20241022"])
+
+            >>> # YAML config file
+            >>> router = Router(model_config_path="models.yaml")
         """
-        # Use default models if not specified
+        # Use model discovery if models not explicitly provided
         if models is None:
-            models = settings.default_models
+            discovery = ModelDiscovery(settings, config_path=model_config_path)
+            models = discovery.get_models()
+            logger.info(f"Auto-discovered {len(models)} models: {models}")
 
         # Initialize cache service if enabled
         cache_service: CacheService | None = None
