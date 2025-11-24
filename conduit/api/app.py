@@ -46,7 +46,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.warning(f"Failed to load model prices, using fallback pricing: {e}")
         model_prices = {}
 
-    executor = ModelExecutor(pricing=model_prices)
+    executor = ModelExecutor(
+        pricing=model_prices,
+        database=database,
+        latency_tracking_enabled=settings.latency_tracking_enabled,
+    )
 
     # Note: Model state loading removed - HybridRouter doesn't support load_states()
     # TODO: Implement state persistence for HybridRouter (UCB1 + LinUCB)

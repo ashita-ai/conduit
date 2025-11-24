@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -13,22 +13,34 @@ from conduit.core.exceptions import ExecutionError
 from conduit.core.models import Response
 from conduit.core.pricing import ModelPricing
 
+if TYPE_CHECKING:
+    from conduit.core.database import Database
+
 logger = logging.getLogger(__name__)
 
 
 class ModelExecutor:
     """Execute LLM calls via PydanticAI."""
 
-    def __init__(self, pricing: dict[str, ModelPricing] | None = None) -> None:
+    def __init__(
+        self,
+        pricing: dict[str, ModelPricing] | None = None,
+        database: "Database | None" = None,
+        latency_tracking_enabled: bool = True,
+    ) -> None:
         """Initialize executor with agent cache and pricing.
 
         Args:
             pricing: Optional mapping of model_id to ModelPricing loaded from
                 the database. If not provided, a built-in approximate pricing
                 table will be used as a fallback.
+            database: Optional database instance for latency tracking.
+            latency_tracking_enabled: Enable latency recording (default: True).
         """
         self.clients: dict[str, Agent[Any, Any]] = {}
         self.pricing: dict[str, ModelPricing] = pricing or {}
+        self.database = database
+        self.latency_tracking_enabled = latency_tracking_enabled
 
     async def execute(
         self,
@@ -81,6 +93,20 @@ class ModelExecutor:
                 total_tokens = usage.get("total_tokens", 0)
             else:
                 total_tokens = 0
+
+            # Record latency if enabled and database available
+            if self.latency_tracking_enabled and self.database:
+                try:
+                    await self.database.record_model_latency(
+                        model_id=model,
+                        latency=latency,
+                        token_count=total_tokens,
+                        complexity_score=None,  # Could be extracted from query features if available
+                        region=None,  # Could be extracted from config or request context
+                    )
+                except Exception as e:
+                    # Don't fail the execution if latency recording fails
+                    logger.warning(f"Failed to record latency for {model}: {e}")
 
             return Response(
                 id=str(uuid4()),

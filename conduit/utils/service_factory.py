@@ -34,7 +34,10 @@ async def create_service(
 
     # Initialize components (Router now handles analyzer + hybrid routing internally)
     router = Router(models=settings.default_models, embedding_model=settings.embedding_model)
-    executor = ModelExecutor()
+    executor = ModelExecutor(
+        database=database,
+        latency_tracking_enabled=settings.latency_tracking_enabled,
+    )
 
     # Note: Model state loading removed - HybridRouter doesn't support load_states()
     # TODO: Implement state persistence for HybridRouter (UCB1 + LinUCB)

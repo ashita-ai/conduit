@@ -163,6 +163,29 @@ class Settings(BaseSettings):
         le=300.0,
     )
 
+    # Latency Tracking Configuration
+    latency_tracking_enabled: bool = Field(
+        default=True, description="Enable historical latency tracking"
+    )
+    latency_estimation_window_days: int = Field(
+        default=7,
+        description="Days of history to consider for latency estimation",
+        ge=1,
+        le=90,
+    )
+    latency_percentile: float = Field(
+        default=0.95,
+        description="Percentile for latency estimation (0.95 = p95)",
+        ge=0.5,
+        le=0.99,
+    )
+    latency_min_samples: int = Field(
+        default=100,
+        description="Minimum samples before using historical data (fallback to heuristics otherwise)",
+        ge=10,
+        le=10000,
+    )
+
     # Logging
     log_level: str = Field(default="INFO", description="Logging level")
     environment: str = Field(

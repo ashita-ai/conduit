@@ -380,3 +380,47 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to get response: {e}")
             raise DatabaseError(f"Failed to get response: {e}") from e
+
+    async def record_model_latency(
+        self,
+        model_id: str,
+        latency: float,
+        token_count: int | None = None,
+        complexity_score: float | None = None,
+        region: str | None = None,
+    ) -> None:
+        """Record model latency observation for historical tracking.
+
+        Args:
+            model_id: Model identifier
+            latency: Latency in seconds
+            token_count: Optional token count
+            complexity_score: Optional complexity score (0.0-1.0)
+            region: Optional region identifier
+
+        Raises:
+            DatabaseError: If recording fails
+        """
+        if not self.pool:
+            raise DatabaseError("Database not connected")
+
+        try:
+            async with self.pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO model_latencies
+                        (model_id, latency_seconds, token_count, complexity_score, region)
+                    VALUES ($1, $2, $3, $4, $5)
+                    """,
+                    model_id,
+                    latency,
+                    token_count,
+                    complexity_score,
+                    region,
+                )
+
+            logger.debug(f"Recorded latency for {model_id}: {latency:.3f}s")
+
+        except Exception as e:
+            logger.error(f"Failed to record latency: {e}")
+            raise DatabaseError(f"Failed to record latency: {e}") from e

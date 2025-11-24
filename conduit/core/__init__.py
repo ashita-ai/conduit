@@ -13,6 +13,7 @@ from conduit.core.exceptions import (
     RoutingError,
     ValidationError,
 )
+from conduit.core.latency import LatencyService
 from conduit.core.models import (
     Feedback,
     ModelState,
@@ -41,6 +42,8 @@ __all__ = [
     "ConfigurationError",
     "CircuitBreakerOpenError",
     "RateLimitError",
+    # Latency
+    "LatencyService",
     # Models
     "Query",
     "QueryConstraints",
