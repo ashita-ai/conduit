@@ -5,6 +5,7 @@ model selection. All algorithms share a common interface and work with
 Conduit's QueryFeatures.
 
 Available Algorithms:
+- DuelingBandit: Pairwise preference learning (contextual, high sample efficiency)
 - ContextualThompsonSamplingBandit: Bayesian linear regression with Thompson Sampling (contextual, optimal regret)
 - ThompsonSamplingBandit: Bayesian probability matching (optimal regret)
 - LinUCBBandit: Contextual linear UCB (uses query features, proven for LLM routing)
@@ -24,6 +25,7 @@ from .baselines import (
     RandomBaseline,
 )
 from .contextual_thompson_sampling import ContextualThompsonSamplingBandit
+from .dueling import DuelingBandit, DuelingFeedback
 from .epsilon_greedy import EpsilonGreedyBandit
 from .linucb import LinUCBBandit
 from .thompson_sampling import ThompsonSamplingBandit
@@ -33,6 +35,8 @@ __all__ = [
     "BanditAlgorithm",
     "BanditFeedback",
     "ModelArm",
+    "DuelingBandit",
+    "DuelingFeedback",
     "ContextualThompsonSamplingBandit",
     "ThompsonSamplingBandit",
     "LinUCBBandit",
