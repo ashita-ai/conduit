@@ -1,6 +1,6 @@
 """Core infrastructure for Conduit routing system."""
 
-from conduit.core.config import Settings, settings
+from conduit.core.config import Settings, load_preference_weights, settings
 from conduit.core.database import Database
 from conduit.core.exceptions import (
     AnalysisError,
@@ -22,6 +22,7 @@ from conduit.core.models import (
     Response,
     RoutingDecision,
     RoutingResult,
+    UserPreferences,
 )
 from conduit.core.pricing import ModelPricing
 
@@ -29,6 +30,7 @@ __all__ = [
     # Config
     "Settings",
     "settings",
+    "load_preference_weights",
     # Database
     "Database",
     # Exceptions
@@ -45,6 +47,7 @@ __all__ = [
     "Query",
     "QueryConstraints",
     "QueryFeatures",
+    "UserPreferences",
     "RoutingDecision",
     "Response",
     "Feedback",

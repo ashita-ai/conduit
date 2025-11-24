@@ -10,6 +10,7 @@ Conduit uses contextual bandits (Thompson Sampling) to intelligently route queri
 
 - **ML-Driven Routing**: Learns from usage patterns vs static IF/ELSE rules
 - **Multi-Objective Optimization**: Balance cost, latency, and quality constraints
+- **User Preferences**: 4 optimization presets (balanced, quality, cost, speed) configurable per query
 - **Flexible Provider Support**:
   - Direct: 8 providers via PydanticAI - OpenAI, Anthropic, Google, Groq, Mistral, Cohere, AWS Bedrock, HuggingFace (structured outputs, type safety)
   - Extended: 100+ providers via LiteLLM integration (see `conduit_litellm/` and `docs/LITELLM_INTEGRATION.md`)
@@ -17,7 +18,7 @@ Conduit uses contextual bandits (Thompson Sampling) to intelligently route queri
 - **Redis Caching**: 10-40x performance improvement on repeated queries
 - **Graceful Degradation**: Core routing works without Redis
 - **9 Bandit Algorithms**: Contextual Thompson Sampling, LinUCB, Thompson Sampling, UCB1, Epsilon-Greedy, + 4 baselines
-- **Multi-Objective Rewards**: Composite rewards (70% quality + 20% cost + 10% latency)
+- **Multi-Objective Rewards**: Composite rewards (70% quality + 20% cost + 10% latency, customizable via preferences)
 - **Non-Stationarity Handling**: Sliding window adaptation for changing model quality/costs
 - **Dynamic Pricing**: 71+ models with auto-updated pricing from llm-prices.com (24h cache)
 - **Model Discovery**: Auto-detects available models based on your API keys (zero configuration)
@@ -42,6 +43,8 @@ asyncio.run(main())
 - **01_quickstart/**: hello_world.py (5 lines), simple_router.py
 - **02_routing/**: basic_routing.py, hybrid_routing.py, with_constraints.py
 - **03_optimization/**: caching.py, explicit_feedback.py
+- **04_litellm/**: LiteLLM integration examples (basic, multi-provider, custom config)
+- **05_personalization/**: User preferences for per-query optimization control
 
 ## Installation & Setup
 
@@ -101,6 +104,38 @@ Database setup:
 ./migrate.sh  # or: psql $DATABASE_URL < migrations/001_initial_schema.sql
 ```
 
+### User Preferences
+
+Control routing optimization per query with 4 presets:
+
+```python
+from conduit.core import Query, UserPreferences
+
+# Optimize for minimum cost
+query = Query(
+    text="Simple calculation",
+    preferences=UserPreferences(optimize_for="cost")
+)
+
+# Presets:
+# - balanced: Default (70% quality, 20% cost, 10% latency)
+# - quality:  Maximize quality (80% quality, 10% cost, 10% latency)
+# - cost:     Minimize cost (40% quality, 50% cost, 10% latency)
+# - speed:    Minimize latency (40% quality, 10% cost, 50% latency)
+```
+
+Customize presets in `conduit.yaml`:
+```yaml
+routing:
+  presets:
+    cost:
+      quality: 0.3  # Custom weights
+      cost: 0.6
+      latency: 0.1
+```
+
+See `examples/05_personalization/explicit_preferences.py` for full example.
+
 ## Tech Stack
 
 - Python 3.10+, PydanticAI 1.14+, FastAPI
@@ -115,6 +150,15 @@ mypy conduit/         # Type checking
 ruff check conduit/   # Linting
 black conduit/        # Formatting
 ```
+
+## Security
+
+**Automated Dependency Scanning**: GitHub Dependabot monitors dependencies weekly for security vulnerabilities (CVEs). Security updates are automatically flagged and can be reviewed in the repository's Security tab.
+
+- Configuration: `.github/dependabot.yml`
+- Schedule: Weekly scans every Monday
+- Alerts: Automatic PRs for security patches
+- See `AGENTS.md` for detailed security practices
 
 ## Architecture
 
@@ -150,6 +194,7 @@ All algorithms support:
 - **Architecture**: See `docs/ARCHITECTURE.md` for system design
 - **Bandit Algorithms**: See `docs/BANDIT_ALGORITHMS.md` for algorithm details
 - **Embedding Providers**: See `docs/EMBEDDING_PROVIDERS.md` for embedding configuration
+- **Troubleshooting**: See `docs/TROUBLESHOOTING.md` for debugging common issues
 - **LiteLLM Integration**: See `docs/LITELLM_INTEGRATION.md` for integration strategies
 - **Development**: See `AGENTS.md` for development guidelines
 - **Strategic Decisions**: See `notes/2025-11-18_business_panel_analysis.md`

@@ -1,369 +1,236 @@
 # LiteLLM Integration Examples
 
-Conduit integrates seamlessly with [LiteLLM](https://github.com/BerriAI/litellm) to provide ML-powered routing across 100+ LLM providers with automatic cost optimization.
+ML-powered intelligent routing for LiteLLM using Conduit's contextual bandit algorithms.
 
 ## Overview
 
-These examples demonstrate how to use Conduit with LiteLLM's `Router` to enable:
-- Automatic model selection based on query context
-- Cost optimization (30-50% reduction) while maintaining quality
-- Learning from every request without manual feedback
-- Optional LLM-as-judge quality measurement with Arbiter
+These examples demonstrate how to use Conduit as a custom routing strategy for LiteLLM, enabling intelligent model selection across 100+ LLM providers based on query features, cost, and quality.
 
-## Setup
-
-### Installation
+## Installation
 
 ```bash
-# Install Conduit with LiteLLM support
 pip install conduit[litellm]
-
-# Or using uv
-uv pip install conduit[litellm]
 ```
 
-### API Keys
+## API Keys Required
 
-Set environment variables for the providers you want to use:
+Set at least one provider API key:
 
 ```bash
-# Required: At least one LLM provider
-export OPENAI_API_KEY="sk-..."
-export ANTHROPIC_API_KEY="sk-ant-..."
-
-# Optional: Additional providers for multi-provider routing
-export GOOGLE_API_KEY="..."  # or GEMINI_API_KEY
-export GROQ_API_KEY="gsk-..."
-
-# Optional: Redis for caching (examples work without it)
-export REDIS_URL="redis://localhost:6379"
+export OPENAI_API_KEY="your-key"
+export ANTHROPIC_API_KEY="your-key"
+export GOOGLE_API_KEY="your-key"
+export GROQ_API_KEY="your-key"
 ```
 
 ## Examples
 
-### 1. basic_usage.py - Getting Started
+### 1. Basic Usage (`basic_usage.py`)
 
-**Purpose**: Simplest possible setup showing 3-step integration.
+Simplest example showing Conduit + LiteLLM integration.
 
-**What it demonstrates**:
-- Creating LiteLLM Router with multiple models
-- Enabling Conduit ML routing strategy
-- Automatic feedback capture (no manual work required)
-
-**When to use this pattern**:
-- First time integrating Conduit
-- Simple 2-3 model routing
-- Default configuration is sufficient
-
-**Run it**:
 ```bash
-uv run python examples/04_litellm/basic_usage.py
+python examples/04_litellm/basic_usage.py
 ```
 
-**Expected output**:
-```
-================================================================================
-Conduit + LiteLLM: Basic Usage Demo
-================================================================================
+**What it shows:**
+- Minimal setup (3 lines of code)
+- Automatic model selection
+- Learning from query patterns
 
-Step 1: Creating LiteLLM router with 2 models...
-Step 2: Enabling Conduit ML routing strategy...
-Step 3: Making requests (Conduit learns from each one)...
+**Use this when:** You want to get started quickly with defaults.
 
-Query 1/3: What is 2+2?...
-  Model: gpt-4o-mini
-  Cost: $0.000150
-  Response: 2+2 equals 4...
+---
 
-✅ Conduit automatically learns from every request
-✅ No manual feedback required (cost/latency tracked automatically)
-✅ Quality estimated from response content
-✅ Bandits improve routing over time (exploration → exploitation)
-```
+### 2. Custom Configuration (`custom_config.py`)
 
-### 2. custom_config.py - Advanced Configuration
+Shows how to customize Conduit's behavior.
 
-**Purpose**: Shows how to customize Conduit's behavior with advanced settings.
-
-**What it demonstrates**:
-- Two configuration approaches (auto-creation vs pre-configured Router)
-- Redis caching integration (optional)
-- Custom embedding models for domain-specific routing
-- Cache statistics and monitoring
-
-**When to use this pattern**:
-- Production deployments with caching
-- Domain-specific routing (e.g., medical, legal, technical)
-- Need fine control over Router configuration
-
-**Run it**:
 ```bash
-# Without Redis (works fine, just no caching)
-uv run python examples/04_litellm/custom_config.py
-
-# With Redis (enable caching)
-export REDIS_URL="redis://localhost:6379"
-uv run python examples/04_litellm/custom_config.py
+python examples/04_litellm/custom_config.py
 ```
 
-**Expected output**:
-```
-================================================================================
-Conduit + LiteLLM: Custom Configuration Demo
-================================================================================
+**What it shows:**
+- Hybrid routing (UCB1 → LinUCB warm start)
+- Redis caching integration
+- Custom embedding models
+- Cost tracking
 
-=== Option 1: Configure via conduit_config ===
-Passing configuration to auto-created Router...
-  Cache enabled: False
-  Embedding model: all-MiniLM-L6-v2 (384 dimensions)
+**Use this when:** You need to tune performance or enable caching.
 
-=== Option 2: Pre-configured Conduit Router ===
-Creating Conduit Router with explicit settings...
-  Using pre-configured Router
-  Models: 2 arms
-  Feature dimensions: 384
+---
 
-Making test queries...
-Query 1/3: What is machine learning?
-  → Model: gpt-4o-mini
-  → Cost: $0.000200
+### 3. Multi-Provider Routing (`multi_provider.py`)
 
-Configuration Options Summary:
-Cache Settings:
-  cache_enabled: Enable Redis caching (default: False)
-  redis_url: Redis connection URL
+Demonstrates intelligent routing across multiple LLM providers.
 
-Embedding Models:
-  all-MiniLM-L6-v2: Fast, 384 dims (default)
-  all-mpnet-base-v2: Better quality, 768 dims
-  paraphrase-multilingual: Multi-language, 384 dims
-```
-
-### 3. multi_provider.py - Multi-Provider Routing
-
-**Purpose**: Demonstrates Conduit's strength: learning optimal routing across many providers.
-
-**What it demonstrates**:
-- Dynamic model list based on available API keys
-- Routing across OpenAI, Anthropic, Google, Groq (5+ models)
-- Learning which provider is best for different query types
-- Cost/quality/latency trade-offs per provider
-
-**When to use this pattern**:
-- Want cost optimization across multiple providers
-- Different providers excel at different tasks
-- Need fallback/redundancy across providers
-- High query volume justifies multi-provider setup
-
-**Run it**:
 ```bash
-# Requires at least 2 providers
-export OPENAI_API_KEY="sk-..."
-export ANTHROPIC_API_KEY="sk-ant-..."
-# Optional: Add more providers for better routing
-export GROQ_API_KEY="gsk-..."
-export GOOGLE_API_KEY="..."
-
-uv run python examples/04_litellm/multi_provider.py
+python examples/04_litellm/multi_provider.py
 ```
 
-**Expected output**:
-```
-================================================================================
-Conduit Multi-Provider Routing Demo
-================================================================================
-Available providers: OpenAI, Anthropic, Groq, Google
+**What it shows:**
+- OpenAI + Anthropic + Google + Groq support
+- Automatic provider selection per query type
+- Cost optimization across providers
+- Quality maximization
 
-Configured 5 models across 4 providers
+**Use this when:** You have multiple provider API keys and want optimal routing.
 
-Enabling Conduit ML routing...
+---
 
-Testing with 8 diverse queries...
+### 4. Complete Demo (`demo.py`)
 
-Query 1/8: What is 2+2?...
-  → Provider: Groq
-  → Model: groq/llama-3.1-8b-instant
-  → Cost: $0.000050
-  → Response: 2+2 equals 4...
+Comprehensive example with detailed logging and explanations.
 
-Query 2/8: Write a Python function to sort a list...
-  → Provider: OpenAI
-  → Model: gpt-4o-mini
-  → Cost: $0.000180
-  → Response: def sort_list(items): return sorted(items)...
-
-================================================================================
-Routing Distribution:
-================================================================================
-  Anthropic: 1/8 queries (12.5%)
-  Google: 1/8 queries (12.5%)
-  Groq: 4/8 queries (50.0%)
-  OpenAI: 2/8 queries (25.0%)
-
-  Total cost: $0.000680
-
-================================================================================
-Key Insights:
-================================================================================
-✅ Conduit routes across multiple providers automatically
-✅ Learns cost/quality/latency trade-offs per provider
-✅ Adapts routing based on query context
-✅ No manual configuration needed - ML does the work
-
-With more queries, Conduit will:
-  - Identify which providers excel at code vs creative tasks
-  - Learn speed/cost trade-offs per provider
-  - Optimize routing for your specific workload
-```
-
-### 4. arbiter_quality_measurement.py - LLM-as-Judge Evaluation
-
-**Purpose**: Shows how to enable Arbiter LLM-as-judge for quality assessment.
-
-**What it demonstrates**:
-- ArbiterEvaluator integration for semantic + factuality scoring
-- Sampling strategy (10% evaluation rate) to control costs
-- Budget controls ($10/day limit)
-- Fire-and-forget async evaluation (non-blocking)
-- Storing evaluation feedback for bandit learning
-
-**When to use this pattern**:
-- Need objective quality measurement beyond implicit signals
-- Want to track quality metrics over time
-- Building quality assurance pipeline
-- Validating routing decisions
-
-**Run it**:
 ```bash
-export OPENAI_API_KEY="sk-..."  # For LLM routing
-# Arbiter will use same key for evaluation
-
-uv run python examples/04_litellm/arbiter_quality_measurement.py
+python examples/04_litellm/demo.py
 ```
 
-**Expected output**:
-```
-================================================================================
-Conduit + LiteLLM: Arbiter Quality Measurement Demo
-================================================================================
+**What it shows:**
+- Full integration workflow
+- Detailed status messages
+- Provider detection
+- Error handling
 
-Setting up database...
-Creating router with Arbiter evaluator...
-  Sample rate: 10% (evaluate 1 in 10 queries)
-  Daily budget: $10.00
-  Evaluation model: gpt-4o-mini
+**Use this when:** You want to understand the complete flow.
 
-Testing with 3 queries...
+## How It Works
 
-Query 1/3: What is 2+2?
-  Model used: gpt-4o-mini
-  Response: 2+2 equals 4...
-  Cost: $0.000150
-  ✓ Arbiter evaluation queued (background)
-
-Query 2/3: Explain quantum computing
-  Model used: gpt-4o-mini
-  Response: Quantum computing uses quantum mechanics...
-  Cost: $0.000280
-  ○ Skipped evaluation (sampling: 10%)
-
-Query 3/3: Write a Python function
-  Model used: claude-3-haiku-20240307
-  Response: def example(): pass...
-  Cost: $0.000120
-  ✓ Arbiter evaluation queued (background)
-
-Waiting for evaluations to complete...
-
-================================================================================
-Evaluation Results:
-================================================================================
-Query: "What is 2+2?"
-  Quality scores: semantic=0.95, factuality=1.00
-  Evaluation cost: $0.000080
-
-Query: "Write a Python function"
-  Quality scores: semantic=0.88, factuality=0.92
-  Evaluation cost: $0.000075
-
-Total evaluation cost: $0.000155
-Total routing cost: $0.000550
-
-✅ Fire-and-forget evaluation (non-blocking)
-✅ Configurable sampling rate (10% = low cost)
-✅ Automatic feedback storage for bandit learning
-✅ Budget controls prevent overspending
-```
-
-## Integration Patterns
-
-### Minimal Setup (2 models, no config)
+### 1. Setup Conduit Strategy
 
 ```python
 from litellm import Router
 from conduit_litellm import ConduitRoutingStrategy
 
+# Initialize LiteLLM router
 router = Router(model_list=[...])
-strategy = ConduitRoutingStrategy()
+
+# Create Conduit strategy
+strategy = ConduitRoutingStrategy(use_hybrid=True)
+
+# Activate Conduit routing
 ConduitRoutingStrategy.setup_strategy(router, strategy)
 ```
 
-### With Arbiter Evaluation
+### 2. Make Requests
 
 ```python
-from conduit.evaluation import ArbiterEvaluator
-from conduit_litellm import ConduitRoutingStrategy
-
-evaluator = ArbiterEvaluator(db=database, sample_rate=0.1)
-strategy = ConduitRoutingStrategy(evaluator=evaluator)
-ConduitRoutingStrategy.setup_strategy(router, strategy)
-```
-
-### With Custom Configuration
-
-```python
-from conduit.engines.router import Router as ConduitRouter
-from conduit_litellm import ConduitRoutingStrategy
-
-# Pre-configure Conduit router
-conduit_router = ConduitRouter(
-    models=["gpt-4o-mini", "claude-3-haiku"],
-    embedding_model="all-MiniLM-L6-v2",
-    cache_enabled=True,
+# LiteLLM API (Conduit handles model selection)
+response = await router.acompletion(
+    model="gpt-4o-mini",  # Model group
+    messages=[{"role": "user", "content": "Your query"}]
 )
-
-strategy = ConduitRoutingStrategy(conduit_router=conduit_router)
-ConduitRoutingStrategy.setup_strategy(litellm_router, strategy)
 ```
 
-## Common Issues
+### 3. Automatic Learning
 
-### Issue: "Set OPENAI_API_KEY or ANTHROPIC_API_KEY"
-**Solution**: Export at least one LLM provider API key before running examples.
+Conduit automatically:
+- Extracts query features (embeddings, complexity, domain)
+- Selects optimal model using bandit algorithm
+- Learns from response (cost, latency, quality)
+- Improves future routing decisions
 
-### Issue: "Need at least 2 providers" (multi_provider.py)
-**Solution**: Export API keys for at least 2 different providers (OpenAI + Anthropic recommended).
+No manual rules, no configuration files, just ML-powered intelligence.
 
-### Issue: Redis connection errors
-**Solution**: Examples work without Redis (caching disabled). To enable caching, start Redis locally:
+## Configuration Options
+
+### Hybrid Routing (Recommended)
+
+```python
+strategy = ConduitRoutingStrategy(use_hybrid=True)
+```
+
+Achieves 30% faster convergence by:
+- Starting with UCB1 (fast exploration)
+- Switching to LinUCB after ~100 queries (contextual optimization)
+
+### Redis Caching
+
+```python
+strategy = ConduitRoutingStrategy(
+    cache_enabled=True,
+    redis_url="redis://localhost:6379"
+)
+```
+
+Caches query embeddings and routing decisions for performance.
+
+### Custom Embedding Model
+
+```python
+strategy = ConduitRoutingStrategy(
+    embedding_model="sentence-transformers/all-MiniLM-L6-v2"
+)
+```
+
+Change the sentence transformer model for different trade-offs (speed vs accuracy).
+
+## Feedback Loop
+
+Conduit automatically learns from LiteLLM responses through `ConduitFeedbackLogger`:
+
+- **Cost**: Extracted from `response._hidden_params['response_cost']`
+- **Latency**: Measured from request timing
+- **Quality**: Estimated from success/failure (0.9 for success, 0.1 for errors)
+
+The feedback loop updates the bandit algorithm, improving future routing decisions.
+
+## Performance
+
+### Hybrid Routing Convergence
+
+- **First 100 queries**: UCB1 explores all models quickly
+- **After 100 queries**: LinUCB uses query context for optimal selection
+- **Result**: 30% faster convergence vs pure LinUCB
+
+### Cost Savings
+
+Typical savings with Conduit vs random selection:
+- **30-50% cost reduction** by routing simple queries to cheaper models
+- **Quality maintained** by routing complex queries to powerful models
+
+## Troubleshooting
+
+### "LiteLLM not installed"
+
 ```bash
-redis-server
-export REDIS_URL="redis://localhost:6379"
+pip install conduit[litellm]
 ```
 
-### Issue: Import errors "No module named 'conduit_litellm'"
-**Solution**: Install with LiteLLM support: `pip install conduit[litellm]`
+### "No API keys found"
+
+Set at least one:
+```bash
+export OPENAI_API_KEY="your-key"
+```
+
+### "Redis connection failed"
+
+Conduit works without Redis (in-memory mode). To enable caching:
+```bash
+docker run -d -p 6379:6379 redis
+```
+
+### "Model not found"
+
+Ensure your LiteLLM `model_list` includes `model_info.id` for each model:
+```python
+{
+    "model_name": "gpt-4o-mini",
+    "litellm_params": {...},
+    "model_info": {"id": "gpt-4o-mini"}  # Required for Conduit
+}
+```
 
 ## Next Steps
 
-1. **Start simple**: Run `basic_usage.py` to verify setup
-2. **Add caching**: Set up Redis and run `custom_config.py`
-3. **Multi-provider**: Configure multiple API keys and run `multi_provider.py`
-4. **Quality measurement**: Add Arbiter evaluation with `arbiter_quality_measurement.py`
+- **Production deployment**: See `docs/LITELLM_INTEGRATION.md`
+- **Custom algorithms**: See `docs/BANDIT_ALGORITHMS.md`
+- **Advanced features**: See `examples/03_optimization/`
 
-## Related Documentation
+## Related Issues
 
-- [LiteLLM Documentation](https://docs.litellm.ai/)
-- [Conduit Core Documentation](../../README.md)
-- [Bandit Algorithms](../../docs/bandits.md)
-- [LiteLLM Plugin README](../../conduit_litellm/README.md)
+- #13: LiteLLM feedback loop (✅ Implemented)
+- #14: LiteLLM examples (this directory)
+- #15: LiteLLM documentation
+- #16: LiteLLM plugin announcement

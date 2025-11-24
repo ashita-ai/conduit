@@ -10,6 +10,30 @@ from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
+from typing import Literal
+
+
+class UserPreferences(BaseModel):
+    """User routing preferences for reward optimization.
+
+    Controls how Conduit balances quality, cost, and latency when
+    selecting models. Uses predefined presets for simplicity.
+
+    Presets:
+    - balanced: Default (0.7 quality, 0.2 cost, 0.1 latency)
+    - quality: Maximize quality (0.8 quality, 0.1 cost, 0.1 latency)
+    - cost: Minimize cost (0.4 quality, 0.5 cost, 0.1 latency)
+    - speed: Minimize latency (0.4 quality, 0.1 cost, 0.5 latency)
+
+    Example:
+        >>> preferences = UserPreferences(optimize_for="cost")
+        >>> query = Query(text="Simple math", preferences=preferences)
+    """
+
+    optimize_for: Literal["balanced", "quality", "cost", "speed"] = Field(
+        default="balanced",
+        description="Routing optimization priority"
+    )
 
 
 class QueryConstraints(BaseModel):
@@ -38,6 +62,10 @@ class Query(BaseModel):
     )
     constraints: QueryConstraints | None = Field(
         None, description="Routing constraints"
+    )
+    preferences: UserPreferences = Field(
+        default_factory=UserPreferences,
+        description="User routing preferences"
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),

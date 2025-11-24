@@ -1,218 +1,150 @@
-"""Multi-provider routing with Conduit ML optimization.
+"""Multi-Provider Routing with Conduit + LiteLLM.
 
-Demonstrates Conduit's strength: learning optimal routing across 100+ providers.
-
-This example shows routing across 5 different LLM providers:
-- OpenAI (gpt-4o-mini)
-- Anthropic (claude-3-haiku)
-- Google (gemini-pro)
-- Groq (llama-3.1-8b, mixtral-8x7b)
-
-Conduit learns:
-- Which provider is best for different query types
-- Cost/quality/latency trade-offs per provider
-- Optimal model selection based on context
+Demonstrates intelligent routing across multiple LLM providers
+(OpenAI, Anthropic, Google, Groq) using Conduit's ML-based selection.
 
 Requirements:
-- pip install conduit[litellm]
-- API keys for providers you want to use (at least 2):
-  - OPENAI_API_KEY
-  - ANTHROPIC_API_KEY
-  - GOOGLE_API_KEY (or GEMINI_API_KEY)
-  - GROQ_API_KEY
+    - At least 2 provider API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
+    - pip install conduit[litellm]
+
+Run:
+    python examples/04_litellm/multi_provider.py
 """
 
 import asyncio
-import logging
 import os
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from litellm import Router
+from conduit_litellm import ConduitRoutingStrategy
 
 
-async def main():
-    """Demonstrate multi-provider routing with ML optimization."""
+async def main() -> None:
+    """Multi-provider routing example."""
 
-    # Check which providers are available
-    providers = {
+    print("🚀 Multi-Provider Routing with Conduit\n")
+
+    # Check available API keys
+    api_keys = {
         "OpenAI": os.getenv("OPENAI_API_KEY"),
         "Anthropic": os.getenv("ANTHROPIC_API_KEY"),
-        "Google": os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"),
+        "Google": os.getenv("GOOGLE_API_KEY"),
         "Groq": os.getenv("GROQ_API_KEY"),
     }
 
-    available = [name for name, key in providers.items() if key]
+    available_providers = [k for k, v in api_keys.items() if v]
 
-    if len(available) < 2:
-        logger.error(
-            f"Need at least 2 providers. Available: {available}\n"
-            f"Set API keys: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, GROQ_API_KEY"
-        )
+    if len(available_providers) < 2:
+        print("❌ Need at least 2 API keys for multi-provider demo")
+        print("   Set any combination of:")
+        print("   - OPENAI_API_KEY")
+        print("   - ANTHROPIC_API_KEY")
+        print("   - GOOGLE_API_KEY")
+        print("   - GROQ_API_KEY")
         return
 
-    try:
-        from litellm import Router
+    print(f"✅ Found {len(available_providers)} providers: {', '.join(available_providers)}\n")
 
-        from conduit_litellm import ConduitRoutingStrategy
-    except ImportError as e:
-        logger.error(f"Missing dependencies: {e}\nInstall: pip install conduit[litellm]")
-        return
-
-    logger.info("=" * 80)
-    logger.info("Conduit Multi-Provider Routing Demo")
-    logger.info("=" * 80)
-    logger.info(f"Available providers: {', '.join(available)}")
-    logger.info("")
-
-    # Build model list based on available providers
+    # Configure models from available providers
     model_list = []
 
-    if "OpenAI" in available:
-        model_list.append({
-            "model_name": "openai-mini",
-            "litellm_params": {
-                "model": "gpt-4o-mini",
-                "api_key": os.getenv("OPENAI_API_KEY"),
-            },
-        })
-
-    if "Anthropic" in available:
-        model_list.append({
-            "model_name": "anthropic-haiku",
-            "litellm_params": {
-                "model": "claude-3-haiku-20240307",
-                "api_key": os.getenv("ANTHROPIC_API_KEY"),
-            },
-        })
-
-    if "Google" in available:
-        model_list.append({
-            "model_name": "google-gemini",
-            "litellm_params": {
-                "model": "gemini-1.5-flash",
-                "api_key": os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"),
-            },
-        })
-
-    if "Groq" in available:
-        # Add 2 Groq models for variety
+    if api_keys["OpenAI"]:
         model_list.extend([
             {
-                "model_name": "groq-llama",
-                "litellm_params": {
-                    "model": "groq/llama-3.1-8b-instant",
-                    "api_key": os.getenv("GROQ_API_KEY"),
-                },
+                "model_name": "gpt-4o-mini",
+                "litellm_params": {"model": "gpt-4o-mini", "api_key": api_keys["OpenAI"]},
+                "model_info": {"id": "gpt-4o-mini"},
             },
             {
-                "model_name": "groq-mixtral",
-                "litellm_params": {
-                    "model": "groq/mixtral-8x7b-32768",
-                    "api_key": os.getenv("GROQ_API_KEY"),
-                },
+                "model_name": "gpt-4o",
+                "litellm_params": {"model": "gpt-4o", "api_key": api_keys["OpenAI"]},
+                "model_info": {"id": "gpt-4o"},
             },
         ])
 
-    logger.info(f"Configured {len(model_list)} models across {len(available)} providers")
-    logger.info("")
+    if api_keys["Anthropic"]:
+        model_list.extend([
+            {
+                "model_name": "claude-3-5-sonnet",
+                "litellm_params": {"model": "claude-3-5-sonnet-20241022", "api_key": api_keys["Anthropic"]},
+                "model_info": {"id": "claude-3-5-sonnet"},
+            },
+            {
+                "model_name": "claude-3-5-haiku",
+                "litellm_params": {"model": "claude-3-5-haiku-20241022", "api_key": api_keys["Anthropic"]},
+                "model_info": {"id": "claude-3-5-haiku"},
+            },
+        ])
 
-    # Create router with all available models
+    if api_keys["Google"]:
+        model_list.append({
+            "model_name": "gemini-1.5-flash",
+            "litellm_params": {"model": "gemini/gemini-1.5-flash", "api_key": api_keys["Google"]},
+            "model_info": {"id": "gemini-1.5-flash"},
+        })
+
+    if api_keys["Groq"]:
+        model_list.append({
+            "model_name": "llama-3.1-70b",
+            "litellm_params": {"model": "groq/llama-3.1-70b-versatile", "api_key": api_keys["Groq"]},
+            "model_info": {"id": "llama-3.1-70b"},
+        })
+
+    print(f"📋 Configured {len(model_list)} models:")
+    for model in model_list:
+        print(f"   - {model['model_info']['id']}")
+    print()
+
+    # Initialize LiteLLM router
     router = Router(model_list=model_list)
 
-    # Enable Conduit ML routing
-    logger.info("Enabling Conduit ML routing...")
-    strategy = ConduitRoutingStrategy()
+    # Set up Conduit with hybrid routing
+    strategy = ConduitRoutingStrategy(use_hybrid=True)
     ConduitRoutingStrategy.setup_strategy(router, strategy)
 
-    # Diverse test queries to see routing decisions
+    print("✅ Conduit multi-provider routing activated\n")
+    print("=" * 70)
+
+    # Test diverse queries
     queries = [
-        "What is 2+2?",  # Simple math
-        "Write a Python function to sort a list",  # Code
-        "Explain quantum entanglement in simple terms",  # Complex explanation
-        "Translate 'hello' to Spanish",  # Translation
-        "What is the capital of France?",  # Factual
-        "Write a haiku about coding",  # Creative
-        "Debug this code: def foo(): return x",  # Technical
-        "What are the best practices for REST APIs?",  # Technical knowledge
+        ("Math", "Calculate the derivative of x^2 + 3x + 5"),
+        ("Code", "Write a Python function to find prime numbers"),
+        ("Creative", "Write a short poem about artificial intelligence"),
+        ("Analysis", "Compare capitalism and socialism in 3 paragraphs"),
+        ("Science", "Explain photosynthesis in simple terms"),
     ]
 
-    logger.info(f"Testing with {len(queries)} diverse queries...\n")
-
-    results = []
-    for i, query in enumerate(queries, 1):
-        logger.info(f"Query {i}/{len(queries)}: {query[:60]}...")
+    for category, query in queries:
+        print(f"\n[{category}] {query}")
+        print("-" * 70)
 
         try:
-            # Use first model group as default (Conduit picks the deployment)
             response = await router.acompletion(
-                model=model_list[0]["model_name"],
+                model=model_list[0]["model_name"],  # Conduit selects optimal model
                 messages=[{"role": "user", "content": query}],
-                timeout=30,
+                temperature=0.7,
             )
 
             model_used = response.model
-            cost = response._hidden_params.get("response_cost", 0)
+            cost = response._hidden_params.get("response_cost", 0.0)
             content = response.choices[0].message.content
 
-            # Determine provider from model
-            provider = "Unknown"
-            if "gpt" in model_used.lower():
-                provider = "OpenAI"
-            elif "claude" in model_used.lower():
-                provider = "Anthropic"
-            elif "gemini" in model_used.lower():
-                provider = "Google"
-            elif "llama" in model_used.lower() or "mixtral" in model_used.lower():
-                provider = "Groq"
-
-            logger.info(f"  → Provider: {provider}")
-            logger.info(f"  → Model: {model_used}")
-            logger.info(f"  → Cost: ${cost:.6f}")
-            logger.info(f"  → Response: {content[:60]}...")
-            logger.info("")
-
-            results.append({"query": query, "provider": provider, "cost": cost})
+            print(f"Model: {model_used}")
+            print(f"Cost: ~${cost:.6f}")
+            print(f"Response: {content[:150]}...")
 
         except Exception as e:
-            logger.warning(f"  ⚠️  Failed: {e}")
-            logger.info("")
+            print(f"❌ Error: {e}")
 
-    # Show routing distribution
-    logger.info("=" * 80)
-    logger.info("Routing Distribution:")
-    logger.info("=" * 80)
-
-    provider_counts = {}
-    total_cost = 0
-    for result in results:
-        provider = result["provider"]
-        provider_counts[provider] = provider_counts.get(provider, 0) + 1
-        total_cost += result["cost"]
-
-    for provider in sorted(provider_counts.keys()):
-        count = provider_counts[provider]
-        pct = (count / len(results)) * 100
-        logger.info(f"  {provider}: {count}/{len(results)} queries ({pct:.1f}%)")
-
-    logger.info(f"\n  Total cost: ${total_cost:.6f}")
-    logger.info("")
-
-    logger.info("=" * 80)
-    logger.info("Key Insights:")
-    logger.info("=" * 80)
-    logger.info("✅ Conduit routes across multiple providers automatically")
-    logger.info("✅ Learns cost/quality/latency trade-offs per provider")
-    logger.info("✅ Adapts routing based on query context")
-    logger.info("✅ No manual configuration needed - ML does the work")
-    logger.info("")
-    logger.info("With more queries, Conduit will:")
-    logger.info("  - Identify which providers excel at code vs creative tasks")
-    logger.info("  - Learn speed/cost trade-offs per provider")
-    logger.info("  - Optimize routing for your specific workload")
-    logger.info("")
-
-    # Clean up
-    strategy.cleanup()
+    print("\n" + "=" * 70)
+    print("✨ Multi-Provider Routing Complete!")
+    print()
+    print("Key Benefits:")
+    print("  ✅ Automatic provider selection based on query type")
+    print("  ✅ Cost optimization across providers")
+    print("  ✅ Quality maximization through ML learning")
+    print("  ✅ No manual routing rules needed")
+    print()
+    print("Conduit learns which providers excel at which tasks!")
 
 
 if __name__ == "__main__":
