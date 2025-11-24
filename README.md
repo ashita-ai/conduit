@@ -38,10 +38,42 @@ async def main():
 asyncio.run(main())
 ```
 
+### User Preferences
+
+Control routing optimization with explicit user preferences:
+
+```python
+from conduit.core.models import Query, UserPreferences
+
+# Cost-optimized routing (minimize spend)
+query = Query(
+    text="Summarize this article",
+    preferences=UserPreferences(optimize_for="cost")  # 50% cost, 40% quality, 10% latency
+)
+
+# Speed-optimized routing (minimize latency)
+query = Query(
+    text="Quick: What's the capital of France?",
+    preferences=UserPreferences(optimize_for="speed")  # 50% latency, 40% quality, 10% cost
+)
+
+# Quality-optimized routing (maximize quality)
+query = Query(
+    text="Write a detailed technical explanation...",
+    preferences=UserPreferences(optimize_for="quality")  # 80% quality, 10% cost, 10% latency
+)
+
+# Balanced (default) - good for most use cases
+query = Query(text="General query")  # 70% quality, 20% cost, 10% latency
+```
+
+The system learns which models best satisfy each preference profile through feedback, enabling personalized routing without manual model selection.
+
 **See `examples/` for complete usage:**
 - **01_quickstart/**: hello_world.py (5 lines), simple_router.py
 - **02_routing/**: basic_routing.py, hybrid_routing.py, with_constraints.py
 - **03_optimization/**: caching.py, explicit_feedback.py
+- **05_personalization/**: explicit_preferences.py (user preference examples)
 
 ## Installation & Setup
 
