@@ -196,7 +196,23 @@ HYBRID_SWITCH_THRESHOLD = 2000  # Switch after 2000 queries
 # Sampling and budget defaults
 ARBITER_SAMPLE_RATE_DEFAULT = 0.1  # Evaluate 10% of responses
 ARBITER_DAILY_BUDGET_DEFAULT = 10.0  # $10/day max spend
-ARBITER_MODEL_DEFAULT = "gpt-4o-mini"  # Cheap evaluation model
+
+
+def get_arbiter_model_default() -> str:
+    """Get arbiter model from conduit.yaml config.
+
+    Returns:
+        Model ID for evaluation (defaults to o4-mini if config unavailable).
+    """
+    # Import here to avoid circular dependency
+    from conduit.core.config import get_arbiter_model
+
+    return get_arbiter_model()
+
+
+# For backwards compatibility, provide a constant (evaluated at import time)
+# New code should use get_arbiter_model_default() for dynamic loading
+ARBITER_MODEL_DEFAULT = "o4-mini"  # Static fallback, prefer get_arbiter_model_default()
 
 # Evaluator types
 ARBITER_EVALUATORS = [

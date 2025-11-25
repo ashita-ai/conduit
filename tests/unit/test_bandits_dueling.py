@@ -1,54 +1,15 @@
-"""Unit tests for Dueling Bandit algorithm."""
+"""Unit tests for Dueling Bandit algorithm.
+
+Uses shared fixtures from tests/conftest.py: test_arms, test_features
+"""
 
 import numpy as np
 import pytest
 
 from conduit.core.models import QueryFeatures
-from conduit.engines.bandits.base import ModelArm
 from conduit.engines.bandits.dueling import DuelingBandit, DuelingFeedback
 
-
-@pytest.fixture
-def test_arms():
-    """Create test model arms."""
-    return [
-        ModelArm(
-            model_id="gpt-4o-mini",
-            provider="openai",
-            model_name="gpt-4o-mini",
-            cost_per_input_token=0.00015,
-            cost_per_output_token=0.0006,
-            expected_quality=0.8,
-        ),
-        ModelArm(
-            model_id="gpt-4o",
-            provider="openai",
-            model_name="gpt-4o",
-            cost_per_input_token=0.005,
-            cost_per_output_token=0.015,
-            expected_quality=0.95,
-        ),
-        ModelArm(
-            model_id="claude-3-haiku",
-            provider="anthropic",
-            model_name="claude-3-haiku-20240307",
-            cost_per_input_token=0.00025,
-            cost_per_output_token=0.00125,
-            expected_quality=0.75,
-        ),
-    ]
-
-
-@pytest.fixture
-def test_features():
-    """Create test query features."""
-    return QueryFeatures(
-        embedding=[0.1] * 384,
-        token_count=50,
-        complexity_score=0.5,
-        domain="general",
-        domain_confidence=0.8,
-    )
+# test_arms and test_features fixtures imported from conftest.py
 
 
 class TestDuelingBanditInit:
@@ -66,7 +27,7 @@ class TestDuelingBanditInit:
         assert bandit.total_queries == 0
 
         # Check preference weights initialized to zero
-        for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
+        for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert model_id in bandit.preference_weights
             weights = bandit.preference_weights[model_id]
             assert weights.shape == (387, 1)
@@ -95,9 +56,9 @@ class TestDuelingBanditInit:
 
         # Should have counts for all unique pairs (stored as sorted tuples)
         expected_pairs = [
-            ("claude-3-haiku", "gpt-4o"),
-            ("claude-3-haiku", "gpt-4o-mini"),
-            ("gpt-4o", "gpt-4o-mini"),
+            ("claude-haiku-4-5", "gpt-5.1"),
+            ("claude-haiku-4-5", "o4-mini"),
+            ("gpt-5.1", "o4-mini"),
         ]
 
         for pair in expected_pairs:
@@ -364,8 +325,8 @@ class TestDuelingBanditReset:
 
         # Build up some preferences
         feedback = DuelingFeedback(
-            model_a_id="gpt-4o-mini",
-            model_b_id="gpt-4o",
+            model_a_id="o4-mini",
+            model_b_id="gpt-5.1",
             preference=0.7,
             confidence=1.0,
         )
@@ -375,7 +336,7 @@ class TestDuelingBanditReset:
 
         # Verify weights are non-zero
         assert (
-            np.linalg.norm(bandit.preference_weights["gpt-4o-mini"]) > 0.0
+            np.linalg.norm(bandit.preference_weights["o4-mini"]) > 0.0
         )
 
         # Reset
@@ -390,7 +351,7 @@ class TestDuelingBanditReset:
         bandit = DuelingBandit(test_arms)
 
         # Manually increment a count
-        pair_key = ("gpt-4o-mini", "gpt-4o")
+        pair_key = ("gpt-5.1", "o4-mini")
         bandit.preference_counts[pair_key] = 10
 
         bandit.reset()
@@ -450,28 +411,28 @@ class TestDuelingBanditStats:
         """Test preference matrix reflects learned preferences."""
         bandit = DuelingBandit(test_arms, learning_rate=0.1)  # Higher LR for faster learning
 
-        # Teach bandit that gpt-4o is better than gpt-4o-mini
+        # Teach bandit that gpt-5.1 is better than o4-mini
         for _ in range(50):  # More updates to build stronger preference
             feedback = DuelingFeedback(
-                model_a_id="gpt-4o",
-                model_b_id="gpt-4o-mini",
-                preference=1.0,  # gpt-4o is better
+                model_a_id="gpt-5.1",
+                model_b_id="o4-mini",
+                preference=1.0,  # gpt-5.1 is better
                 confidence=1.0,
             )
             await bandit.update(feedback, test_features)
 
         # Check that weights changed (direct evidence of learning)
-        w_gpt4o = bandit.preference_weights["gpt-4o"]
-        w_gpt4o_mini = bandit.preference_weights["gpt-4o-mini"]
+        w_gpt51 = bandit.preference_weights["gpt-5.1"]
+        w_o4_mini = bandit.preference_weights["o4-mini"]
 
-        # gpt-4o should have positive weights (preferred)
-        # gpt-4o-mini should have negative weights (not preferred)
-        assert np.sum(w_gpt4o) > 0
-        assert np.sum(w_gpt4o_mini) < 0
+        # gpt-5.1 should have positive weights (preferred)
+        # o4-mini should have negative weights (not preferred)
+        assert np.sum(w_gpt51) > 0
+        assert np.sum(w_o4_mini) < 0
 
         # Weights should have substantial magnitude (learning occurred)
-        assert np.linalg.norm(w_gpt4o) > 1.0
-        assert np.linalg.norm(w_gpt4o_mini) > 1.0
+        assert np.linalg.norm(w_gpt51) > 1.0
+        assert np.linalg.norm(w_o4_mini) > 1.0
 
 
 class TestDuelingFeedback:

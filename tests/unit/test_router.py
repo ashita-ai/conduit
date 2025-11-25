@@ -1,4 +1,14 @@
-"""Unit tests for Router."""
+"""Unit tests for Router.
+
+Tests cover:
+- Initialization with defaults and custom models
+- Basic routing without constraints
+- Constraint filtering (cost, latency, quality, provider)
+- Constraint relaxation
+- Circuit breaker behavior
+- Fallback strategies
+- Reasoning generation
+"""
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -10,6 +20,7 @@ from conduit.core.models import (
     RoutingDecision,
 )
 from conduit.engines.router import Router
+from conduit.engines import Router as RouterFromEngines
 
 
 @pytest.fixture
@@ -517,3 +528,60 @@ class TestReasoningGeneration:
 
         assert "moderate" in decision.reasoning.lower()
         assert "science" in decision.reasoning.lower()
+
+
+class TestRouterInitialization:
+    """Tests for Router initialization (merged from test_router_class.py)."""
+
+    def test_router_initialization_defaults(self):
+        """Test Router initializes with default models and hybrid router."""
+        router = Router()
+
+        # Check that components are initialized
+        assert router.analyzer is not None
+        assert router.hybrid_router is not None
+
+        # Check hybrid router has both bandits
+        assert router.hybrid_router.ucb1 is not None
+        assert router.hybrid_router.linucb is not None
+
+        # Check models are set
+        assert len(router.hybrid_router.models) > 0
+
+    def test_router_initialization_custom_models(self):
+        """Test Router initializes with custom models."""
+        custom_models = ["gpt-4o-mini", "claude-3-5-sonnet"]
+        router = Router(models=custom_models)
+
+        assert router.hybrid_router.models == custom_models
+        assert len(router.hybrid_router.arms) == 2
+
+    def test_router_exported_from_engines(self):
+        """Test that Router is exported from conduit.engines."""
+        assert Router is RouterFromEngines
+
+    def test_router_has_route_method(self):
+        """Test that Router has the route method."""
+        router = Router()
+        assert hasattr(router, "route")
+        assert callable(router.route)
+
+
+class TestRouterIntegration:
+    """Integration tests with real components (not mocked)."""
+
+    @pytest.mark.asyncio
+    async def test_route_method_real_components(self):
+        """Test that route method works with real components."""
+        router = Router()
+        query = Query(text="Test query")
+
+        # Route should delegate to hybrid_router
+        result = await router.route(query)
+
+        # Verify result structure
+        assert isinstance(result, RoutingDecision)
+        assert result.query_id == query.id
+        assert result.selected_model in router.hybrid_router.models
+        assert 0.0 <= result.confidence <= 1.0
+        assert isinstance(result.features, QueryFeatures)

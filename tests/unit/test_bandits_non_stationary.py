@@ -2,6 +2,8 @@
 
 These tests verify that bandit algorithms can adapt to distribution shifts
 (e.g., model quality/cost changes over time) using sliding window mechanisms.
+
+Uses shared fixtures from tests/conftest.py: test_arms, test_features
 """
 
 import numpy as np
@@ -14,41 +16,7 @@ from conduit.engines.bandits.linucb import LinUCBBandit
 from conduit.engines.bandits.thompson_sampling import ThompsonSamplingBandit
 from conduit.engines.bandits.ucb import UCB1Bandit
 
-
-@pytest.fixture
-def test_arms() -> list[ModelArm]:
-    """Create test arms for bandit algorithms."""
-    return [
-        ModelArm(
-            model_id="gpt-4o-mini",
-            model_name="gpt-4o-mini",
-            provider="openai",
-            cost_per_input_token=0.00015,
-            cost_per_output_token=0.0006,
-            expected_quality=0.85,
-        ),
-        ModelArm(
-            model_id="claude-3-haiku",
-            model_name="claude-3-haiku",
-            provider="anthropic",
-            cost_per_input_token=0.00025,
-            cost_per_output_token=0.00125,
-            expected_quality=0.90,
-        ),
-    ]
-
-
-@pytest.fixture
-def test_features() -> QueryFeatures:
-    """Create test features for context."""
-    return QueryFeatures(
-        embedding=[0.1] * 384,
-        token_count=50,
-        complexity_score=0.5,
-        domain="general",
-        domain_confidence=0.8,
-        query_text="Test query",
-    )
+# test_arms and test_features fixtures imported from conftest.py
 
 
 class TestThompsonSamplingNonStationary:
@@ -64,7 +32,7 @@ class TestThompsonSamplingNonStationary:
         )
 
         assert bandit.window_size == 100
-        assert len(bandit.reward_history) == 2  # Two arms
+        assert len(bandit.reward_history) == 3  # Three arms from fixture
         assert all(
             history.maxlen == 100 for history in bandit.reward_history.values()
         )

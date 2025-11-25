@@ -15,6 +15,7 @@ from conduit.api.validation import (
     ModelsResponse,
     StatsResponse,
 )
+from conduit.core.config import get_fallback_model
 from conduit.core.exceptions import ExecutionError, RoutingError
 
 logger = logging.getLogger(__name__)
@@ -158,7 +159,7 @@ def create_routes(service: RoutingService) -> APIRouter:
             model_list = await service.get_models()
             return ModelsResponse(
                 models=model_list,
-                default_model="gpt-4o-mini",
+                default_model=get_fallback_model(),
             )
         except Exception as e:
             logger.exception(f"Unexpected error in models: {e}")

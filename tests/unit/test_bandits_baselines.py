@@ -1,4 +1,7 @@
-"""Unit tests for baseline bandit algorithms."""
+"""Unit tests for baseline bandit algorithms.
+
+Uses shared fixtures from tests/conftest.py: test_arms, test_features
+"""
 
 import pytest
 
@@ -8,51 +11,10 @@ from conduit.engines.bandits.baselines import (
     AlwaysBestBaseline,
     AlwaysCheapestBaseline,
 )
-from conduit.engines.bandits.base import BanditFeedback, ModelArm
+from conduit.engines.bandits.base import BanditFeedback
 from conduit.core.models import QueryFeatures
 
-
-@pytest.fixture
-def test_arms():
-    """Create test model arms with varied quality and cost."""
-    return [
-        ModelArm(
-            model_id="gpt-4o-mini",
-            model_name="gpt-4o-mini",
-            provider="openai",
-            cost_per_input_token=0.00015,
-            cost_per_output_token=0.0006,
-            expected_quality=0.85,
-        ),
-        ModelArm(
-            model_id="gpt-4o",
-            model_name="gpt-4o",
-            provider="openai",
-            cost_per_input_token=0.0025,
-            cost_per_output_token=0.010,
-            expected_quality=0.95,
-        ),
-        ModelArm(
-            model_id="claude-3-haiku",
-            model_name="claude-3-haiku",
-            provider="anthropic",
-            cost_per_input_token=0.00025,
-            cost_per_output_token=0.00125,
-            expected_quality=0.80,
-        ),
-    ]
-
-
-@pytest.fixture
-def test_features():
-    """Create test query features."""
-    return QueryFeatures(
-        embedding=[0.1] * 384,
-        token_count=50,
-        complexity_score=0.5,
-        domain="general",
-        domain_confidence=0.8,
-    )
+# test_arms and test_features fixtures imported from conftest.py
 
 
 class TestRandomBaseline:
@@ -74,7 +36,7 @@ class TestRandomBaseline:
         arm = await bandit.select_arm(test_features)
 
         assert arm in test_arms
-        assert arm.model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]
+        assert arm.model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]
 
     @pytest.mark.asyncio
     async def test_uniform_distribution(self, test_arms, test_features):
@@ -108,7 +70,7 @@ class TestRandomBaseline:
         # Give feedback making one arm appear much better
         for _ in range(10):
             feedback = BanditFeedback(
-                model_id="gpt-4o",  # Always say gpt-4o is best
+                model_id="gpt-5.1",  # Always say gpt-5.1 is best
                 cost=0.001,
                 quality_score=1.0,
                 latency=0.5,
@@ -176,12 +138,12 @@ class TestOracleBaseline:
         """Test oracle selects arm with best quality from history."""
         bandit = OracleBaseline(test_arms)
 
-        # Build history: gpt-4o performs best for this query
+        # Build history: gpt-5.1 performs best for this query
         bandit.oracle_rewards = {
             "query_hash_1": {
-                "gpt-4o-mini": 0.80,
-                "gpt-4o": 0.95,  # Best
-                "claude-3-haiku": 0.75,
+                "o4-mini": 0.80,
+                "gpt-5.1": 0.95,  # Best
+                "claude-haiku-4-5": 0.75,
             }
         }
 
@@ -211,7 +173,7 @@ class TestOracleBaseline:
 
         # Provide feedback for all arms
         for arm in test_arms:
-            quality = 0.95 if arm.model_id == "gpt-4o" else 0.6
+            quality = 0.95 if arm.model_id == "gpt-5.1" else 0.6
             feedback = BanditFeedback(
                 model_id=arm.model_id,
                 cost=0.001,
@@ -220,7 +182,7 @@ class TestOracleBaseline:
             )
             await bandit.update(feedback, test_features)
 
-        # Oracle should have learned that gpt-4o is best
+        # Oracle should have learned that gpt-5.1 is best
         # (Actual behavior depends on implementation details)
         # We verify oracle has collected feedback
         assert bandit.total_queries >= 1
@@ -231,8 +193,8 @@ class TestOracleBaseline:
         bandit = OracleBaseline(test_arms)
 
         feedback = BanditFeedback(
-            model_id="gpt-4o",
-                        cost=0.001,
+            model_id="gpt-5.1",
+            cost=0.001,
             quality_score=0.95,
             latency=1.0,
         )
@@ -291,10 +253,10 @@ class TestAlwaysBestBaseline:
         """Test always selects arm with highest expected_quality."""
         bandit = AlwaysBestBaseline(test_arms)
 
-        # gpt-4o has expected_quality=0.95 (highest)
+        # gpt-5.1 has expected_quality=0.95 (highest)
         for _ in range(10):
             arm = await bandit.select_arm(test_features)
-            assert arm.model_id == "gpt-4o"
+            assert arm.model_id == "gpt-5.1"
             assert arm.expected_quality == 0.95
 
     @pytest.mark.asyncio
@@ -304,16 +266,16 @@ class TestAlwaysBestBaseline:
 
         # Give feedback suggesting a different arm is better
         feedback = BanditFeedback(
-            model_id="gpt-4o-mini",  # Try to make mini look best
+            model_id="o4-mini",  # Try to make mini look best
             cost=0.0001,
-            quality_score=0.99,  # Higher than gpt-4o's expected 0.95
+            quality_score=0.99,  # Higher than gpt-5.1's expected 0.95
             latency=0.5,
         )
         await bandit.update(feedback, test_features)
 
-        # Should still select gpt-4o (based on expected_quality, not feedback)
+        # Should still select gpt-5.1 (based on expected_quality, not feedback)
         arm = await bandit.select_arm(test_features)
-        assert arm.model_id == "gpt-4o"
+        assert arm.model_id == "gpt-5.1"
 
     @pytest.mark.asyncio
     async def test_reset(self, test_arms):
@@ -370,8 +332,8 @@ class TestAlwaysCheapestBaseline:
 
         # Give feedback suggesting a different arm is cheaper
         feedback = BanditFeedback(
-            model_id="gpt-4o",
-            cost=0.0001,  # Claim gpt-4o was cheaper this time
+            model_id="gpt-5.1",
+            cost=0.0001,  # Claim gpt-5.1 was cheaper this time
             quality_score=0.95,
             latency=0.5,
         )

@@ -15,6 +15,7 @@ try:
 except ImportError:
     evaluate = None  # type: ignore[assignment]
 
+from conduit.core.config import get_arbiter_model
 from conduit.core.database import Database
 from conduit.core.models import Feedback, Query, Response
 
@@ -46,7 +47,7 @@ class ArbiterEvaluator:
         db: Database,
         sample_rate: float = 0.1,
         daily_budget: float = 10.0,
-        model: str = "gpt-4o-mini",
+        model: str | None = None,
     ):
         """Initialize Arbiter evaluator.
 
@@ -54,7 +55,7 @@ class ArbiterEvaluator:
             db: Database instance for storing feedback
             sample_rate: Fraction of responses to evaluate (0.0-1.0)
             daily_budget: Maximum daily spend on evaluations (USD)
-            model: Model to use for evaluation (cheap model recommended)
+            model: Model to use for evaluation (defaults to conduit.yaml arbiter model)
 
         Raises:
             ValueError: If sample_rate not in [0.0, 1.0]
@@ -72,7 +73,7 @@ class ArbiterEvaluator:
         self.db = db
         self.sample_rate = sample_rate
         self.daily_budget = daily_budget
-        self.model = model
+        self.model = model if model is not None else get_arbiter_model()
 
         # Evaluator names for quality assessment
         self.evaluators = [

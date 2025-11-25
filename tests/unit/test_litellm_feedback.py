@@ -15,6 +15,7 @@ from conduit.engines.bandits.base import BanditFeedback
 pytest.importorskip("litellm", reason="litellm not installed")
 
 from conduit_litellm.feedback import ConduitFeedbackLogger
+from conduit_litellm.utils import extract_query_text
 
 
 @pytest.fixture
@@ -263,37 +264,29 @@ class TestConduitFeedbackLogger:
         mock_router.analyzer.analyze.assert_called_once()
         mock_router.bandit.update.assert_not_called()
 
-    def test_extract_query_text_messages(self, feedback_logger):
+    def test_extract_query_text_messages(self):
         """Test query text extraction from messages format."""
-        kwargs = {
-            "messages": [
-                {"role": "system", "content": "System prompt"},
-                {"role": "user", "content": "User query here"},
-            ]
-        }
+        messages = [
+            {"role": "system", "content": "System prompt"},
+            {"role": "user", "content": "User query here"},
+        ]
 
-        text = feedback_logger._extract_query_text(kwargs)
+        text = extract_query_text(messages=messages, input_data=None)
         assert text == "User query here"
 
-    def test_extract_query_text_input_string(self, feedback_logger):
+    def test_extract_query_text_input_string(self):
         """Test query text extraction from input string."""
-        kwargs = {"input": "Direct input text"}
-
-        text = feedback_logger._extract_query_text(kwargs)
+        text = extract_query_text(messages=None, input_data="Direct input text")
         assert text == "Direct input text"
 
-    def test_extract_query_text_input_list(self, feedback_logger):
+    def test_extract_query_text_input_list(self):
         """Test query text extraction from input list."""
-        kwargs = {"input": ["First part", "Second part"]}
-
-        text = feedback_logger._extract_query_text(kwargs)
+        text = extract_query_text(messages=None, input_data=["First part", "Second part"])
         assert text == "First part Second part"
 
-    def test_extract_query_text_empty(self, feedback_logger):
+    def test_extract_query_text_empty(self):
         """Test query text extraction returns empty string when no text."""
-        kwargs = {}
-
-        text = feedback_logger._extract_query_text(kwargs)
+        text = extract_query_text(messages=None, input_data=None)
         assert text == ""
 
     def test_extract_cost_hidden_params(self, feedback_logger):

@@ -12,6 +12,7 @@ from unittest.mock import Mock, AsyncMock, MagicMock
 pytest.importorskip("litellm")
 
 from conduit_litellm.strategy import ConduitRoutingStrategy
+from conduit_litellm.utils import extract_query_text
 from conduit.core.models import Query, RoutingDecision, QueryFeatures
 
 
@@ -127,30 +128,24 @@ async def test_initialization_from_litellm(mock_litellm_router):
 
 def test_extract_query_text_from_messages():
     """Test query text extraction from messages."""
-    strategy = ConduitRoutingStrategy()
-
     messages = [
         {"role": "system", "content": "You are helpful"},
         {"role": "user", "content": "What is 2+2?"}
     ]
 
-    text = strategy._extract_query_text(messages, None)
+    text = extract_query_text(messages=messages, input_data=None)
     assert text == "What is 2+2?"
 
 
 def test_extract_query_text_from_input():
     """Test query text extraction from input string."""
-    strategy = ConduitRoutingStrategy()
-
-    text = strategy._extract_query_text(None, "Calculate the sum")
+    text = extract_query_text(messages=None, input_data="Calculate the sum")
     assert text == "Calculate the sum"
 
 
 def test_extract_query_text_from_list():
     """Test query text extraction from list input."""
-    strategy = ConduitRoutingStrategy()
-
-    text = strategy._extract_query_text(None, ["query1", "query2"])
+    text = extract_query_text(messages=None, input_data=["query1", "query2"])
     assert text == "query1 query2"
 
 

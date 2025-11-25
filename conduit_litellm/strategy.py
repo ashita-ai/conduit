@@ -6,7 +6,11 @@ from typing import Any, cast
 from conduit.core.models import Query
 from conduit.engines.router import Router
 from conduit_litellm.feedback import ConduitFeedbackLogger
-from conduit_litellm.utils import extract_model_ids, validate_litellm_model_list
+from conduit_litellm.utils import (
+    extract_model_ids,
+    extract_query_text,
+    validate_litellm_model_list,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -211,7 +215,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         await self._initialize_from_litellm(self._router)
 
         # Extract query text from messages or input
-        query_text = self._extract_query_text(messages, input)
+        query_text = extract_query_text(messages=messages, input_data=input)
 
         # Route through Conduit
         query = Query(text=query_text, user_id=None, context=None, constraints=None)
@@ -304,30 +308,6 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
                     )
                 )
                 return future.result()
-
-    def _extract_query_text(
-        self,
-        messages: list[dict[str, str]] | None,
-        input: str | list[Any] | None
-    ) -> str:
-        """Extract query text from LiteLLM request format.
-
-        Args:
-            messages: Chat messages (OpenAI format).
-            input: Alternative input format.
-
-        Returns:
-            Extracted query text for Conduit analysis.
-        """
-        if messages:
-            # Get last user message content
-            return messages[-1].get("content", "")
-        elif isinstance(input, str):
-            return input
-        elif isinstance(input, list):
-            # Join list elements for batch requests
-            return " ".join(str(x) for x in input)
-        return ""
 
     def _initialize_feedback_logger(self) -> None:
         """Initialize and register feedback logger with LiteLLM.

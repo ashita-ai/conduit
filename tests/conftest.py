@@ -5,6 +5,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from conduit.engines.bandits.base import ModelArm
+from conduit.core.models import QueryFeatures
+
 # Note: sentence-transformers and scikit-learn are required dependencies,
 # so we don't mock them. Tests will use the real libraries.
 
@@ -47,3 +50,73 @@ def mock_huggingface_embeddings():
     with patch('conduit.engines.embeddings.huggingface.HuggingFaceEmbeddingProvider.embed', new=mock_embed), \
          patch('conduit.engines.embeddings.huggingface.HuggingFaceEmbeddingProvider.embed_batch', new=mock_embed_batch):
         yield
+
+
+# =============================================================================
+# SHARED BANDIT TEST FIXTURES
+# =============================================================================
+# These fixtures are shared across all bandit algorithm tests to ensure
+# consistency and reduce duplication. Update models here when defaults change.
+
+
+@pytest.fixture
+def test_arms() -> list[ModelArm]:
+    """Create canonical test model arms for bandit tests.
+
+    Returns three arms representing different cost/quality tradeoffs:
+    - o4-mini: Fast, cheap OpenAI model
+    - gpt-5.1: Premium OpenAI flagship
+    - claude-haiku-4-5: Cheap Anthropic model
+
+    Used by: test_bandits_linucb.py, test_bandits_ucb.py, test_bandits_thompson.py,
+             test_bandits_dueling.py, test_bandits_baselines.py,
+             test_bandits_epsilon_greedy.py, test_bandits_contextual_thompson_sampling.py,
+             test_bandits_non_stationary.py
+    """
+    return [
+        ModelArm(
+            model_id="o4-mini",
+            model_name="o4-mini",
+            provider="openai",
+            cost_per_input_token=0.0000011,  # $1.10/1M tokens
+            cost_per_output_token=0.0000044,  # $4.40/1M tokens
+            expected_quality=0.85,
+        ),
+        ModelArm(
+            model_id="gpt-5.1",
+            model_name="gpt-5.1",
+            provider="openai",
+            cost_per_input_token=0.000002,  # $2.00/1M tokens
+            cost_per_output_token=0.000008,  # $8.00/1M tokens
+            expected_quality=0.95,
+        ),
+        ModelArm(
+            model_id="claude-haiku-4-5",
+            model_name="claude-haiku-4-5-20241124",
+            provider="anthropic",
+            cost_per_input_token=0.0000008,  # $0.80/1M tokens
+            cost_per_output_token=0.000004,  # $4.00/1M tokens
+            expected_quality=0.80,
+        ),
+    ]
+
+
+@pytest.fixture
+def test_features() -> QueryFeatures:
+    """Create canonical test query features for bandit tests.
+
+    Returns a QueryFeatures instance with:
+    - 384-dim embedding (all-MiniLM-L6-v2 compatible)
+    - Moderate token count (50)
+    - Medium complexity (0.5)
+    - General domain with reasonable confidence
+
+    Used by: All bandit algorithm test files
+    """
+    return QueryFeatures(
+        embedding=[0.1] * 384,
+        token_count=50,
+        complexity_score=0.5,
+        domain="general",
+        domain_confidence=0.8,
+    )

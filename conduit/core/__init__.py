@@ -2,6 +2,12 @@
 
 from conduit.core.config import (
     Settings,
+    get_arbiter_model,
+    get_default_models,
+    get_default_pricing,
+    get_fallback_model,
+    get_fallback_pricing,
+    get_provider_fallback,
     load_context_priors,
     load_preference_weights,
     settings,
@@ -46,6 +52,12 @@ __all__ = [
     "settings",
     "load_preference_weights",
     "load_context_priors",
+    "get_default_models",
+    "get_arbiter_model",
+    "get_fallback_model",
+    "get_provider_fallback",
+    "get_fallback_pricing",
+    "get_default_pricing",
     # Context Detection
     "ContextDetector",
     # Database

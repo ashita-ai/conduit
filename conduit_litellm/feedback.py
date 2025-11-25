@@ -13,6 +13,7 @@ from uuid import uuid4
 from conduit.core.defaults import QUALITY_ESTIMATION_DEFAULTS
 from conduit.core.models import Query, Response
 from conduit.engines.bandits.base import BanditFeedback
+from conduit_litellm.utils import extract_query_text
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,9 @@ class ConduitFeedbackLogger(CustomLogger):
         """
         try:
             # Extract query text from LiteLLM request
-            query_text = self._extract_query_text(kwargs)
+            messages = kwargs.get("messages")
+            input_data = kwargs.get("input")
+            query_text = extract_query_text(messages=messages, input_data=input_data)
             if not query_text:
                 logger.warning("No query text found in LiteLLM request, skipping feedback")
                 return
@@ -201,7 +204,9 @@ class ConduitFeedbackLogger(CustomLogger):
         """
         try:
             # Extract query text
-            query_text = self._extract_query_text(kwargs)
+            messages = kwargs.get("messages")
+            input_data = kwargs.get("input")
+            query_text = extract_query_text(messages=messages, input_data=input_data)
             if not query_text:
                 logger.warning("No query text found in failed request, skipping feedback")
                 return
@@ -254,33 +259,6 @@ class ConduitFeedbackLogger(CustomLogger):
 
         except Exception as e:
             logger.error(f"Error recording failure feedback: {e}", exc_info=True)
-
-    def _extract_query_text(self, kwargs: dict[str, Any]) -> str:
-        """Extract query text from LiteLLM request parameters.
-
-        Args:
-            kwargs: LiteLLM request parameters
-
-        Returns:
-            Extracted query text or empty string
-        """
-        # Try messages format (chat completions)
-        messages = kwargs.get("messages")
-        if messages and isinstance(messages, list) and len(messages) > 0:
-            # Get last user message
-            last_msg = messages[-1]
-            if isinstance(last_msg, dict):
-                return last_msg.get("content", "")
-
-        # Try input format (embeddings, etc.)
-        input_data = kwargs.get("input")
-        if isinstance(input_data, str):
-            return input_data
-        elif isinstance(input_data, list):
-            # Join list elements
-            return " ".join(str(x) for x in input_data)
-
-        return ""
 
     def _extract_cost(self, response_obj: Any) -> float | None:
         """Extract cost from LiteLLM response object.

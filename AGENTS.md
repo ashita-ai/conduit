@@ -291,6 +291,101 @@ uv run python examples/02_routing/basic_routing.py
 
 ---
 
+## Model Reference (Current as of 2025-11-25)
+
+**CRITICAL**: Always use current model versions. Never use outdated model IDs.
+
+### Top 5 Providers - Current Best Models
+
+| Provider | Flagship | Fast/Cheap | Notes |
+|----------|----------|------------|-------|
+| **OpenAI** | `gpt-5.1` | `o4-mini` | GPT-5.1 series (Nov 2025), 76.3% SWE-bench |
+| **Anthropic** | `claude-opus-4-5-20241124` | `claude-haiku-4-5-20241124` | Claude 4.5 series, Opus 80.9% SWE-bench |
+| **Google** | `gemini-3.0-pro` | `gemini-2.5-flash` | Gemini 3 (Nov 18), topped LMArena |
+| **Meta** | `llama-4-maverick` | `llama-4-scout` | Llama 4 via Groq/Together |
+| **Mistral** | `mistral-large-latest` | `mistral-small-latest` | Use `-latest` suffix |
+
+### Default Models by Use Case
+
+```yaml
+# conduit.yaml - models section
+models:
+  # Default routing pool (balanced across providers)
+  default:
+    - o4-mini               # OpenAI fast reasoning
+    - gpt-5.1               # OpenAI flagship
+    - claude-sonnet-4-5-20241124  # Anthropic balanced
+    - gemini-2.5-flash      # Google fast
+
+  # Arbiter evaluation (cheap, fast)
+  arbiter: o4-mini
+
+  # Fallback when model unknown
+  fallback: o4-mini
+```
+
+### LiteLLM Model Format
+
+When using LiteLLM, prefix with provider:
+```python
+# LiteLLM format
+"openai/gpt-5.1"
+"anthropic/claude-opus-4-5-20241124"
+"gemini/gemini-3.0-pro"
+"groq/llama-4-maverick"
+```
+
+### Model ID Patterns (for unknown models)
+
+When someone requests a model not in our config:
+1. Check if it matches a known provider pattern
+2. Use provider's latest fast model as fallback
+3. Log warning for unknown models
+
+```python
+# Pattern matching for fallbacks
+def get_fallback_model(model_id: str) -> str:
+    """Get fallback model for unknown model IDs."""
+    model_lower = model_id.lower()
+
+    if "gpt" in model_lower or "openai" in model_lower or "o4" in model_lower:
+        return "o4-mini"
+    elif "claude" in model_lower or "anthropic" in model_lower:
+        return "claude-haiku-4-5-20241124"
+    elif "gemini" in model_lower or "google" in model_lower:
+        return "gemini-2.5-flash"
+    elif "llama" in model_lower or "meta" in model_lower:
+        return "llama-4-scout"
+    elif "mistral" in model_lower:
+        return "mistral-small-latest"
+    else:
+        return "o4-mini"  # Global fallback
+```
+
+### Pricing Reference (Nov 2025, per 1M tokens)
+
+| Model | Input | Output | Source |
+|-------|-------|--------|--------|
+| o4-mini | $1.10 | $4.40 | openai.com |
+| gpt-5.1 | $2.00 | $8.00 | openai.com |
+| claude-opus-4-5 | $5.00 | $25.00 | anthropic.com |
+| claude-haiku-4-5 | $0.80 | $4.00 | anthropic.com |
+| gemini-3.0-pro | $1.25 | $5.00 | ai.google.dev |
+| gemini-2.5-flash | $0.075 | $0.30 | ai.google.dev |
+
+**Update Frequency**: Check pricing monthly at:
+- https://openai.com/api/pricing
+- https://anthropic.com/pricing
+- https://ai.google.dev/pricing
+- https://artificialanalysis.ai/leaderboards/providers
+
+Sources:
+- [OpenAI GPT-5.1 announcement](https://openai.com/index/gpt-5-1-for-developers/)
+- [Anthropic Claude Opus 4.5](https://www.anthropic.com/news/claude-opus-4-5)
+- [Google Gemini 3](https://blog.google/products/gemini/gemini-3/)
+
+---
+
 ## Tech Stack
 
 ### Core (Production Dependencies)
