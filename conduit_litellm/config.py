@@ -12,21 +12,22 @@ class ConduitLiteLLMConfig:
     with LiteLLM's router.
 
     Attributes:
-        use_hybrid: Enable UCB1→LinUCB warm start for faster convergence.
         embedding_model: Sentence transformer model for query analysis.
         cache_enabled: Enable Redis caching for query feature vectors.
         redis_url: Redis connection URL (if cache_enabled=True).
         cache_ttl: Cache TTL in seconds (default: 3600).
 
+    Note:
+        Router always uses hybrid routing (UCB1→LinUCB warm start) by default.
+        The use_hybrid parameter has been removed as it's no longer configurable.
+
     Example:
         >>> config = ConduitLiteLLMConfig(
-        ...     use_hybrid=True,
         ...     cache_enabled=True,
         ...     redis_url="redis://localhost:6379"
         ... )
     """
 
-    use_hybrid: bool = False
     embedding_model: str = "all-MiniLM-L6-v2"
     cache_enabled: bool = False
     redis_url: str | None = None
@@ -39,7 +40,6 @@ class ConduitLiteLLMConfig:
             Dictionary of configuration options for Conduit Router.
         """
         config = {
-            "use_hybrid": self.use_hybrid,
             "embedding_model": self.embedding_model,
             "cache_enabled": self.cache_enabled,
         }

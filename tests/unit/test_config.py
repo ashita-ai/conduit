@@ -18,7 +18,8 @@ class TestSettings:
         # Redis URL may come from environment (.env file) or default
         assert settings.redis_url.startswith("redis://")  # Accept any valid redis URL
         assert settings.redis_cache_ttl == 86400  # 24 hours default
-        assert settings.embedding_model == "all-MiniLM-L6-v2"
+        # embedding_model defaults to empty string (uses provider default)
+        assert settings.embedding_model == ""
         assert settings.exploration_rate == 0.1
         assert settings.api_rate_limit == 100
         assert settings.api_host == "0.0.0.0"

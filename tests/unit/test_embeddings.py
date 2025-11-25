@@ -36,15 +36,19 @@ async def test_factory_huggingface():
     assert provider.dimension == 384
 
 
-def test_factory_openai_requires_key():
+def test_factory_openai_requires_key(monkeypatch):
     """Test OpenAI provider requires API key."""
-    with pytest.raises(ValueError, match="API key required"):
+    # Ensure no API key in environment
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="OpenAI API key required"):
         create_embedding_provider("openai")
 
 
-def test_factory_cohere_requires_key():
+def test_factory_cohere_requires_key(monkeypatch):
     """Test Cohere provider requires API key."""
-    with pytest.raises(ValueError, match="API key required"):
+    # Ensure no API key in environment
+    monkeypatch.delenv("COHERE_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="Cohere API key required"):
         create_embedding_provider("cohere")
 
 

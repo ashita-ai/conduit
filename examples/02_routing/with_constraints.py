@@ -4,21 +4,10 @@ This example demonstrates routing with cost, latency, and quality constraints.
 """
 
 import asyncio
-import logging
 import os
-from pydantic import BaseModel
 
-from conduit.utils.service_factory import create_service
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
-class SimpleResult(BaseModel):
-    """Simple result type for examples."""
-
-    content: str
+from conduit.core.models import Query, QueryConstraints, UserPreferences
+from conduit.engines.router import Router
 
 
 async def main() -> None:
@@ -27,32 +16,34 @@ async def main() -> None:
     if not os.getenv("OPENAI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"):
         print("Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable")
         print("Example: export OPENAI_API_KEY=sk-...")
-        exit(1)
+        return
 
-    print("Initializing Conduit routing service...")
-    service = await create_service(default_result_type=SimpleResult)
+    print("Initializing Conduit Router...")
+    router = Router()
 
     # Example 1: Cost-constrained query
     print("\n" + "=" * 60)
     print("Example 1: Cost-Constrained Routing")
     print("=" * 60)
 
+    constraints_cheap = QueryConstraints(
+        max_cost=0.001,  # Prefer cheaper models
+        min_quality=0.7,  # But maintain reasonable quality
+    )
+    query_cheap = Query(
+        text="Write a short poem about the ocean",
+        constraints=constraints_cheap,
+        preferences=UserPreferences(optimize_for="cost"),
+    )
+
     try:
-        result_cheap = await service.complete(
-            prompt="Write a short poem about the ocean",
-            user_id="budget_user",
-            constraints={
-                "max_cost": 0.001,  # Prefer cheaper models
-                "min_quality": 0.7,  # But maintain reasonable quality
-            },
-        )
-        print(f"Query: Write a short poem about the ocean")
-        print(f"Selected Model: {result_cheap.model}")
-        print(f"Cost: ${result_cheap.metadata.get('cost', 0.0):.6f}")
-        print(f"Confidence: {result_cheap.metadata.get('routing_confidence', 0.0):.2f}")
-        print(f"Reasoning: {result_cheap.metadata.get('reasoning', 'N/A')}")
+        decision = await router.route(query_cheap)
+        print(f"Query: {query_cheap.text}")
+        print(f"Constraints: max_cost=${constraints_cheap.max_cost}, min_quality={constraints_cheap.min_quality}")
+        print(f"Selected Model: {decision.selected_model}")
+        print(f"Confidence: {decision.confidence:.2f}")
+        print(f"Reasoning: {decision.reasoning}")
     except Exception as e:
-        logger.error(f"Example 1 failed: {e}")
         print(f"Error: {e}")
 
     # Example 2: Quality-constrained query
@@ -60,49 +51,69 @@ async def main() -> None:
     print("Example 2: Quality-Constrained Routing")
     print("=" * 60)
 
+    constraints_quality = QueryConstraints(
+        min_quality=0.95,  # Require high quality
+        max_latency=10.0,  # But reasonable latency
+    )
+    query_quality = Query(
+        text="Explain quantum entanglement in detail with mathematical formulations",
+        constraints=constraints_quality,
+        preferences=UserPreferences(optimize_for="quality"),
+    )
+
     try:
-        result_quality = await service.complete(
-            prompt="Explain quantum entanglement in detail with mathematical formulations",
-            user_id="quality_user",
-            constraints={
-                "min_quality": 0.95,  # Require high quality
-                "max_latency": 10.0,  # But reasonable latency
-            },
-        )
-        print(f"Query: Explain quantum entanglement...")
-        print(f"Selected Model: {result_quality.model}")
-        print(f"Latency: {result_quality.metadata.get('latency', 0.0):.2f}s")
-        print(f"Confidence: {result_quality.metadata.get('routing_confidence', 0.0):.2f}")
-        print(f"Reasoning: {result_quality.metadata.get('reasoning', 'N/A')}")
+        decision = await router.route(query_quality)
+        print(f"Query: {query_quality.text[:50]}...")
+        print(f"Constraints: min_quality={constraints_quality.min_quality}, max_latency={constraints_quality.max_latency}s")
+        print(f"Selected Model: {decision.selected_model}")
+        print(f"Confidence: {decision.confidence:.2f}")
+        print(f"Reasoning: {decision.reasoning}")
     except Exception as e:
-        logger.error(f"Example 2 failed: {e}")
         print(f"Error: {e}")
 
-    # Example 3: Latency-constrained query
+    # Example 3: Speed-optimized query
     print("\n" + "=" * 60)
-    print("Example 3: Latency-Constrained Routing")
+    print("Example 3: Speed-Optimized Routing")
     print("=" * 60)
 
+    constraints_fast = QueryConstraints(
+        max_latency=2.0,  # Fast response required
+        preferred_provider="openai",  # Prefer fast provider
+    )
+    query_fast = Query(
+        text="Quick: What's the capital of France?",
+        constraints=constraints_fast,
+        preferences=UserPreferences(optimize_for="speed"),
+    )
+
     try:
-        result_fast = await service.complete(
-            prompt="Quick: What's the capital of France?",
-            user_id="speed_user",
-            constraints={
-                "max_latency": 2.0,  # Fast response required
-                "preferred_provider": "openai",  # Prefer fast provider
-            },
-        )
-        print(f"Query: Quick: What's the capital of France?")
-        print(f"Selected Model: {result_fast.model}")
-        print(f"Latency: {result_fast.metadata.get('latency', 0.0):.2f}s")
-        print(f"Confidence: {result_fast.metadata.get('routing_confidence', 0.0):.2f}")
-        print(f"Reasoning: {result_fast.metadata.get('reasoning', 'N/A')}")
+        decision = await router.route(query_fast)
+        print(f"Query: {query_fast.text}")
+        print(f"Constraints: max_latency={constraints_fast.max_latency}s, preferred_provider={constraints_fast.preferred_provider}")
+        print(f"Selected Model: {decision.selected_model}")
+        print(f"Confidence: {decision.confidence:.2f}")
+        print(f"Reasoning: {decision.reasoning}")
     except Exception as e:
-        logger.error(f"Example 3 failed: {e}")
         print(f"Error: {e}")
 
+    # Summary
+    print("\n" + "=" * 60)
+    print("Constraint Types Summary")
+    print("=" * 60)
+    print("\nQueryConstraints fields:")
+    print("  - max_cost: Maximum cost in dollars (e.g., 0.001)")
+    print("  - max_latency: Maximum latency in seconds (e.g., 2.0)")
+    print("  - min_quality: Minimum quality score 0.0-1.0 (e.g., 0.9)")
+    print("  - preferred_provider: Provider preference (openai, anthropic, google, groq)")
+
+    print("\nUserPreferences optimize_for options:")
+    print("  - balanced: Default (70% quality, 20% cost, 10% latency)")
+    print("  - quality: Maximize quality (80% quality, 10% cost, 10% latency)")
+    print("  - cost: Minimize cost (40% quality, 50% cost, 10% latency)")
+    print("  - speed: Minimize latency (40% quality, 10% cost, 50% latency)")
+
     # Cleanup
-    await service.database.disconnect()
+    await router.close()
 
 
 if __name__ == "__main__":

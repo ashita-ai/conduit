@@ -97,8 +97,8 @@ async def main() -> None:
     # Initialize LiteLLM router
     router = Router(model_list=model_list)
 
-    # Set up Conduit with hybrid routing
-    strategy = ConduitRoutingStrategy(use_hybrid=True)
+    # Set up Conduit routing (hybrid UCB1→LinUCB enabled by default)
+    strategy = ConduitRoutingStrategy()
     ConduitRoutingStrategy.setup_strategy(router, strategy)
 
     print("✅ Conduit multi-provider routing activated\n")

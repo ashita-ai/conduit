@@ -1,6 +1,12 @@
 """Core infrastructure for Conduit routing system."""
 
-from conduit.core.config import Settings, load_preference_weights, settings
+from conduit.core.config import (
+    Settings,
+    load_context_priors,
+    load_preference_weights,
+    settings,
+)
+from conduit.core.context_detector import ContextDetector
 from conduit.core.database import Database
 from conduit.core.exceptions import (
     AnalysisError,
@@ -31,6 +37,9 @@ __all__ = [
     "Settings",
     "settings",
     "load_preference_weights",
+    "load_context_priors",
+    # Context Detection
+    "ContextDetector",
     # Database
     "Database",
     # Exceptions

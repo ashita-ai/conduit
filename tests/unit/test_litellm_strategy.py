@@ -115,7 +115,7 @@ def test_sync_without_event_loop(mock_litellm_router, mock_conduit_router):
 @pytest.mark.asyncio
 async def test_initialization_from_litellm(mock_litellm_router):
     """Test automatic initialization from LiteLLM model_list."""
-    strategy = ConduitRoutingStrategy(use_hybrid=True)
+    strategy = ConduitRoutingStrategy()  # Hybrid routing always enabled
 
     # Mock router initialization
     await strategy._initialize_from_litellm(mock_litellm_router)
@@ -188,7 +188,7 @@ async def test_fallback_to_model_group(mock_litellm_router, mock_conduit_router)
 
 def test_setup_strategy_helper(mock_litellm_router):
     """Test setup_strategy helper method."""
-    strategy = ConduitRoutingStrategy(use_hybrid=True)
+    strategy = ConduitRoutingStrategy()  # Hybrid routing always enabled
 
     ConduitRoutingStrategy.setup_strategy(mock_litellm_router, strategy)
 

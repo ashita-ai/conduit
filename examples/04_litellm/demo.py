@@ -140,7 +140,6 @@ async def main() -> None:
     # Create Conduit routing strategy
     print("🧠 Setting up Conduit ML routing strategy...")
     conduit_strategy = ConduitRoutingStrategy(
-        use_hybrid=True,  # UCB1→LinUCB warm start
         cache_enabled=bool(os.getenv("REDIS_CACHE_ENABLED")),
     )
 
@@ -194,12 +193,7 @@ async def main() -> None:
     print("  ✅ LiteLLM router with Conduit ML strategy")
     print("  ✅ Intelligent model selection based on query features")
     print("  ✅ Multi-provider support (OpenAI, Anthropic, Google, Groq)")
-    print("  ✅ Hybrid routing (UCB1→LinUCB warm start)")
-    print()
-    print("Next Steps:")
-    print("  - Issue #13: Add feedback loop for learning")
-    print("  - Issue #14: Add comprehensive tests")
-    print("  - Issue #15: Create more examples")
+    print("  ✅ Hybrid routing (UCB1→LinUCB warm start) enabled by default")
 
 
 if __name__ == "__main__":
