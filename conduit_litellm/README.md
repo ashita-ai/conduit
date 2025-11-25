@@ -28,8 +28,8 @@ router = Router(
     ]
 )
 
-# Setup Conduit routing strategy (feedback loop auto-enabled)
-strategy = ConduitRoutingStrategy(use_hybrid=True)
+# Setup Conduit routing strategy (feedback loop auto-enabled, hybrid routing always on)
+strategy = ConduitRoutingStrategy()
 ConduitRoutingStrategy.setup_strategy(router, strategy)
 
 try:
@@ -56,10 +56,10 @@ finally:
 
 ```python
 strategy = ConduitRoutingStrategy(
-    use_hybrid=True,              # Enable UCB1→LinUCB warm start
     cache_enabled=True,           # Enable Redis caching
     redis_url="redis://localhost:6379"
 )
+# Note: Hybrid routing (UCB1→LinUCB) is always enabled by default
 ```
 
 ## Quality Measurement with Arbiter (Issue #52)
@@ -78,9 +78,9 @@ evaluator = ArbiterEvaluator(
 
 # Pass evaluator to routing strategy
 strategy = ConduitRoutingStrategy(
-    use_hybrid=True,
     evaluator=evaluator  # Enable LLM-as-judge quality measurement
 )
+# Note: Hybrid routing is always enabled
 ConduitRoutingStrategy.setup_strategy(router, strategy)
 
 # Quality scores now feed back to bandit learning

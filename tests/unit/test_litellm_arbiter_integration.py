@@ -149,7 +149,7 @@ class TestArbiterIntegration:
 
         # Create strategy with evaluator
         strategy = ConduitRoutingStrategy(
-            use_hybrid=True,
+            # Hybrid routing always enabled
             evaluator=mock_evaluator,
         )
 

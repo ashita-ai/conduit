@@ -32,17 +32,13 @@ brew install redis && redis-server
 - Dynamic detection of configured providers
 - Auto-fetches pricing from llm-prices.com (24h cache)
 
-**simple_router.py** - Basic routing with custom models
-- Define available models and route queries
-- See routing decisions and confidence scores
-- Introduction to Router API
-
 ### 02_routing/ - Smart Model Selection
 
 **basic_routing.py** - Core routing functionality
 - Query analysis and feature extraction
 - Model selection with confidence scoring
 - Routing metadata and decision reasoning
+- Introduction to Router API
 
 **with_constraints.py** - Cost, latency, and quality constraints
 - Budget-aware routing (max_cost constraint)
@@ -50,12 +46,20 @@ brew install redis && redis-server
 - Latency-optimized routing (max_latency constraint)
 - Provider preferences (preferred_provider)
 
-**contextual_thompson.py** - Bayesian contextual bandit routing
-- Contextual Thompson Sampling with Bayesian linear regression
-- Posterior distribution tracking (μ, Σ)
-- Natural exploration via posterior sampling
-- Sliding window for non-stationarity adaptation
-- Uncertainty quantification and confidence metrics
+**hybrid_routing.py** - UCB1→LinUCB warm start (default strategy)
+- Phase 1 (0-2,000 queries): UCB1 (fast exploration, no embeddings)
+- Phase 2 (2,000+ queries): LinUCB (contextual, smart routing)
+- 30% faster convergence vs pure LinUCB
+- Smooth transition with knowledge transfer
+- **Note**: Router uses hybrid routing by default
+
+**context_specific_priors.py** - Context-aware cold start
+- Context detection (code, creative, analysis, simple_qa)
+- Context-specific priors from YAML configuration
+- Faster convergence (200 queries per context vs 500 general)
+- Better first-query quality (0.85-0.92 vs 0.72 baseline)
+- Priors sourced from Vellum LLM Leaderboard
+
 
 ### 03_optimization/ - Performance & Learning
 
@@ -81,35 +85,78 @@ brew install redis && redis-server
 - Shows how mixed signals are resolved
 - Real-world learning scenarios
 
+### 04_litellm/ - LiteLLM Integration
+
+**See [04_litellm/README.md](04_litellm/README.md) for complete documentation.**
+
+**demo.py** - Comprehensive LiteLLM integration demo
+- ML-powered routing for LiteLLM across 100+ providers
+- Automatic model selection based on query features
+- Cost optimization and quality maximization
+- Multi-provider support (OpenAI, Anthropic, Google, Groq)
+
+**custom_config.py** - Customize Conduit behavior in LiteLLM
+- Hybrid routing configuration
+- Redis caching integration
+- Custom embedding models
+- Cost tracking
+
+**multi_provider.py** - Multi-provider intelligent routing
+- Route across OpenAI + Anthropic + Google + Groq
+- Automatic provider selection per query type
+- Cost optimization across providers
+
+**arbiter_quality_measurement.py** - Quality evaluation integration
+- LLM-as-judge quality assessment
+- Automatic feedback for bandit learning
+- Configurable sampling and budget control
+
 ### 04_production/ - Production Deployment
 
-*Coming soon:*
-- fastapi_endpoint.py - REST API integration
-- batch_processing.py - High-throughput batch routing
-- monitoring.py - Observability and metrics
+**failure_scenarios.py** - Production resilience demonstrations
+- Redis storage unavailable (graceful degradation)
+- All LLM models fail (circuit breaker activation)
+- Database connection loss (in-memory operation)
+- Combined failures (worst case scenario)
+- Shows fail-safe design and automatic recovery
+
+### 05_personalization/ - User Preferences
+
+**user_preferences.py** - Optimization presets for routing
+- 4 optimization presets: balanced, quality, cost, speed
+- Control how Conduit balances quality/cost/latency
+- Different from explicit_feedback.py (this is about preferences, not quality scores)
+- Per-query optimization control
 
 ## Feature Matrix
 
 | Feature | Example | Redis Required? |
 |---------|---------|-----------------|
-| Basic routing | hello_world.py | No |
-| Custom models | simple_router.py | No |
+| Basic routing | hello_world.py, basic_routing.py | No |
+| Model discovery | model_discovery.py | No |
 | Constraints | with_constraints.py | No |
+| Hybrid routing | hybrid_routing.py | No |
+| Context priors | context_specific_priors.py | No |
+| User preferences | user_preferences.py | No |
 | Caching | caching.py | Yes |
 | Explicit feedback | explicit_feedback.py | No |
 | Implicit feedback | implicit_feedback.py | Yes (retry detection) |
 | Combined feedback | combined_feedback.py | Yes (retry detection) |
+| Failure scenarios | failure_scenarios.py | No |
+| LiteLLM integration | demo.py (see 04_litellm/) | Optional |
 
 ## Running Examples
 
 ```bash
 # Quickstart
 python examples/01_quickstart/hello_world.py
-python examples/01_quickstart/simple_router.py
+python examples/01_quickstart/model_discovery.py
 
 # Routing
 python examples/02_routing/basic_routing.py
 python examples/02_routing/with_constraints.py
+python examples/02_routing/hybrid_routing.py
+python examples/02_routing/context_specific_priors.py
 
 # Optimization (Redis optional but recommended)
 redis-server  # Start Redis in another terminal
@@ -117,6 +164,17 @@ python examples/03_optimization/caching.py
 python examples/03_optimization/explicit_feedback.py
 python examples/03_optimization/implicit_feedback.py
 python examples/03_optimization/combined_feedback.py
+
+# Production resilience
+python examples/04_production/failure_scenarios.py
+
+# LiteLLM integration (see 04_litellm/README.md)
+python examples/04_litellm/demo.py
+python examples/04_litellm/custom_config.py
+python examples/04_litellm/multi_provider.py
+
+# Personalization
+python examples/05_personalization/user_preferences.py
 ```
 
 ## Key Concepts
@@ -138,6 +196,15 @@ Redis-based caching of query features to dramatically improve routing performanc
 ### Graceful Degradation
 All features work without Redis - caching and retry detection are simply disabled if Redis is unavailable.
 
+### Production Resilience
+Conduit handles common production failures gracefully:
+- **Redis unavailable**: Cache disabled, routing continues (slower)
+- **Model failures**: Circuit breaker activation, automatic retry, fallback to default model
+- **Database unavailable**: In-memory operation, no persistence (ephemeral state)
+- **Combined failures**: Degraded mode, core functionality preserved
+
+See `examples/04_production/failure_scenarios.py` for detailed demonstrations.
+
 ## Learning Path
 
 **Recommended order for new users:**
@@ -146,10 +213,14 @@ All features work without Redis - caching and retry detection are simply disable
 2. **Discover**: model_discovery.py - See what models you can use
 3. **Routing**: basic_routing.py - Understand core concepts
 4. **Constraints**: with_constraints.py - Cost/quality control
-5. **Caching**: caching.py - Performance optimization
-6. **Explicit Feedback**: explicit_feedback.py - User ratings
-7. **Implicit Feedback**: implicit_feedback.py - Behavioral signals
-8. **Combined**: combined_feedback.py - Full feedback system
+5. **Hybrid Routing**: hybrid_routing.py - Understand default strategy
+6. **Context Priors**: context_specific_priors.py - Faster cold start
+7. **Caching**: caching.py - Performance optimization (requires Redis)
+8. **Explicit Feedback**: explicit_feedback.py - User ratings
+9. **Implicit Feedback**: implicit_feedback.py - Behavioral signals
+10. **Combined**: combined_feedback.py - Full feedback system
+11. **Production**: failure_scenarios.py - Resilience patterns
+12. **LiteLLM**: demo.py - Integration with LiteLLM (see 04_litellm/README.md)
 
 ## Redis Setup
 

@@ -42,7 +42,7 @@ async def create_service(
     executor = ModelExecutor()
 
     # Note: Model state loading removed - HybridRouter doesn't support load_states()
-    # TODO: Implement state persistence for HybridRouter (UCB1 + LinUCB)
+    # See GitHub issue #76 for state persistence implementation
 
     # Create service
     service = RoutingService(

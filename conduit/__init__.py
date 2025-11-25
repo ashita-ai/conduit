@@ -12,6 +12,10 @@ Basic usage:
     "gpt-4o-mini"
 """
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from conduit.core import (
     AnalysisError,
     CircuitBreakerOpenError,

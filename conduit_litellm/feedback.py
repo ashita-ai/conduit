@@ -47,7 +47,7 @@ class ConduitFeedbackLogger(CustomLogger):
 
     Example:
         >>> from conduit.engines.router import Router
-        >>> router = Router(use_hybrid=True)
+        >>> router = Router()  # Hybrid routing always enabled
         >>> logger = ConduitFeedbackLogger(router)
         >>> # Logger automatically updates bandit when LiteLLM requests complete
     """

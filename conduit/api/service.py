@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
@@ -17,7 +17,9 @@ from conduit.core.models import (
 from conduit.engines.bandits.base import BanditFeedback
 from conduit.engines.executor import ModelExecutor
 from conduit.engines.router import Router
-from conduit.evaluation import ArbiterEvaluator
+
+if TYPE_CHECKING:
+    from conduit.evaluation import ArbiterEvaluator
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +33,7 @@ class RoutingService:
         router: Router,
         executor: ModelExecutor,
         default_result_type: type[BaseModel] | None = None,
-        evaluator: ArbiterEvaluator | None = None,
+        evaluator: "ArbiterEvaluator | None" = None,
     ):
         """Initialize routing service.
 
@@ -138,7 +140,7 @@ class RoutingService:
         await self.router.hybrid_router.update(feedback, routing.features)
 
         # Note: Model state persistence removed - HybridRouter doesn't expose state
-        # TODO: Implement state persistence for HybridRouter (UCB1 + LinUCB)
+        # See GitHub issue #76 for state persistence implementation
 
         # Return result
         return RoutingResult.from_response(response, routing)
@@ -202,7 +204,7 @@ class RoutingService:
             logger.warning(f"Could not find query {response.query_id} for feedback update")
 
         # Note: Model state persistence removed - HybridRouter doesn't expose state
-        # TODO: Implement state persistence for HybridRouter (UCB1 + LinUCB)
+        # See GitHub issue #76 for state persistence implementation
 
         return feedback
 

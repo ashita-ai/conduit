@@ -11,7 +11,7 @@ Usage:
     from conduit_litellm import ConduitRoutingStrategy
 
     router = Router(model_list=[...])
-    strategy = ConduitRoutingStrategy(use_hybrid=True)
+    strategy = ConduitRoutingStrategy()  # Hybrid routing always enabled
     ConduitRoutingStrategy.setup_strategy(router, strategy)
 """
 

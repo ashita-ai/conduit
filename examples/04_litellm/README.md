@@ -25,20 +25,21 @@ export GROQ_API_KEY="your-key"
 
 ## Examples
 
-### 1. Basic Usage (`basic_usage.py`)
+### 1. Demo (`demo.py`)
 
-Simplest example showing Conduit + LiteLLM integration.
+Comprehensive example showing Conduit + LiteLLM integration.
 
 ```bash
-python examples/04_litellm/basic_usage.py
+python examples/04_litellm/demo.py
 ```
 
 **What it shows:**
-- Minimal setup (3 lines of code)
+- Complete setup with multiple providers
 - Automatic model selection
 - Learning from query patterns
+- Cost tracking and optimization
 
-**Use this when:** You want to get started quickly with defaults.
+**Use this when:** You want to see the full integration in action.
 
 ---
 
@@ -105,8 +106,8 @@ from conduit_litellm import ConduitRoutingStrategy
 # Initialize LiteLLM router
 router = Router(model_list=[...])
 
-# Create Conduit strategy
-strategy = ConduitRoutingStrategy(use_hybrid=True)
+# Create Conduit strategy (hybrid routing always enabled)
+strategy = ConduitRoutingStrategy()
 
 # Activate Conduit routing
 ConduitRoutingStrategy.setup_strategy(router, strategy)
@@ -134,13 +135,9 @@ No manual rules, no configuration files, just ML-powered intelligence.
 
 ## Configuration Options
 
-### Hybrid Routing (Recommended)
+### Hybrid Routing (Always Enabled)
 
-```python
-strategy = ConduitRoutingStrategy(use_hybrid=True)
-```
-
-Achieves 30% faster convergence by:
+Hybrid routing (UCB1→LinUCB warm start) is always enabled by default. It achieves 30% faster convergence by:
 - Starting with UCB1 (fast exploration)
 - Switching to LinUCB after ~100 queries (contextual optimization)
 

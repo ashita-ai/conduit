@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     executor = ModelExecutor(pricing=model_prices)
 
     # Note: Model state loading removed - HybridRouter doesn't support load_states()
-    # TODO: Implement state persistence for HybridRouter (UCB1 + LinUCB)
+    # See GitHub issue #76 for state persistence implementation
 
     # Create service
     _service = RoutingService(

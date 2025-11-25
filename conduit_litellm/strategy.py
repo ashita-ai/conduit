@@ -47,7 +47,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         >>> from conduit_litellm import ConduitRoutingStrategy
         >>>
         >>> router = Router(model_list=[...])
-        >>> strategy = ConduitRoutingStrategy(use_hybrid=True)
+        >>> strategy = ConduitRoutingStrategy()
         >>> ConduitRoutingStrategy.setup_strategy(router, strategy)  # Use helper!
         >>>
         >>> # Now LiteLLM uses Conduit's ML routing
@@ -69,18 +69,20 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
                 a router will be automatically created from LiteLLM's model_list
                 on first request.
             **conduit_config: Additional Conduit configuration options passed to Router.
-                - use_hybrid (bool): Enable UCB1→LinUCB warm start (default: False)
                 - embedding_model (str): Sentence transformer model (default: all-MiniLM-L6-v2)
                 - cache_enabled (bool): Enable Redis caching (default: False)
                 - redis_url (str): Redis connection URL (if cache_enabled=True)
                 - evaluator (ArbiterEvaluator): Optional LLM-as-judge evaluator for quality assessment
 
+        Note:
+            Router always uses hybrid routing (UCB1→LinUCB warm start) by default.
+            The use_hybrid parameter has been removed.
+
         Example:
-            >>> # Use hybrid routing with caching and LLM-as-judge
+            >>> # Use caching and LLM-as-judge (hybrid routing is always enabled)
             >>> from conduit.evaluation import ArbiterEvaluator
             >>> evaluator = ArbiterEvaluator(db, sample_rate=0.1)
             >>> strategy = ConduitRoutingStrategy(
-            ...     use_hybrid=True,
             ...     cache_enabled=True,
             ...     evaluator=evaluator  # Enable LLM-as-judge quality measurement
             ... )
@@ -109,7 +111,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
 
         Example:
             >>> router = Router(model_list=[...])
-            >>> strategy = ConduitRoutingStrategy(use_hybrid=True)
+            >>> strategy = ConduitRoutingStrategy()  # Hybrid routing always enabled
             >>> ConduitRoutingStrategy.setup_strategy(router, strategy)
         """
         # Store router reference before binding
@@ -157,14 +159,19 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
 
         # Initialize Conduit router if not provided
         if not self.conduit_router:
+            # Filter out use_hybrid - Router always uses hybrid routing now
+            router_config = {
+                k: v for k, v in self.conduit_config.items()
+                if k != "use_hybrid"
+            }
             self.conduit_router = Router(
                 models=model_ids,
-                **self.conduit_config
+                **router_config
             )
             logger.info(
                 f"Created Conduit router with config: "
-                f"use_hybrid={self.conduit_config.get('use_hybrid', False)}, "
-                f"cache_enabled={self.conduit_config.get('cache_enabled', False)}"
+                f"cache_enabled={self.conduit_config.get('cache_enabled', False)}, "
+                f"hybrid_routing=always_enabled"
             )
 
         # Initialize feedback logger for bandit learning
@@ -221,7 +228,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
 
         for deployment in self._router.model_list:
             if deployment["model_info"]["id"] == decision.selected_model:
-                # TODO: Store routing context for feedback loop (Issue #13)
+                # See GitHub issue #13 for routing context storage
                 return cast(dict[str, Any], deployment)
 
         # Fallback 1: Find deployment matching model group name
@@ -399,7 +406,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         and remove the feedback logger from LiteLLM's global callback list.
 
         Example:
-            >>> strategy = ConduitRoutingStrategy(use_hybrid=True)
+            >>> strategy = ConduitRoutingStrategy()
             >>> ConduitRoutingStrategy.setup_strategy(router, strategy)
             >>> try:
             ...     # Use strategy
