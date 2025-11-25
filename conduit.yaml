@@ -33,38 +33,49 @@ routing:
 # Context-specific priors for Thompson Sampling cold start
 # Quality scores are converted to Beta distribution parameters (alpha, beta)
 # Higher values = expected higher quality for that context
+# Uses latest model names: gpt-5.1, claude-sonnet-4.5, gemini-2.5-pro, etc.
 priors:
   code:
-    claude-3-opus: 0.92        # Best for code generation
-    gpt-4o: 0.88               # Strong coding performance
-    claude-3-sonnet: 0.85      # Good balance
-    gpt-4o-mini: 0.78          # Fast and decent
-    claude-3-haiku: 0.72       # Quick responses
+    claude-sonnet-4.5: 0.92    # Best for code (SWE Bench leader)
+    claude-opus-4.5: 0.91      # Premium code generation
+    gpt-5.1: 0.88              # Strong coding performance
+    gpt-5: 0.85                # Good balance
+    o4-mini: 0.78              # Fast and decent
+    gemini-2.5-pro: 0.82       # Strong alternative
+    gemini-2.0-flash: 0.72     # Quick responses
 
   creative:
-    claude-3-opus: 0.94        # Excellent creativity
-    gpt-4o: 0.86               # Good creative writing
-    claude-3-sonnet: 0.82      # Solid creative tasks
-    gpt-4o-mini: 0.74          # Acceptable for simple creative
-    claude-3-haiku: 0.68       # Basic creative tasks
+    claude-opus-4.5: 0.94      # Excellent creativity
+    claude-sonnet-4.5: 0.90    # Strong creative writing
+    gpt-5.1: 0.86              # Good creative output
+    gpt-5: 0.82                # Solid creative tasks
+    o4-mini: 0.74              # Acceptable for simple creative
+    gemini-2.5-pro: 0.80       # Good creative alternative
+    gemini-2.0-flash: 0.68     # Basic creative tasks
 
   analysis:
-    claude-3-opus: 0.91        # Deep analytical ability
-    gpt-4o: 0.89               # Strong analysis
-    claude-3-sonnet: 0.84      # Good for most analysis
-    gpt-4o-mini: 0.76          # Lighter analysis
-    claude-3-haiku: 0.70       # Quick analytical tasks
+    claude-opus-4.5: 0.92      # Deep analytical ability
+    gpt-5.1: 0.89              # Strong analysis
+    claude-sonnet-4.5: 0.88    # Great for analysis
+    gpt-5: 0.84                # Good for most analysis
+    gemini-2.5-pro: 0.83       # Strong reasoning
+    o4-mini: 0.76              # Lighter analysis
+    gemini-2.0-flash: 0.70     # Quick analytical tasks
 
   simple_qa:
-    gpt-4o-mini: 0.90          # Excellent for simple questions
-    claude-3-haiku: 0.88       # Fast and accurate
-    gpt-4o: 0.85               # Overkill but works
-    claude-3-sonnet: 0.82      # Reliable
-    claude-3-opus: 0.80        # Unnecessary power
+    o4-mini: 0.90              # Excellent for simple questions
+    gemini-2.0-flash: 0.88     # Fast and accurate
+    gpt-5: 0.85                # Reliable for QA
+    claude-sonnet-4.5: 0.82    # Solid choice
+    gemini-2.5-pro: 0.80       # Good but overkill
+    claude-opus-4.5: 0.78      # Unnecessary power
+    gpt-5.1: 0.76              # Premium for simple tasks
 
   general:
-    gpt-4o: 0.87               # Good all-rounder
-    claude-3-sonnet: 0.85      # Balanced performance
-    claude-3-opus: 0.88        # Premium quality
-    gpt-4o-mini: 0.78          # Cost-effective
-    claude-3-haiku: 0.72       # Budget option
+    gpt-5.1: 0.88              # Good all-rounder
+    claude-opus-4.5: 0.87      # Premium quality
+    claude-sonnet-4.5: 0.85    # Balanced performance
+    gpt-5: 0.83                # Reliable
+    gemini-2.5-pro: 0.82       # Strong alternative
+    o4-mini: 0.78              # Cost-effective
+    gemini-2.0-flash: 0.72     # Budget option
