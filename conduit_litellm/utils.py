@@ -81,6 +81,45 @@ def normalize_model_name(model_name: str) -> str:
     return model_name
 
 
+def extract_query_text(
+    messages: list[dict[str, str]] | None = None,
+    input_data: str | list[Any] | None = None,
+) -> str:
+    """Extract query text from LiteLLM request parameters.
+
+    Handles both chat completion (messages) and other formats (input).
+    Used by both ConduitRoutingStrategy and ConduitFeedbackLogger.
+
+    Args:
+        messages: Chat messages in OpenAI format.
+        input_data: Alternative input format (string or list).
+
+    Returns:
+        Extracted query text or empty string.
+
+    Example:
+        >>> extract_query_text(messages=[{"content": "Hello"}])
+        'Hello'
+        >>> extract_query_text(input_data="What is 2+2?")
+        'What is 2+2?'
+        >>> extract_query_text(input_data=["Query 1", "Query 2"])
+        'Query 1 Query 2'
+    """
+    # Try messages format (chat completions)
+    if messages and isinstance(messages, list) and len(messages) > 0:
+        last_msg = messages[-1]
+        if isinstance(last_msg, dict):
+            return last_msg.get("content", "")
+
+    # Try input format (embeddings, etc.)
+    if isinstance(input_data, str):
+        return input_data
+    elif isinstance(input_data, list):
+        return " ".join(str(x) for x in input_data)
+
+    return ""
+
+
 def format_routing_metadata(
     selected_model: str,
     confidence: float,

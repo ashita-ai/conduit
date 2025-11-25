@@ -1,54 +1,16 @@
-"""Unit tests for UCB1 bandit algorithm."""
+"""Unit tests for UCB1 bandit algorithm.
+
+Uses shared fixtures from tests/conftest.py: test_arms, test_features
+"""
 
 import math
 import pytest
 
 from conduit.engines.bandits.ucb import UCB1Bandit
-from conduit.engines.bandits.base import BanditFeedback, ModelArm
+from conduit.engines.bandits.base import BanditFeedback
 from conduit.core.models import QueryFeatures
 
-
-@pytest.fixture
-def test_arms():
-    """Create test model arms."""
-    return [
-        ModelArm(
-            model_id="gpt-4o-mini",
-            model_name="gpt-4o-mini",
-            provider="openai",
-            cost_per_input_token=0.00015,
-            cost_per_output_token=0.0006,
-            expected_quality=0.85,
-        ),
-        ModelArm(
-            model_id="gpt-4o",
-            model_name="gpt-4o",
-            provider="openai",
-            cost_per_input_token=0.0025,
-            cost_per_output_token=0.010,
-            expected_quality=0.95,
-        ),
-        ModelArm(
-            model_id="claude-3-haiku",
-            model_name="claude-3-haiku",
-            provider="anthropic",
-            cost_per_input_token=0.00025,
-            cost_per_output_token=0.00125,
-            expected_quality=0.80,
-        ),
-    ]
-
-
-@pytest.fixture
-def test_features():
-    """Create test query features."""
-    return QueryFeatures(
-        embedding=[0.1] * 384,
-        token_count=50,
-        complexity_score=0.5,
-        domain="general",
-        domain_confidence=0.8,
-    )
+# test_arms and test_features fixtures imported from conftest.py
 
 
 class TestUCB1Bandit:
@@ -64,7 +26,7 @@ class TestUCB1Bandit:
         assert bandit.c == 1.5  # Default exploration parameter (UCB1_C_DEFAULT)
 
         # Check initial state
-        for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
+        for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             assert bandit.mean_reward[model_id] == 0.0
 
@@ -82,7 +44,7 @@ class TestUCB1Bandit:
         arm = await bandit.select_arm(test_features)
 
         assert arm in test_arms
-        assert arm.model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]
+        assert arm.model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]
 
     @pytest.mark.asyncio
     async def test_exploration_phase(self, test_arms, test_features):
@@ -194,11 +156,11 @@ class TestUCB1Bandit:
         """Test bandit learns to prefer better-performing arms."""
         bandit = UCB1Bandit(test_arms)
 
-        # Simulate gpt-4o performing well, others performing poorly
+        # Simulate gpt-5.1 performing well, others performing poorly
         for _ in range(30):
             arm = await bandit.select_arm(test_features)
 
-            if arm.model_id == "gpt-4o":
+            if arm.model_id == "gpt-5.1":
                 quality = 0.95  # Excellent
             else:
                 quality = 0.6  # Poor
@@ -212,9 +174,9 @@ class TestUCB1Bandit:
 
             await bandit.update(feedback, test_features)
 
-        # After learning, gpt-4o should have highest mean value
-        assert bandit.mean_reward["gpt-4o"] > bandit.mean_reward["gpt-4o-mini"]
-        assert bandit.mean_reward["gpt-4o"] > bandit.mean_reward["claude-3-haiku"]
+        # After learning, gpt-5.1 should have highest mean value
+        assert bandit.mean_reward["gpt-5.1"] > bandit.mean_reward["o4-mini"]
+        assert bandit.mean_reward["gpt-5.1"] > bandit.mean_reward["claude-haiku-4-5"]
 
     @pytest.mark.asyncio
     async def test_exploration_parameter_effect(self, test_arms, test_features):
@@ -228,7 +190,7 @@ class TestUCB1Bandit:
         for bandit in [bandit_low, bandit_high]:
             # Initial exploration phase
             for arm in test_arms:
-                if arm.model_id == "gpt-4o":
+                if arm.model_id == "gpt-5.1":
                     quality = 0.95
                 else:
                     quality = 0.5
@@ -241,9 +203,9 @@ class TestUCB1Bandit:
                 )
                 await bandit.update(feedback, test_features)
 
-        # Both should recognize gpt-4o is best
-        assert bandit_low.mean_reward["gpt-4o"] > bandit_low.mean_reward["gpt-4o-mini"]
-        assert bandit_high.mean_reward["gpt-4o"] > bandit_high.mean_reward["gpt-4o-mini"]
+        # Both should recognize gpt-5.1 is best
+        assert bandit_low.mean_reward["gpt-5.1"] > bandit_low.mean_reward["o4-mini"]
+        assert bandit_high.mean_reward["gpt-5.1"] > bandit_high.mean_reward["o4-mini"]
 
         # High c bandit should continue exploring more even after finding best arm
         # This is hard to test deterministically, but we can verify c is stored
@@ -280,7 +242,7 @@ class TestUCB1Bandit:
 
         # Check all restored to initial state
         assert bandit.total_queries == 0
-        for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
+        for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             assert bandit.mean_reward[model_id] == 0.0
 

@@ -1,53 +1,15 @@
-"""Unit tests for Thompson Sampling bandit algorithm."""
+"""Unit tests for Thompson Sampling bandit algorithm.
+
+Uses shared fixtures from tests/conftest.py: test_arms, test_features
+"""
 
 import pytest
 
 from conduit.engines.bandits.thompson_sampling import ThompsonSamplingBandit
-from conduit.engines.bandits.base import BanditFeedback, ModelArm
+from conduit.engines.bandits.base import BanditFeedback
 from conduit.core.models import QueryFeatures
 
-
-@pytest.fixture
-def test_arms():
-    """Create test model arms."""
-    return [
-        ModelArm(
-            model_id="gpt-4o-mini",
-            model_name="gpt-4o-mini",
-            provider="openai",
-            cost_per_input_token=0.00015,
-            cost_per_output_token=0.0006,
-            expected_quality=0.85,
-        ),
-        ModelArm(
-            model_id="gpt-4o",
-            model_name="gpt-4o",
-            provider="openai",
-            cost_per_input_token=0.0025,
-            cost_per_output_token=0.010,
-            expected_quality=0.95,
-        ),
-        ModelArm(
-            model_id="claude-3-haiku",
-            model_name="claude-3-haiku",
-            provider="anthropic",
-            cost_per_input_token=0.00025,
-            cost_per_output_token=0.00125,
-            expected_quality=0.80,
-        ),
-    ]
-
-
-@pytest.fixture
-def test_features():
-    """Create test query features."""
-    return QueryFeatures(
-        embedding=[0.1] * 384,
-        token_count=50,
-        complexity_score=0.5,
-        domain="general",
-        domain_confidence=0.8,
-    )
+# test_arms and test_features fixtures imported from conftest.py
 
 
 class TestThompsonSamplingBandit:
@@ -62,7 +24,7 @@ class TestThompsonSamplingBandit:
         assert bandit.total_queries == 0
 
         # Check Beta distribution parameters
-        for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
+        for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.alpha[model_id] == 1.0
             assert bandit.beta[model_id] == 1.0
             assert bandit.arm_pulls[model_id] == 0
@@ -75,7 +37,7 @@ class TestThompsonSamplingBandit:
         arm = await bandit.select_arm(test_features)
 
         assert arm in test_arms
-        assert arm.model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]
+        assert arm.model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]
 
     @pytest.mark.asyncio
     async def test_select_arm_increments_count(self, test_arms, test_features):
@@ -145,11 +107,11 @@ class TestThompsonSamplingBandit:
         """Test bandit learns to prefer better-performing arms."""
         bandit = ThompsonSamplingBandit(test_arms, random_seed=42)
 
-        # Simulate gpt-4o performing well, others performing poorly
+        # Simulate gpt-5.1 performing well, others performing poorly
         for _ in range(20):
             arm = await bandit.select_arm(test_features)
 
-            if arm.model_id == "gpt-4o":
+            if arm.model_id == "gpt-5.1":
                 quality = 0.95  # Excellent
             else:
                 quality = 0.5  # Poor
@@ -163,20 +125,20 @@ class TestThompsonSamplingBandit:
 
             await bandit.update(feedback, test_features)
 
-        # After learning, gpt-4o should have highest expected value
+        # After learning, gpt-5.1 should have highest expected value
         # (measured by alpha / (alpha + beta))
-        gpt4o_mean = bandit.alpha["gpt-4o"] / (
-            bandit.alpha["gpt-4o"] + bandit.beta["gpt-4o"]
+        gpt51_mean = bandit.alpha["gpt-5.1"] / (
+            bandit.alpha["gpt-5.1"] + bandit.beta["gpt-5.1"]
         )
-        mini_mean = bandit.alpha["gpt-4o-mini"] / (
-            bandit.alpha["gpt-4o-mini"] + bandit.beta["gpt-4o-mini"]
+        mini_mean = bandit.alpha["o4-mini"] / (
+            bandit.alpha["o4-mini"] + bandit.beta["o4-mini"]
         )
-        haiku_mean = bandit.alpha["claude-3-haiku"] / (
-            bandit.alpha["claude-3-haiku"] + bandit.beta["claude-3-haiku"]
+        haiku_mean = bandit.alpha["claude-haiku-4-5"] / (
+            bandit.alpha["claude-haiku-4-5"] + bandit.beta["claude-haiku-4-5"]
         )
 
-        assert gpt4o_mean > mini_mean
-        assert gpt4o_mean > haiku_mean
+        assert gpt51_mean > mini_mean
+        assert gpt51_mean > haiku_mean
 
     @pytest.mark.asyncio
     async def test_reset(self, test_arms):
@@ -209,7 +171,7 @@ class TestThompsonSamplingBandit:
 
         # Check all restored to initial state
         assert bandit.total_queries == 0
-        for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
+        for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.alpha[model_id] == 1.0
             assert bandit.beta[model_id] == 1.0
             assert bandit.arm_pulls[model_id] == 0

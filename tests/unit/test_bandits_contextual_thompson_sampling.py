@@ -1,4 +1,7 @@
-"""Unit tests for Contextual Thompson Sampling bandit algorithm."""
+"""Unit tests for Contextual Thompson Sampling bandit algorithm.
+
+Uses shared fixtures from tests/conftest.py: test_arms, test_features
+"""
 
 import numpy as np
 import pytest
@@ -6,51 +9,10 @@ import pytest
 from conduit.engines.bandits.contextual_thompson_sampling import (
     ContextualThompsonSamplingBandit,
 )
-from conduit.engines.bandits.base import BanditFeedback, ModelArm
+from conduit.engines.bandits.base import BanditFeedback
 from conduit.core.models import QueryFeatures
 
-
-@pytest.fixture
-def test_arms():
-    """Create test model arms."""
-    return [
-        ModelArm(
-            model_id="gpt-4o-mini",
-            model_name="gpt-4o-mini",
-            provider="openai",
-            cost_per_input_token=0.00015,
-            cost_per_output_token=0.0006,
-            expected_quality=0.85,
-        ),
-        ModelArm(
-            model_id="gpt-4o",
-            model_name="gpt-4o",
-            provider="openai",
-            cost_per_input_token=0.0025,
-            cost_per_output_token=0.010,
-            expected_quality=0.95,
-        ),
-        ModelArm(
-            model_id="claude-3-haiku",
-            model_name="claude-3-haiku",
-            provider="anthropic",
-            cost_per_input_token=0.00025,
-            cost_per_output_token=0.00125,
-            expected_quality=0.80,
-        ),
-    ]
-
-
-@pytest.fixture
-def test_features():
-    """Create test query features."""
-    return QueryFeatures(
-        embedding=[0.1] * 384,
-        token_count=50,
-        complexity_score=0.5,
-        domain="general",
-        domain_confidence=0.8,
-    )
+# test_arms and test_features fixtures imported from conftest.py
 
 
 class TestContextualThompsonSamplingBandit:
@@ -67,7 +29,7 @@ class TestContextualThompsonSamplingBandit:
         assert bandit.feature_dim == 387
 
         # Check initial posterior parameters - should be prior (uninformative)
-        for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
+        for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             # mu should be zero vector (uninformative prior)
             assert np.allclose(bandit.mu[model_id], np.zeros((387, 1)))
@@ -105,7 +67,7 @@ class TestContextualThompsonSamplingBandit:
         arm = await bandit.select_arm(test_features)
 
         assert arm in test_arms
-        assert arm.model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]
+        assert arm.model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]
         assert bandit.total_queries == 1
 
     @pytest.mark.asyncio
@@ -238,10 +200,10 @@ class TestContextualThompsonSamplingBandit:
             domain_confidence=0.8,
         )
 
-        # Train on context1: gpt-4o-mini performs well
+        # Train on context1: o4-mini performs well
         for _ in range(5):
             arm = await bandit.select_arm(context1)
-            if arm.model_id == "gpt-4o-mini":
+            if arm.model_id == "o4-mini":
                 quality = 0.95
             else:
                 quality = 0.6
@@ -254,10 +216,10 @@ class TestContextualThompsonSamplingBandit:
             )
             await bandit.update(feedback, context1)
 
-        # Train on context2: gpt-4o performs well
+        # Train on context2: gpt-5.1 performs well
         for _ in range(5):
             arm = await bandit.select_arm(context2)
-            if arm.model_id == "gpt-4o":
+            if arm.model_id == "gpt-5.1":
                 quality = 0.95
             else:
                 quality = 0.6
@@ -310,7 +272,7 @@ class TestContextualThompsonSamplingBandit:
 
         # Check all restored to initial state
         assert bandit.total_queries == 0
-        for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
+        for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             # mu should be zero vector (prior)
             assert np.allclose(bandit.mu[model_id], np.zeros((387, 1)))
@@ -429,7 +391,7 @@ class TestContextualThompsonSamplingBandit:
 
         # Scenario: Model A good for short queries, Model B good for long queries
 
-        # Short queries (token_count < 50) -> gpt-4o-mini performs well
+        # Short queries (token_count < 50) -> o4-mini performs well
         for _ in range(10):
             features = QueryFeatures(
                 embedding=[np.random.rand() for _ in range(384)],
@@ -441,7 +403,7 @@ class TestContextualThompsonSamplingBandit:
 
             arm = await bandit.select_arm(features)
 
-            if arm.model_id == "gpt-4o-mini":
+            if arm.model_id == "o4-mini":
                 quality = 0.95
             else:
                 quality = 0.6
@@ -454,7 +416,7 @@ class TestContextualThompsonSamplingBandit:
             )
             await bandit.update(feedback, features)
 
-        # Long queries (token_count > 200) -> gpt-4o performs well
+        # Long queries (token_count > 200) -> gpt-5.1 performs well
         for _ in range(10):
             features = QueryFeatures(
                 embedding=[np.random.rand() for _ in range(384)],
@@ -466,7 +428,7 @@ class TestContextualThompsonSamplingBandit:
 
             arm = await bandit.select_arm(features)
 
-            if arm.model_id == "gpt-4o":
+            if arm.model_id == "gpt-5.1":
                 quality = 0.95
             else:
                 quality = 0.6
@@ -480,8 +442,8 @@ class TestContextualThompsonSamplingBandit:
             await bandit.update(feedback, features)
 
         # Both models should have been tried
-        assert bandit.arm_pulls["gpt-4o-mini"] > 0
-        assert bandit.arm_pulls["gpt-4o"] > 0
+        assert bandit.arm_pulls["o4-mini"] > 0
+        assert bandit.arm_pulls["gpt-5.1"] > 0
 
         # Total should be 20
         assert bandit.total_queries == 20

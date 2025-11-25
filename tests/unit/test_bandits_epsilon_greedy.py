@@ -1,53 +1,15 @@
-"""Unit tests for Epsilon-Greedy bandit algorithm."""
+"""Unit tests for Epsilon-Greedy bandit algorithm.
+
+Uses shared fixtures from tests/conftest.py: test_arms, test_features
+"""
 
 import pytest
 
 from conduit.engines.bandits.epsilon_greedy import EpsilonGreedyBandit
-from conduit.engines.bandits.base import BanditFeedback, ModelArm
+from conduit.engines.bandits.base import BanditFeedback
 from conduit.core.models import QueryFeatures
 
-
-@pytest.fixture
-def test_arms():
-    """Create test model arms."""
-    return [
-        ModelArm(
-            model_id="gpt-4o-mini",
-            model_name="gpt-4o-mini",
-            provider="openai",
-            cost_per_input_token=0.00015,
-            cost_per_output_token=0.0006,
-            expected_quality=0.85,
-        ),
-        ModelArm(
-            model_id="gpt-4o",
-            model_name="gpt-4o",
-            provider="openai",
-            cost_per_input_token=0.0025,
-            cost_per_output_token=0.010,
-            expected_quality=0.95,
-        ),
-        ModelArm(
-            model_id="claude-3-haiku",
-            model_name="claude-3-haiku",
-            provider="anthropic",
-            cost_per_input_token=0.00025,
-            cost_per_output_token=0.00125,
-            expected_quality=0.80,
-        ),
-    ]
-
-
-@pytest.fixture
-def test_features():
-    """Create test query features."""
-    return QueryFeatures(
-        embedding=[0.1] * 384,
-        token_count=50,
-        complexity_score=0.5,
-        domain="general",
-        domain_confidence=0.8,
-    )
+# test_arms and test_features fixtures imported from conftest.py
 
 
 class TestEpsilonGreedyBandit:
@@ -64,7 +26,7 @@ class TestEpsilonGreedyBandit:
         assert bandit.decay == 1.0  # No decay by default
 
         # Check initial state
-        for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
+        for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             assert bandit.mean_reward[model_id] == 0.0
 
@@ -96,7 +58,7 @@ class TestEpsilonGreedyBandit:
         arm = await bandit.select_arm(test_features)
 
         assert arm in test_arms
-        assert arm.model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]
+        assert arm.model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]
 
     @pytest.mark.asyncio
     async def test_exploration_vs_exploitation(self, test_arms, test_features):
@@ -105,7 +67,7 @@ class TestEpsilonGreedyBandit:
 
         # Initialize with some feedback to establish a best arm
         for arm in test_arms:
-            quality = 0.95 if arm.model_id == "gpt-4o" else 0.5
+            quality = 0.95 if arm.model_id == "gpt-5.1" else 0.5
             feedback = BanditFeedback(
                 model_id=arm.model_id,
                 cost=0.001,
@@ -120,8 +82,8 @@ class TestEpsilonGreedyBandit:
             arm = await bandit.select_arm(test_features)
             selections.append(arm.model_id)
 
-        # Should see gpt-4o selected (exploitation)
-        assert "gpt-4o" in selections
+        # Should see gpt-5.1 selected (exploitation)
+        assert "gpt-5.1" in selections
         # Should also see other arms selected (exploration)
         # With epsilon=0.5, roughly half should be random exploration
         unique_selections = set(selections)
@@ -132,9 +94,9 @@ class TestEpsilonGreedyBandit:
         """Test with epsilon=0, only exploits (selects best arm)."""
         bandit = EpsilonGreedyBandit(test_arms, epsilon=0.0)
 
-        # Initialize with feedback making gpt-4o clearly best
+        # Initialize with feedback making gpt-5.1 clearly best
         for arm in test_arms:
-            quality = 0.95 if arm.model_id == "gpt-4o" else 0.5
+            quality = 0.95 if arm.model_id == "gpt-5.1" else 0.5
             feedback = BanditFeedback(
                 model_id=arm.model_id,
                 cost=0.001,
@@ -146,7 +108,7 @@ class TestEpsilonGreedyBandit:
         # With epsilon=0, should always select best arm
         for _ in range(10):
             arm = await bandit.select_arm(test_features)
-            assert arm.model_id == "gpt-4o"
+            assert arm.model_id == "gpt-5.1"
 
     @pytest.mark.asyncio
     async def test_pure_exploration(self, test_arms, test_features):
@@ -280,11 +242,11 @@ class TestEpsilonGreedyBandit:
         """Test bandit learns to prefer better-performing arms."""
         bandit = EpsilonGreedyBandit(test_arms, epsilon=0.1)  # Low exploration
 
-        # Simulate gpt-4o performing well, others performing poorly
+        # Simulate gpt-5.1 performing well, others performing poorly
         for _ in range(30):
             arm = await bandit.select_arm(test_features)
 
-            if arm.model_id == "gpt-4o":
+            if arm.model_id == "gpt-5.1":
                 quality = 0.95  # Excellent
             else:
                 quality = 0.6  # Poor
@@ -298,9 +260,9 @@ class TestEpsilonGreedyBandit:
 
             await bandit.update(feedback, test_features)
 
-        # After learning, gpt-4o should have highest mean value
-        assert bandit.mean_reward["gpt-4o"] > bandit.mean_reward["gpt-4o-mini"]
-        assert bandit.mean_reward["gpt-4o"] > bandit.mean_reward["claude-3-haiku"]
+        # After learning, gpt-5.1 should have highest mean value
+        assert bandit.mean_reward["gpt-5.1"] > bandit.mean_reward["o4-mini"]
+        assert bandit.mean_reward["gpt-5.1"] > bandit.mean_reward["claude-haiku-4-5"]
 
     @pytest.mark.asyncio
     async def test_reset(self, test_arms):
@@ -336,7 +298,7 @@ class TestEpsilonGreedyBandit:
         # Check all restored to initial state
         assert bandit.total_queries == 0
         assert bandit.epsilon == 0.3  # Restored to initial epsilon
-        for model_id in ["gpt-4o-mini", "gpt-4o", "claude-3-haiku"]:
+        for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             assert bandit.mean_reward[model_id] == 0.0
 
