@@ -262,10 +262,10 @@ class TestModelExecutor:
                 query_id="test-alt-tokens",
             )
 
-            # claude-3.5-sonnet fallback pricing: input=3.00, output=15.00 per 1M tokens
-            # Cost = (500 * 3.00/1M) + (250 * 15.00/1M)
-            # Cost = 0.0015 + 0.00375 = 0.00525
-            assert response.cost == pytest.approx(0.00525, rel=0.01)
+            # claude-3.5-sonnet uses _default pricing from conduit.yaml: input=1.00, output=3.00 per 1M tokens
+            # Cost = (500 * 1.00/1M) + (250 * 3.00/1M)
+            # Cost = 0.0005 + 0.00075 = 0.00125
+            assert response.cost == pytest.approx(0.00125, rel=0.01)
 
     @pytest.mark.asyncio
     async def test_cost_calculation_fallback_to_zero(self):

@@ -74,7 +74,7 @@ class TestArbiterEvaluatorInit:
         assert evaluator.db == test_db
         assert evaluator.sample_rate == 0.1
         assert evaluator.daily_budget == 10.0
-        assert evaluator.model == "gpt-4o-mini"
+        assert evaluator.model == "o4-mini"  # From conduit.yaml
         assert len(evaluator.evaluators) == 2  # semantic + factuality
 
     def test_init_with_custom_config(self, test_db):
