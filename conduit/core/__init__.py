@@ -30,6 +30,14 @@ from conduit.core.models import (
     UserPreferences,
 )
 from conduit.core.pricing import ModelPricing
+from conduit.core.reward_calculation import (
+    apply_user_preferences,
+    calculate_composite_reward,
+    normalize_cost,
+    normalize_latency,
+    normalize_quality,
+    validate_weights,
+)
 
 __all__ = [
     # Config
@@ -62,4 +70,11 @@ __all__ = [
     "RoutingResult",
     # Pricing
     "ModelPricing",
+    # Reward Calculation
+    "calculate_composite_reward",
+    "normalize_quality",
+    "normalize_cost",
+    "normalize_latency",
+    "validate_weights",
+    "apply_user_preferences",
 ]

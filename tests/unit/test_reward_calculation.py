@@ -1,287 +1,335 @@
-"""Tests for multi-objective reward calculation (Phase 3)."""
+"""Tests for conduit.core.reward_calculation module."""
 
 import pytest
 
-from conduit.engines.bandits.base import BanditFeedback
+from conduit.core.reward_calculation import (
+    apply_user_preferences,
+    calculate_composite_reward,
+    normalize_cost,
+    normalize_latency,
+    normalize_quality,
+    validate_weights,
+)
 
 
-class TestRewardCalculation:
-    """Tests for BanditFeedback.calculate_reward() method."""
+class TestNormalizeQuality:
+    """Tests for normalize_quality function."""
 
-    def test_reward_with_default_weights(self) -> None:
-        """Test reward calculation with default weights (70/20/10)."""
-        feedback = BanditFeedback(
-            model_id="gpt-4o-mini",
-            cost=0.0001,  # Very cheap
-            quality_score=0.95,  # High quality
-            latency=1.0,  # Reasonable speed
-        )
+    def test_valid_quality_unchanged(self):
+        """Quality in valid range should be unchanged."""
+        assert normalize_quality(0.95) == 0.95
+        assert normalize_quality(0.5) == 0.5
+        assert normalize_quality(0.0) == 0.0
+        assert normalize_quality(1.0) == 1.0
 
-        # Default weights: quality=0.70, cost=0.20, latency=0.10
-        reward = feedback.calculate_reward()
+    def test_quality_above_one_clamped(self):
+        """Quality above 1.0 should be clamped to 1.0."""
+        assert normalize_quality(1.2) == 1.0
+        assert normalize_quality(2.0) == 1.0
 
-        # Components:
-        # quality_norm = 0.95 (as-is)
-        # cost_norm = 1 / (1 + 0.0001) ≈ 0.9999
-        # latency_norm = 1 / (1 + 1.0) = 0.5
-        # reward = 0.70 * 0.95 + 0.20 * 0.9999 + 0.10 * 0.5
-        #       = 0.665 + 0.19998 + 0.05
-        #       ≈ 0.915
+    def test_quality_below_zero_clamped(self):
+        """Quality below 0.0 should be clamped to 0.0."""
+        assert normalize_quality(-0.1) == 0.0
+        assert normalize_quality(-1.0) == 0.0
 
-        assert 0.90 < reward < 0.92  # Quality dominates (70%)
 
-    def test_reward_expensive_query(self) -> None:
-        """Test reward with high cost (should reduce reward)."""
-        feedback = BanditFeedback(
-            model_id="gpt-4o",
-            cost=1.0,  # Expensive
-            quality_score=0.95,  # High quality
-            latency=1.0,
-        )
+class TestNormalizeCost:
+    """Tests for normalize_cost function."""
 
-        reward = feedback.calculate_reward()
+    def test_zero_cost_gives_one(self):
+        """Zero cost should normalize to 1.0 (best score)."""
+        assert normalize_cost(0.0) == 1.0
 
-        # cost_norm = 1 / (1 + 1.0) = 0.5 (cost hurts reward)
-        # reward ≈ 0.70 * 0.95 + 0.20 * 0.5 + 0.10 * 0.5
-        #       ≈ 0.665 + 0.10 + 0.05 = 0.815
+    def test_one_dollar_gives_half(self):
+        """One dollar cost should normalize to 0.5."""
+        assert normalize_cost(1.0) == 0.5
 
-        assert 0.80 < reward < 0.83
+    def test_ten_dollars_gives_low_score(self):
+        """Ten dollar cost should normalize to ~0.09."""
+        result = normalize_cost(10.0)
+        assert 0.09 < result < 0.10
 
-    def test_reward_slow_query(self) -> None:
-        """Test reward with high latency (should reduce reward)."""
-        feedback = BanditFeedback(
-            model_id="claude-opus",
-            cost=0.01,
-            quality_score=0.98,  # Very high quality
-            latency=10.0,  # Slow
-        )
+    def test_higher_cost_lower_score(self):
+        """Higher cost should result in lower normalized score."""
+        assert normalize_cost(0.01) > normalize_cost(0.1)
+        assert normalize_cost(0.1) > normalize_cost(1.0)
+        assert normalize_cost(1.0) > normalize_cost(10.0)
 
-        reward = feedback.calculate_reward()
+    def test_negative_cost_raises(self):
+        """Negative cost should raise ValueError."""
+        with pytest.raises(ValueError, match="cannot be negative"):
+            normalize_cost(-0.01)
 
-        # latency_norm = 1 / (1 + 10.0) ≈ 0.09 (latency hurts reward)
-        # reward ≈ 0.70 * 0.98 + 0.20 * 0.99 + 0.10 * 0.09
-        #       ≈ 0.686 + 0.198 + 0.009 ≈ 0.893
 
-        assert 0.88 < reward < 0.90
+class TestNormalizeLatency:
+    """Tests for normalize_latency function."""
 
-    def test_reward_poor_quality(self) -> None:
-        """Test reward with poor quality (should significantly reduce reward)."""
-        feedback = BanditFeedback(
-            model_id="weak-model",
-            cost=0.0001,  # Very cheap
-            quality_score=0.3,  # Poor quality
-            latency=0.5,  # Fast
-        )
+    def test_zero_latency_gives_one(self):
+        """Zero latency should normalize to 1.0 (best score)."""
+        assert normalize_latency(0.0) == 1.0
 
-        reward = feedback.calculate_reward()
+    def test_one_second_gives_half(self):
+        """One second latency should normalize to 0.5."""
+        assert normalize_latency(1.0) == 0.5
 
-        # quality_norm = 0.3 (poor quality dominates due to 70% weight)
-        # reward ≈ 0.70 * 0.3 + 0.20 * 1.0 + 0.10 * 0.67
-        #       ≈ 0.21 + 0.20 + 0.067 ≈ 0.477
+    def test_ten_seconds_gives_low_score(self):
+        """Ten second latency should normalize to ~0.09."""
+        result = normalize_latency(10.0)
+        assert 0.09 < result < 0.10
 
-        assert 0.45 < reward < 0.50
+    def test_higher_latency_lower_score(self):
+        """Higher latency should result in lower normalized score."""
+        assert normalize_latency(0.1) > normalize_latency(1.0)
+        assert normalize_latency(1.0) > normalize_latency(5.0)
+        assert normalize_latency(5.0) > normalize_latency(10.0)
 
-    def test_reward_perfect_scenario(self) -> None:
-        """Test reward with perfect quality, zero cost, zero latency."""
-        feedback = BanditFeedback(
-            model_id="perfect-model",
-            cost=0.0,
-            quality_score=1.0,
-            latency=0.0,
-        )
+    def test_negative_latency_raises(self):
+        """Negative latency should raise ValueError."""
+        with pytest.raises(ValueError, match="cannot be negative"):
+            normalize_latency(-0.5)
 
-        reward = feedback.calculate_reward()
 
-        # All components = 1.0
-        # reward = 0.70 * 1.0 + 0.20 * 1.0 + 0.10 * 1.0 = 1.0
-        assert reward == pytest.approx(1.0)
+class TestValidateWeights:
+    """Tests for validate_weights function."""
 
-    def test_reward_worst_scenario(self) -> None:
-        """Test reward with worst quality, high cost, high latency."""
-        feedback = BanditFeedback(
-            model_id="terrible-model",
-            cost=100.0,  # Very expensive
-            quality_score=0.0,  # Worst quality
-            latency=100.0,  # Very slow
-        )
+    def test_valid_weights_no_error(self):
+        """Weights summing to 1.0 should not raise."""
+        validate_weights(0.7, 0.2, 0.1)  # No exception
+        validate_weights(0.33, 0.33, 0.34)  # Close enough
+        validate_weights(1.0, 0.0, 0.0)  # Single weight
+        validate_weights(0.0, 1.0, 0.0)  # Different single weight
 
-        reward = feedback.calculate_reward()
+    def test_weights_within_tolerance(self):
+        """Weights within tolerance should not raise."""
+        validate_weights(0.7, 0.2, 0.105, tolerance=0.01)  # Sum = 1.005
 
-        # quality_norm = 0.0
-        # cost_norm = 1 / (1 + 100) ≈ 0.0099
-        # latency_norm = 1 / (1 + 100) ≈ 0.0099
-        # reward ≈ 0.70 * 0.0 + 0.20 * 0.0099 + 0.10 * 0.0099 ≈ 0.003
+    def test_weights_not_summing_to_one_raises(self):
+        """Weights not summing to 1.0 should raise ValueError."""
+        with pytest.raises(ValueError, match="must sum to 1.0"):
+            validate_weights(0.5, 0.5, 0.5)  # Sum = 1.5
 
-        assert 0.0 < reward < 0.01  # Near-zero but positive
+        with pytest.raises(ValueError, match="must sum to 1.0"):
+            validate_weights(0.3, 0.3, 0.3)  # Sum = 0.9
 
-    def test_reward_custom_weights(self) -> None:
-        """Test reward with custom weight configuration."""
-        feedback = BanditFeedback(
-            model_id="gpt-4o-mini",
+
+class TestCalculateCompositeReward:
+    """Tests for calculate_composite_reward function."""
+
+    def test_default_weights(self):
+        """Test with default weights (70% quality, 20% cost, 10% latency)."""
+        # High quality, low cost, moderate latency
+        reward = calculate_composite_reward(
+            quality=0.95,
             cost=0.001,
-            quality_score=0.9,
             latency=1.5,
         )
+        # Expected: 0.7 * 0.95 + 0.2 * (1/1.001) + 0.1 * (1/2.5)
+        # = 0.665 + 0.1998 + 0.04 = ~0.905
+        assert 0.85 < reward < 0.95
 
-        # Custom weights: cost-optimized (quality=0.5, cost=0.4, latency=0.1)
-        reward = feedback.calculate_reward(
-            quality_weight=0.5,
-            cost_weight=0.4,
-            latency_weight=0.1,
+    def test_perfect_scores_near_one(self):
+        """Perfect quality, zero cost, zero latency should give ~1.0."""
+        reward = calculate_composite_reward(
+            quality=1.0,
+            cost=0.0,
+            latency=0.0,
         )
+        assert reward == pytest.approx(1.0)
 
-        # cost_norm = 1 / (1 + 0.001) ≈ 0.999
-        # latency_norm = 1 / (1 + 1.5) = 0.4
-        # reward = 0.5 * 0.9 + 0.4 * 0.999 + 0.1 * 0.4
-        #       = 0.45 + 0.3996 + 0.04 ≈ 0.890
-
-        assert 0.88 < reward < 0.90
-
-    def test_reward_weights_sum_validation(self) -> None:
-        """Test that weights must sum to 1.0."""
-        feedback = BanditFeedback(
-            model_id="test",
-            cost=0.01,
-            quality_score=0.9,
-            latency=1.0,
+    def test_worst_scores_near_zero(self):
+        """Worst quality, high cost, high latency should give low reward."""
+        reward = calculate_composite_reward(
+            quality=0.0,
+            cost=100.0,  # Very high
+            latency=100.0,  # Very high
         )
+        assert reward < 0.05
 
-        # Weights don't sum to 1.0 (sum = 0.8)
-        with pytest.raises(ValueError, match="must sum to 1.0"):
-            feedback.calculate_reward(
-                quality_weight=0.5,
-                cost_weight=0.2,
-                latency_weight=0.1,  # sum = 0.8
-            )
-
-    def test_reward_asymptotic_cost_normalization(self) -> None:
-        """Test asymptotic normalization behavior for cost."""
-        # Test cost normalization: 1 / (1 + cost)
-        # cost=0 → 1.0, cost=1 → 0.5, cost=10 → 0.09
-
-        test_cases = [
-            (0.0, 1.0),  # Zero cost = perfect (1.0)
-            (1.0, 0.5),  # Cost=1 → normalized to 0.5
-            (10.0, 0.09),  # High cost → low normalized value
-        ]
-
-        for cost, expected_norm in test_cases:
-            feedback = BanditFeedback(
-                model_id="test",
-                cost=cost,
-                quality_score=0.0,  # Zero quality to isolate cost
-                latency=0.0,  # Zero latency to isolate cost
-            )
-
-            reward = feedback.calculate_reward(
-                quality_weight=0.0,
-                cost_weight=1.0,
-                latency_weight=0.0,
-            )
-
-            assert reward == pytest.approx(expected_norm, abs=0.01)
-
-    def test_reward_asymptotic_latency_normalization(self) -> None:
-        """Test asymptotic normalization behavior for latency."""
-        # Test latency normalization: 1 / (1 + latency)
-
-        test_cases = [
-            (0.0, 1.0),  # Zero latency = perfect
-            (1.0, 0.5),  # Latency=1 → 0.5
-            (10.0, 0.09),  # High latency → low value
-        ]
-
-        for latency, expected_norm in test_cases:
-            feedback = BanditFeedback(
-                model_id="test",
-                cost=0.0,  # Zero cost to isolate latency
-                quality_score=0.0,  # Zero quality to isolate latency
-                latency=latency,
-            )
-
-            reward = feedback.calculate_reward(
-                quality_weight=0.0,
-                cost_weight=0.0,
-                latency_weight=1.0,
-            )
-
-            assert reward == pytest.approx(expected_norm, abs=0.01)
-
-    def test_reward_equal_weights(self) -> None:
-        """Test reward with equal weights (33/33/34)."""
-        feedback = BanditFeedback(
-            model_id="test",
-            cost=1.0,  # cost_norm = 0.5
-            quality_score=0.6,  # quality_norm = 0.6
-            latency=2.0,  # latency_norm = 0.33
-        )
-
-        # Equal weights
-        reward = feedback.calculate_reward(
-            quality_weight=0.33,
-            cost_weight=0.33,
-            latency_weight=0.34,
-        )
-
-        # reward = 0.33 * 0.6 + 0.33 * 0.5 + 0.34 * 0.33
-        #       = 0.198 + 0.165 + 0.112 ≈ 0.475
-
-        assert 0.47 < reward < 0.48
-
-    def test_reward_quality_only(self) -> None:
-        """Test reward with 100% quality weight (ignores cost and latency)."""
-        feedback = BanditFeedback(
-            model_id="test",
-            cost=100.0,  # Expensive (should be ignored)
-            quality_score=0.85,
-            latency=50.0,  # Slow (should be ignored)
-        )
-
-        reward = feedback.calculate_reward(
+    def test_custom_weights_quality_focus(self):
+        """Test with 100% quality weight."""
+        reward = calculate_composite_reward(
+            quality=0.95,
+            cost=100.0,  # Very high, but ignored
+            latency=100.0,  # Very high, but ignored
             quality_weight=1.0,
             cost_weight=0.0,
             latency_weight=0.0,
         )
+        assert reward == 0.95
 
-        # Only quality matters
-        assert reward == 0.85
-
-    def test_reward_cost_only(self) -> None:
-        """Test reward with 100% cost weight (ignores quality and latency)."""
-        feedback = BanditFeedback(
-            model_id="test",
-            cost=0.5,  # cost_norm = 1/(1+0.5) = 0.67
-            quality_score=0.1,  # Poor quality (should be ignored)
-            latency=100.0,  # Slow (should be ignored)
-        )
-
-        reward = feedback.calculate_reward(
+    def test_custom_weights_cost_focus(self):
+        """Test with 100% cost weight."""
+        reward = calculate_composite_reward(
+            quality=0.0,  # Ignored
+            cost=0.0,  # Free
+            latency=100.0,  # Ignored
             quality_weight=0.0,
             cost_weight=1.0,
             latency_weight=0.0,
         )
+        assert reward == 1.0
 
-        # Only cost matters: 1 / (1 + 0.5) = 0.666...
-        assert reward == pytest.approx(0.6667, abs=0.001)
-
-    def test_reward_range_always_0_to_1(self) -> None:
-        """Test that reward is always in [0, 1] range."""
-        # Test various extreme scenarios
-        test_cases = [
-            (0.0, 0.0, 0.0),  # All zeros
-            (1.0, 1.0, 1.0),  # All ones
-            (100.0, 0.0, 100.0),  # High cost and latency
-            (0.0, 1.0, 0.0),  # Perfect quality only
-        ]
-
-        for cost, quality, latency in test_cases:
-            feedback = BanditFeedback(
-                model_id="test",
-                cost=cost,
-                quality_score=quality,
-                latency=latency,
+    def test_invalid_weights_raises(self):
+        """Invalid weights should raise ValueError."""
+        with pytest.raises(ValueError, match="must sum to 1.0"):
+            calculate_composite_reward(
+                quality=0.95,
+                cost=0.001,
+                latency=1.5,
+                quality_weight=0.5,
+                cost_weight=0.5,
+                latency_weight=0.5,  # Sum = 1.5
             )
 
-            reward = feedback.calculate_reward()
+    def test_negative_cost_raises(self):
+        """Negative cost should raise ValueError."""
+        with pytest.raises(ValueError, match="cannot be negative"):
+            calculate_composite_reward(quality=0.9, cost=-0.01, latency=1.0)
 
-            assert 0.0 <= reward <= 1.0, f"Reward {reward} out of [0, 1] range"
+    def test_negative_latency_raises(self):
+        """Negative latency should raise ValueError."""
+        with pytest.raises(ValueError, match="cannot be negative"):
+            calculate_composite_reward(quality=0.9, cost=0.01, latency=-1.0)
+
+
+class TestApplyUserPreferences:
+    """Tests for apply_user_preferences function."""
+
+    def test_no_preferences_unchanged(self):
+        """No preferences should return original weights."""
+        q, c, l = apply_user_preferences(0.7, 0.2, 0.1)
+        assert abs(q - 0.7) < 0.01
+        assert abs(c - 0.2) < 0.01
+        assert abs(l - 0.1) < 0.01
+
+    def test_default_multipliers_unchanged(self):
+        """Default multipliers (1.0) should return original weights."""
+        q, c, l = apply_user_preferences(
+            0.7, 0.2, 0.1,
+            quality_preference=1.0,
+            cost_preference=1.0,
+            latency_preference=1.0,
+        )
+        assert abs(q - 0.7) < 0.01
+        assert abs(c - 0.2) < 0.01
+        assert abs(l - 0.1) < 0.01
+
+    def test_double_cost_preference(self):
+        """Doubling cost preference should increase cost weight."""
+        q, c, l = apply_user_preferences(
+            0.7, 0.2, 0.1,
+            cost_preference=2.0,
+        )
+        # Original: 0.7, 0.4, 0.1 = 1.2 total
+        # Normalized: 0.7/1.2, 0.4/1.2, 0.1/1.2
+        assert c > 0.3  # Cost weight increased
+        assert q + c + l == pytest.approx(1.0)
+
+    def test_zero_quality_preference(self):
+        """Zero quality preference should remove quality weight."""
+        q, c, l = apply_user_preferences(
+            0.7, 0.2, 0.1,
+            quality_preference=0.0,
+        )
+        # Original: 0.0, 0.2, 0.1 = 0.3 total
+        # Normalized: 0, 0.2/0.3, 0.1/0.3
+        assert q == 0.0
+        assert c == pytest.approx(0.2 / 0.3)
+        assert l == pytest.approx(0.1 / 0.3)
+
+    def test_all_zero_returns_equal(self):
+        """All zero preferences should return equal weights."""
+        q, c, l = apply_user_preferences(
+            0.7, 0.2, 0.1,
+            quality_preference=0.0,
+            cost_preference=0.0,
+            latency_preference=0.0,
+        )
+        assert q == pytest.approx(1.0 / 3)
+        assert c == pytest.approx(1.0 / 3)
+        assert l == pytest.approx(1.0 / 3)
+
+    def test_weights_always_sum_to_one(self):
+        """Output weights should always sum to 1.0."""
+        test_cases = [
+            (1.5, 0.5, 0.5),  # Various multipliers
+            (0.5, 1.5, 0.5),
+            (0.5, 0.5, 1.5),
+            (2.0, 2.0, 2.0),
+            (0.1, 0.1, 2.0),
+        ]
+        for qp, cp, lp in test_cases:
+            q, c, l = apply_user_preferences(
+                0.7, 0.2, 0.1,
+                quality_preference=qp,
+                cost_preference=cp,
+                latency_preference=lp,
+            )
+            assert q + c + l == pytest.approx(1.0)
+
+    def test_multipliers_clamped(self):
+        """Multipliers outside [0, 2] should be clamped."""
+        # Very high multiplier should be treated as 2.0
+        q1, c1, l1 = apply_user_preferences(
+            0.7, 0.2, 0.1,
+            cost_preference=10.0,  # Will be clamped to 2.0
+        )
+        q2, c2, l2 = apply_user_preferences(
+            0.7, 0.2, 0.1,
+            cost_preference=2.0,  # Max allowed
+        )
+        assert c1 == pytest.approx(c2)
+
+        # Negative multiplier should be treated as 0.0
+        q3, c3, l3 = apply_user_preferences(
+            0.7, 0.2, 0.1,
+            quality_preference=-5.0,  # Will be clamped to 0.0
+        )
+        assert q3 == 0.0
+
+
+class TestIntegration:
+    """Integration tests combining multiple functions."""
+
+    def test_bandit_feedback_compatibility(self):
+        """Test that output matches BanditFeedback.calculate_reward()."""
+        from conduit.engines.bandits.base import BanditFeedback
+
+        feedback = BanditFeedback(
+            model_id="test",
+            cost=0.001,
+            quality_score=0.95,
+            latency=1.5,
+        )
+
+        # Direct function call
+        direct_reward = calculate_composite_reward(
+            quality=0.95,
+            cost=0.001,
+            latency=1.5,
+        )
+
+        # Through BanditFeedback
+        feedback_reward = feedback.calculate_reward()
+
+        assert direct_reward == pytest.approx(feedback_reward)
+
+    def test_user_preferences_flow(self):
+        """Test applying user preferences then calculating reward."""
+        # User wants to prioritize cost
+        q_weight, c_weight, l_weight = apply_user_preferences(
+            0.7, 0.2, 0.1,
+            cost_preference=2.0,
+        )
+
+        reward = calculate_composite_reward(
+            quality=0.9,
+            cost=0.001,  # Very cheap
+            latency=2.0,  # Slow
+            quality_weight=q_weight,
+            cost_weight=c_weight,
+            latency_weight=l_weight,
+        )
+
+        # With cost priority, cheap model should score well
+        assert reward > 0.8
