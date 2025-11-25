@@ -10,8 +10,9 @@ from typing import Any
 import numpy as np
 from pydantic import BaseModel, Field
 
-from conduit.core.defaults import DEFAULT_REWARD_WEIGHTS, TOKEN_COUNT_NORMALIZATION
+from conduit.core.defaults import TOKEN_COUNT_NORMALIZATION
 from conduit.core.models import QueryFeatures
+from conduit.core.reward_calculation import calculate_composite_reward
 
 
 class ModelArm(BaseModel):
@@ -73,15 +74,13 @@ class BanditFeedback(BaseModel):
     ) -> float:
         """Calculate composite reward from quality, cost, and latency.
 
-        Uses asymptotic normalization for cost and latency (no population stats needed):
-        - Quality: Already in [0, 1], higher is better (use directly)
-        - Cost: Normalized as 1 / (1 + cost), inverted so lower cost = higher reward
-        - Latency: Normalized as 1 / (1 + latency), inverted so lower latency = higher reward
+        Delegates to conduit.core.reward_calculation.calculate_composite_reward()
+        for the actual calculation. See that module for implementation details.
 
         Args:
-            quality_weight: Weight for quality component (default: from DEFAULT_REWARD_WEIGHTS)
-            cost_weight: Weight for cost component (default: from DEFAULT_REWARD_WEIGHTS)
-            latency_weight: Weight for latency component (default: from DEFAULT_REWARD_WEIGHTS)
+            quality_weight: Weight for quality component (default: 0.70)
+            cost_weight: Weight for cost component (default: 0.20)
+            latency_weight: Weight for latency component (default: 0.10)
 
         Returns:
             Composite reward in [0, 1] range
@@ -97,40 +96,14 @@ class BanditFeedback(BaseModel):
             >>> print(f"{reward:.3f}")  # ~0.90 (high quality dominates)
             0.903
         """
-        # Use defaults if not provided
-        if quality_weight is None:
-            quality_weight = DEFAULT_REWARD_WEIGHTS["quality"]
-        if cost_weight is None:
-            cost_weight = DEFAULT_REWARD_WEIGHTS["cost"]
-        if latency_weight is None:
-            latency_weight = DEFAULT_REWARD_WEIGHTS["latency"]
-
-        # Validate weights sum to 1.0
-        total_weight = quality_weight + cost_weight + latency_weight
-        if abs(total_weight - 1.0) > 0.01:
-            raise ValueError(
-                f"Reward weights must sum to 1.0, got {total_weight:.3f}"
-            )
-
-        # Normalize components to [0, 1] where higher is better
-        quality_norm = self.quality_score  # Already [0, 1], higher is better
-
-        # Cost: Lower is better, so invert. Asymptotic normalization.
-        # cost=0 → 1.0, cost=1 → 0.5, cost=10 → 0.09
-        cost_norm = 1.0 / (1.0 + self.cost)
-
-        # Latency: Lower is better, so invert. Asymptotic normalization.
-        # latency=0 → 1.0, latency=1 → 0.5, latency=10 → 0.09
-        latency_norm = 1.0 / (1.0 + self.latency)
-
-        # Weighted combination
-        reward = (
-            quality_weight * quality_norm
-            + cost_weight * cost_norm
-            + latency_weight * latency_norm
+        return calculate_composite_reward(
+            quality=self.quality_score,
+            cost=self.cost,
+            latency=self.latency,
+            quality_weight=quality_weight,
+            cost_weight=cost_weight,
+            latency_weight=latency_weight,
         )
-
-        return reward
 
 
 class BanditAlgorithm(ABC):

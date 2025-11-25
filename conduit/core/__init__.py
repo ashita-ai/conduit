@@ -2,7 +2,6 @@
 
 from conduit.core.config import (
     Settings,
-    load_context_priors,
     load_preference_weights,
     settings,
 )
@@ -31,13 +30,20 @@ from conduit.core.models import (
     UserPreferences,
 )
 from conduit.core.pricing import ModelPricing
+from conduit.core.reward_calculation import (
+    apply_user_preferences,
+    calculate_composite_reward,
+    normalize_cost,
+    normalize_latency,
+    normalize_quality,
+    validate_weights,
+)
 
 __all__ = [
     # Config
     "Settings",
     "settings",
     "load_preference_weights",
-    "load_context_priors",
     # Context Detection
     "ContextDetector",
     # Database
@@ -64,4 +70,11 @@ __all__ = [
     "RoutingResult",
     # Pricing
     "ModelPricing",
+    # Reward Calculation
+    "calculate_composite_reward",
+    "normalize_quality",
+    "normalize_cost",
+    "normalize_latency",
+    "validate_weights",
+    "apply_user_preferences",
 ]
