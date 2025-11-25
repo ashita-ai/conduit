@@ -1,6 +1,7 @@
 """Factory for creating embedding providers."""
 
 import logging
+import os
 from typing import Any, Optional
 
 from conduit.engines.embeddings.base import EmbeddingProvider
@@ -55,10 +56,13 @@ def create_embedding_provider(
     provider_lower = provider.lower()
 
     if provider_lower == "huggingface":
-        model = model or "sentence-transformers/all-MiniLM-L6-v2"
+        # Check EMBEDDING_MODEL env var, then parameter, then default
+        model = model or os.getenv("EMBEDDING_MODEL") or "BAAI/bge-small-en-v1.5"
+        # Check for HF_TOKEN or HUGGINGFACE_API_KEY env vars as fallback
+        hf_api_key = api_key or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_KEY")
         return HuggingFaceEmbeddingProvider(
             model=model,
-            api_key=api_key,
+            api_key=hf_api_key,
             timeout=kwargs.get("timeout", 30.0),
         )
 
