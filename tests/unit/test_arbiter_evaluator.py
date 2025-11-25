@@ -1,12 +1,24 @@
 """Tests for Arbiter evaluation integration."""
 
 import asyncio
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from conduit.core.database import Database
 from conduit.core.models import Query, Response
+
+# Mock the arbiter module before importing ArbiterEvaluator
+mock_evaluate = MagicMock()
+sys.modules["arbiter"] = MagicMock(evaluate=mock_evaluate)
+
+# Now import - it will use the mocked arbiter
+import conduit.evaluation.arbiter_evaluator as arbiter_module
+
+# Reload to pick up our mock
+arbiter_module.evaluate = mock_evaluate
+
 from conduit.evaluation.arbiter_evaluator import ArbiterEvaluator
 
 
@@ -121,9 +133,8 @@ class TestAsyncEvaluation:
     """Test async evaluation execution."""
 
     @pytest.mark.asyncio
-    @patch("conduit.evaluation.arbiter_evaluator.evaluate")
     async def test_evaluate_async_success(
-        self, mock_evaluate, test_evaluator, test_response, test_query, test_db
+        self, test_evaluator, test_response, test_query, test_db
     ):
         """Test successful evaluation."""
         # Mock Arbiter evaluate result
@@ -133,32 +144,35 @@ class TestAsyncEvaluation:
         mock_result = MagicMock()
         mock_result.overall_score = 0.95
         mock_result.interactions = [mock_interaction]
-        mock_evaluate.return_value = mock_result
 
-        # Force sampling to always evaluate
-        test_evaluator.sample_rate = 1.0
+        # Use AsyncMock for the awaitable evaluate function
+        with patch.object(
+            arbiter_module, "evaluate", new=AsyncMock(return_value=mock_result)
+        ) as mock_evaluate:
+            # Force sampling to always evaluate
+            test_evaluator.sample_rate = 1.0
 
-        # Run evaluation
-        score = await test_evaluator.evaluate_async(test_response, test_query)
+            # Run evaluation
+            score = await test_evaluator.evaluate_async(test_response, test_query)
 
-        # Verify score returned
-        assert score == 0.95
+            # Verify score returned
+            assert score == 0.95
 
-        # Verify Arbiter was called with correct params
-        mock_evaluate.assert_called_once()
-        call_kwargs = mock_evaluate.call_args[1]
-        assert call_kwargs["output"] == test_response.text
-        assert call_kwargs["reference"] == test_query.text
-        assert call_kwargs["model"] == "gpt-4o-mini"
-        assert call_kwargs["evaluators"] == ["semantic", "factuality"]
+            # Verify Arbiter was called with correct params
+            mock_evaluate.assert_called_once()
+            call_kwargs = mock_evaluate.call_args[1]
+            assert call_kwargs["output"] == test_response.text
+            assert call_kwargs["reference"] == test_query.text
+            assert call_kwargs["model"] == "gpt-4o-mini"
+            assert call_kwargs["evaluators"] == ["semantic", "factuality"]
 
-        # Verify feedback was saved to database
-        test_db.save_complete_interaction.assert_called_once()
-        call_args = test_db.save_complete_interaction.call_args
-        feedback = call_args[1]["feedback"]
-        assert feedback.response_id == test_response.id
-        assert feedback.quality_score == 0.95
-        assert "Arbiter eval" in feedback.comments
+            # Verify feedback was saved to database
+            test_db.save_complete_interaction.assert_called_once()
+            call_args = test_db.save_complete_interaction.call_args
+            feedback = call_args[1]["feedback"]
+            assert feedback.response_id == test_response.id
+            assert feedback.quality_score == 0.95
+            assert "Arbiter eval" in feedback.comments
 
     @pytest.mark.asyncio
     async def test_evaluate_async_skipped_by_sampling(
@@ -174,30 +188,31 @@ class TestAsyncEvaluation:
         assert score is None
 
     @pytest.mark.asyncio
-    @patch("conduit.evaluation.arbiter_evaluator.evaluate")
     async def test_evaluate_async_handles_errors_gracefully(
-        self, mock_evaluate, test_evaluator, test_response, test_query, test_db
+        self, test_evaluator, test_response, test_query, test_db
     ):
         """Test evaluation failures don't crash routing."""
-        # Mock evaluation failure
-        mock_evaluate.side_effect = Exception("Evaluation API error")
+        # Mock evaluation failure with AsyncMock
+        with patch.object(
+            arbiter_module,
+            "evaluate",
+            new=AsyncMock(side_effect=Exception("Evaluation API error")),
+        ):
+            # Force sampling
+            test_evaluator.sample_rate = 1.0
 
-        # Force sampling
-        test_evaluator.sample_rate = 1.0
+            # Should not raise exception
+            score = await test_evaluator.evaluate_async(test_response, test_query)
 
-        # Should not raise exception
-        score = await test_evaluator.evaluate_async(test_response, test_query)
+            # Should return None on failure
+            assert score is None
 
-        # Should return None on failure
-        assert score is None
-
-        # Database should not be called
-        test_db.save_complete_interaction.assert_not_called()
+            # Database should not be called
+            test_db.save_complete_interaction.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("conduit.evaluation.arbiter_evaluator.evaluate")
     async def test_evaluate_async_fire_and_forget(
-        self, mock_evaluate, test_evaluator, test_response, test_query
+        self, test_evaluator, test_response, test_query
     ):
         """Test evaluation runs in background without blocking."""
         # Mock slow evaluation (100ms)
@@ -212,21 +227,21 @@ class TestAsyncEvaluation:
             result.interactions = [mock_interaction]
             return result
 
-        mock_evaluate.side_effect = slow_evaluate
-        test_evaluator.sample_rate = 1.0
+        with patch.object(arbiter_module, "evaluate", new=slow_evaluate):
+            test_evaluator.sample_rate = 1.0
 
-        # Create task (fire-and-forget)
-        task = asyncio.create_task(
-            test_evaluator.evaluate_async(test_response, test_query)
-        )
+            # Create task (fire-and-forget)
+            task = asyncio.create_task(
+                test_evaluator.evaluate_async(test_response, test_query)
+            )
 
-        # Should return immediately without waiting
-        # (task is running in background)
-        assert not task.done()
+            # Should return immediately without waiting
+            # (task is running in background)
+            assert not task.done()
 
-        # Wait for task to complete
-        score = await task
-        assert score == 0.9
+            # Wait for task to complete
+            score = await task
+            assert score == 0.9
 
 
 class TestConfiguration:
@@ -240,3 +255,124 @@ class TestConfiguration:
         assert config["daily_budget"] == 10.0
         assert config["model"] == "gpt-4o-mini"
         assert config["evaluators"] == ["semantic", "factuality"]
+
+
+class TestCostTracking:
+    """Test cost tracking functionality (Issue #82)."""
+
+    def test_initial_cost_state(self, test_evaluator):
+        """Test initial cost tracking state is zero."""
+        assert test_evaluator._daily_cost == 0.0
+        assert test_evaluator._total_cost == 0.0
+        assert test_evaluator._evaluation_count == 0
+
+    def test_track_cost(self, test_evaluator):
+        """Test cost tracking accumulates correctly."""
+        test_evaluator._track_cost(0.001)
+        assert test_evaluator._daily_cost == 0.001
+        assert test_evaluator._total_cost == 0.001
+        assert test_evaluator._evaluation_count == 1
+
+        test_evaluator._track_cost(0.002)
+        assert test_evaluator._daily_cost == 0.003
+        assert test_evaluator._total_cost == 0.003
+        assert test_evaluator._evaluation_count == 2
+
+    def test_get_cost_stats(self, test_evaluator):
+        """Test cost stats retrieval."""
+        test_evaluator._track_cost(1.50)
+        stats = test_evaluator.get_cost_stats()
+
+        assert stats["daily_cost"] == 1.50
+        assert stats["daily_budget"] == 10.0
+        assert stats["budget_remaining"] == 8.50
+        assert stats["budget_utilization"] == 15.0  # 1.50/10.0 * 100
+        assert stats["evaluation_count"] == 1
+        assert stats["total_cost"] == 1.50
+        assert "cost_reset_date" in stats
+
+    def test_budget_utilization_zero_budget(self, test_db):
+        """Test budget utilization with zero budget doesn't crash."""
+        evaluator = ArbiterEvaluator(test_db, daily_budget=0.0)
+        stats = evaluator.get_cost_stats()
+
+        assert stats["budget_utilization"] == 0.0
+
+    @pytest.mark.asyncio
+    async def test_should_evaluate_respects_budget(self, test_db):
+        """Test budget enforcement stops evaluations."""
+        evaluator = ArbiterEvaluator(
+            test_db, sample_rate=1.0, daily_budget=0.01  # Very small budget
+        )
+
+        # First evaluation should be allowed
+        assert await evaluator.should_evaluate() is True
+
+        # Exhaust budget
+        evaluator._track_cost(0.01)
+
+        # Now should be blocked
+        assert await evaluator.should_evaluate() is False
+
+    @pytest.mark.asyncio
+    async def test_budget_reset_at_midnight(self, test_db):
+        """Test daily budget resets at midnight UTC."""
+        from datetime import date, timedelta
+
+        evaluator = ArbiterEvaluator(
+            test_db, sample_rate=1.0, daily_budget=0.01
+        )
+
+        # Exhaust budget
+        evaluator._track_cost(0.01)
+        assert await evaluator.should_evaluate() is False
+
+        # Simulate date change (set reset date to yesterday)
+        evaluator._cost_reset_date = date.today() - timedelta(days=1)
+
+        # Budget should reset, allowing evaluation
+        assert await evaluator.should_evaluate() is True
+        assert evaluator._daily_cost == 0.0
+        assert evaluator._evaluation_count == 0
+
+    @pytest.mark.asyncio
+    async def test_evaluate_tracks_cost(self, test_db, test_response, test_query):
+        """Test evaluation tracks cost after completion."""
+        # Mock Arbiter evaluate result
+        mock_interaction = MagicMock()
+        mock_interaction.cost = 0.0005
+
+        mock_result = MagicMock()
+        mock_result.overall_score = 0.85
+        mock_result.interactions = [mock_interaction]
+
+        with patch.object(
+            arbiter_module, "evaluate", new=AsyncMock(return_value=mock_result)
+        ):
+            evaluator = ArbiterEvaluator(test_db, sample_rate=1.0)
+
+            # Run evaluation
+            await evaluator.evaluate_async(test_response, test_query)
+
+            # Verify cost was tracked
+            assert evaluator._daily_cost == 0.0005
+            assert evaluator._total_cost == 0.0005
+            assert evaluator._evaluation_count == 1
+
+    def test_total_cost_persists_across_day_reset(self, test_db):
+        """Test total cost is preserved when daily cost resets."""
+        from datetime import date, timedelta
+
+        evaluator = ArbiterEvaluator(test_db)
+
+        # Track some costs
+        evaluator._track_cost(5.0)
+        assert evaluator._total_cost == 5.0
+
+        # Simulate day change
+        evaluator._cost_reset_date = date.today() - timedelta(days=1)
+        evaluator._check_and_reset_daily_budget()
+
+        # Daily should reset but total preserved
+        assert evaluator._daily_cost == 0.0
+        assert evaluator._total_cost == 5.0  # Preserved!

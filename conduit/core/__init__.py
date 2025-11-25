@@ -2,7 +2,6 @@
 
 from conduit.core.config import (
     Settings,
-    load_context_priors,
     load_preference_weights,
     settings,
 )
@@ -37,7 +36,6 @@ __all__ = [
     "Settings",
     "settings",
     "load_preference_weights",
-    "load_context_priors",
     # Context Detection
     "ContextDetector",
     # Database
