@@ -9,6 +9,7 @@ from uuid import uuid4
 from pydantic import BaseModel
 from pydantic_ai import Agent
 
+from conduit.core.config import get_default_pricing, get_fallback_pricing
 from conduit.core.exceptions import ExecutionError
 from conduit.core.models import Response
 from conduit.core.pricing import ModelPricing
@@ -146,20 +147,12 @@ class ModelExecutor:
             input_cost_per_token = db_pricing.input_cost_per_token
             output_cost_per_token = db_pricing.output_cost_per_token
         else:
-            # Approximate pricing (per 1M tokens) as a safe fallback
-            # Note: These are approximate and may be outdated. Database pricing
-            # from llm-prices.com should be preferred when available.
-            fallback_pricing = {
-                "gpt-4o-mini": {"input": 0.150, "output": 0.600},
-                "gpt-4o": {"input": 2.50, "output": 10.00},
-                "claude-3.5-sonnet": {"input": 3.00, "output": 15.00},
-                "claude-opus-4": {"input": 15.00, "output": 75.00},
-            }
+            # Load fallback pricing from conduit.yaml
+            # Note: These are approximate. Database pricing should be preferred.
+            fallback_pricing = get_fallback_pricing()
+            default_pricing = get_default_pricing()
 
-            model_pricing = fallback_pricing.get(
-                model,
-                {"input": 1.00, "output": 3.00},  # Conservative default pricing
-            )
+            model_pricing = fallback_pricing.get(model, default_pricing)
 
             input_cost_per_token = model_pricing["input"] / 1_000_000.0
             output_cost_per_token = model_pricing["output"] / 1_000_000.0

@@ -1,15 +1,141 @@
 """Configuration management for Conduit.
 
 This module provides centralized configuration loading from environment
-variables with validation and type safety.
+variables with validation and type safety. Model defaults and fallback
+pricing are loaded from conduit.yaml.
 """
 
 import yaml
+from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# =============================================================================
+# YAML CONFIG LOADING
+# =============================================================================
+
+
+@lru_cache(maxsize=1)
+def _load_conduit_yaml() -> dict[str, Any]:
+    """Load and cache conduit.yaml configuration.
+
+    Returns:
+        Parsed YAML config or empty dict if file not found/invalid.
+    """
+    config_path = Path("conduit.yaml")
+    if not config_path.exists():
+        return {}
+
+    try:
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
+            return config if isinstance(config, dict) else {}
+    except Exception:
+        return {}
+
+
+def get_default_models() -> list[str]:
+    """Get default model pool from conduit.yaml.
+
+    Returns:
+        List of model IDs for routing, or hardcoded fallback.
+    """
+    config = _load_conduit_yaml()
+    models = config.get("models", {})
+    if isinstance(models, dict) and "default" in models:
+        default = models["default"]
+        if isinstance(default, list):
+            return default
+    # Fallback if YAML not available
+    return ["o4-mini", "gpt-5.1", "claude-sonnet-4-5-20241124", "gemini-2.5-flash"]
+
+
+def get_arbiter_model() -> str:
+    """Get arbiter evaluation model from conduit.yaml.
+
+    Returns:
+        Model ID for arbiter evaluation, or hardcoded fallback.
+    """
+    config = _load_conduit_yaml()
+    models = config.get("models", {})
+    if isinstance(models, dict) and "arbiter" in models:
+        return str(models["arbiter"])
+    return "o4-mini"
+
+
+def get_fallback_model() -> str:
+    """Get global fallback model from conduit.yaml.
+
+    Returns:
+        Model ID for global fallback, or hardcoded fallback.
+    """
+    config = _load_conduit_yaml()
+    models = config.get("models", {})
+    if isinstance(models, dict) and "fallback" in models:
+        return str(models["fallback"])
+    return "o4-mini"
+
+
+def get_provider_fallback(provider: str) -> str:
+    """Get provider-specific fallback model from conduit.yaml.
+
+    Args:
+        provider: Provider name (openai, anthropic, google, meta, mistral)
+
+    Returns:
+        Model ID for provider fallback, or default fallback.
+    """
+    config = _load_conduit_yaml()
+    fallbacks = config.get("provider_fallbacks", {})
+    if isinstance(fallbacks, dict):
+        if provider in fallbacks:
+            return str(fallbacks[provider])
+        if "default" in fallbacks:
+            return str(fallbacks["default"])
+    return "o4-mini"
+
+
+def get_fallback_pricing() -> dict[str, dict[str, float]]:
+    """Get fallback pricing from conduit.yaml.
+
+    Returns:
+        Dict mapping model_id to {"input": price, "output": price} per 1M tokens.
+    """
+    config = _load_conduit_yaml()
+    pricing = config.get("pricing", {})
+    if not isinstance(pricing, dict):
+        return {}
+
+    result = {}
+    for model_id, prices in pricing.items():
+        if isinstance(prices, dict) and "input" in prices and "output" in prices:
+            result[model_id] = {
+                "input": float(prices["input"]),
+                "output": float(prices["output"]),
+            }
+    return result
+
+
+def get_default_pricing() -> dict[str, float]:
+    """Get default pricing for unknown models from conduit.yaml.
+
+    Returns:
+        Dict with input/output prices per 1M tokens.
+    """
+    config = _load_conduit_yaml()
+    pricing = config.get("pricing", {})
+    if isinstance(pricing, dict) and "_default" in pricing:
+        default = pricing["_default"]
+        if isinstance(default, dict):
+            return {
+                "input": float(default.get("input", 1.0)),
+                "output": float(default.get("output", 3.0)),
+            }
+    return {"input": 1.0, "output": 3.0}
 
 
 class Settings(BaseSettings):
@@ -72,13 +198,8 @@ class Settings(BaseSettings):
         description="API key for embedding provider (if required, defaults to provider-specific env var)",
     )
     default_models: list[str] = Field(
-        default=[
-            "gpt-4o-mini",                  # OpenAI - cheap, fast, good quality
-            "gpt-4o",                       # OpenAI - flagship, balanced
-            "claude-3-5-sonnet-20241022",   # Anthropic - current popular
-            "claude-3-opus-20240229",       # Anthropic - premium quality
-        ],
-        description="Available models for routing (must match pricing database IDs)",
+        default_factory=get_default_models,
+        description="Available models for routing (loaded from conduit.yaml)",
     )
 
     # Feature Dimension Reduction (PCA)
@@ -193,7 +314,8 @@ class Settings(BaseSettings):
         default=10.0, description="Maximum daily evaluation budget (USD)", ge=0.0, le=1000.0
     )
     arbiter_model: str = Field(
-        default="gpt-4o-mini", description="Model for evaluation (cheap recommended)"
+        default_factory=get_arbiter_model,
+        description="Model for evaluation (loaded from conduit.yaml)",
     )
 
     # OpenTelemetry Configuration

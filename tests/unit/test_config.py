@@ -89,13 +89,14 @@ class TestSettings:
         assert prod_settings.is_production is True
 
     def test_default_models_list(self):
-        """Test default models list."""
+        """Test default models list loaded from conduit.yaml."""
         settings = Settings(database_url="postgresql://localhost/test")
 
-        assert "gpt-4o-mini" in settings.default_models
-        assert "gpt-4o" in settings.default_models
-        assert "claude-3-5-sonnet-20241022" in settings.default_models
-        assert "claude-3-opus-20240229" in settings.default_models
+        # Current models from conduit.yaml (Nov 2025)
+        assert "o4-mini" in settings.default_models
+        assert "gpt-5.1" in settings.default_models
+        assert "claude-sonnet-4-5-20241124" in settings.default_models
+        assert "gemini-2.5-flash" in settings.default_models
 
     def test_api_port_validation(self):
         """Test API port must be valid range."""

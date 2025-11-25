@@ -9,7 +9,7 @@ Basic usage:
     >>> query = Query(text="What is 2+2?")
     >>> decision = await router.route(query)
     >>> print(decision.selected_model)
-    "gpt-4o-mini"
+    "o4-mini"
 """
 
 import os
