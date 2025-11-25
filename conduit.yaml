@@ -1,114 +1,5 @@
 # Conduit Configuration
 # See docs/configuration.md for detailed documentation
-# Last updated: 2025-11-25
-
-# =============================================================================
-# MODEL CONFIGURATION
-# =============================================================================
-# Default models for routing. Update these when new model versions release.
-# Check AGENTS.md "Model Reference" section for current best models.
-#
-# Sources (Nov 2025):
-# - OpenAI GPT-5.1: https://openai.com/index/gpt-5-1-for-developers/
-# - Anthropic Claude Opus 4.5: https://www.anthropic.com/news/claude-opus-4-5
-# - Google Gemini 3: https://blog.google/products/gemini/gemini-3/
-
-models:
-  # Default routing pool (used when no specific models requested)
-  # Order matters: first model is primary fallback
-  default:
-    - o4-mini                    # OpenAI fast reasoning (cost-effective)
-    - gpt-5.1                    # OpenAI flagship (76.3% SWE-bench)
-    - claude-sonnet-4-5-20241124 # Anthropic balanced
-    - gemini-2.5-flash           # Google fast
-
-  # Model for Arbiter LLM-as-judge evaluation (cheap, fast preferred)
-  arbiter: o4-mini
-
-  # Global fallback when requested model is unknown
-  fallback: o4-mini
-
-# Provider-specific fallbacks for unknown model IDs
-# When we see a model ID we don't recognize, use these based on provider pattern
-provider_fallbacks:
-  openai: o4-mini
-  anthropic: claude-haiku-4-5-20241124
-  google: gemini-2.5-flash
-  meta: llama-4-scout
-  mistral: mistral-small-latest
-  default: o4-mini               # When provider can't be determined
-
-# =============================================================================
-# FALLBACK PRICING (per 1M tokens, USD)
-# =============================================================================
-# Used when database pricing unavailable. Update monthly from provider sites.
-# Source: https://artificialanalysis.ai/leaderboards/providers
-
-pricing:
-  # OpenAI models (Nov 2025)
-  o4-mini:
-    input: 1.10
-    output: 4.40
-  gpt-5.1:
-    input: 2.00
-    output: 8.00
-  gpt-5.1-codex-mini:
-    input: 0.50
-    output: 2.00
-  # Legacy OpenAI (still supported)
-  gpt-4o-mini:
-    input: 0.15
-    output: 0.60
-  gpt-4o:
-    input: 2.50
-    output: 10.00
-
-  # Anthropic models (Nov 2025 - Claude 4.5 series)
-  claude-opus-4-5-20241124:
-    input: 5.00
-    output: 25.00
-  claude-sonnet-4-5-20241124:
-    input: 3.00
-    output: 15.00
-  claude-haiku-4-5-20241124:
-    input: 0.80
-    output: 4.00
-
-  # Google models (Nov 2025 - Gemini 3 series)
-  gemini-3.0-pro:
-    input: 1.25
-    output: 5.00
-  gemini-2.5-flash:
-    input: 0.075
-    output: 0.30
-  gemini-2.5-pro:
-    input: 1.25
-    output: 5.00
-
-  # Meta models (via Groq/Together)
-  llama-4-maverick:
-    input: 0.50
-    output: 0.50
-  llama-4-scout:
-    input: 0.11
-    output: 0.11
-
-  # Mistral models
-  mistral-large-latest:
-    input: 2.00
-    output: 6.00
-  mistral-small-latest:
-    input: 0.20
-    output: 0.60
-
-  # Conservative default for unknown models
-  _default:
-    input: 1.00
-    output: 3.00
-
-# =============================================================================
-# ROUTING CONFIGURATION
-# =============================================================================
 
 routing:
   # Default optimization strategy
@@ -139,57 +30,41 @@ routing:
       cost: 0.1       # Low cost concern
       latency: 0.5    # Minimize latency
 
-# Industry-wide priors for cold start optimization
-#
-# Data Sources (see docs/PRIORS.md for full methodology):
-# - Artificial Analysis: https://artificialanalysis.ai/leaderboards/providers
-# - Vellum LLM Leaderboard: https://www.vellum.ai/llm-leaderboard
-#
-# Format: model_id: [alpha, beta] where Beta(alpha, beta) represents prior belief
-# Quality estimate = alpha / (alpha + beta)
-# Prior strength = alpha + beta (10000 = high confidence)
-#
-# To update priors from latest benchmarks:
-#   python scripts/sync_priors.py --config conduit.yaml
-#
+# Context-specific priors for Thompson Sampling cold start
+# Quality scores are converted to Beta distribution parameters (alpha, beta)
+# Higher values = expected higher quality for that context
 priors:
-  # Code Context: Code generation, debugging, technical queries
-  # Primary benchmark: SWE-Bench (Vellum), LiveCodeBench (Artificial Analysis)
   code:
-    gpt-4o: [8000, 2000]              # 80% - Strong coding, based on LiveCodeBench
-    gpt-4o-mini: [7200, 2800]         # 72% - Good for simple code tasks
-    claude-3-5-sonnet-20241022: [8200, 1800]  # 82% - SWE-Bench 82% (Vellum)
-    claude-3-opus-20240229: [8090, 1910]      # 80.9% - SWE-Bench 80.9% (Vellum)
+    claude-3-opus: 0.92        # Best for code generation
+    gpt-4o: 0.88               # Strong coding performance
+    claude-3-sonnet: 0.85      # Good balance
+    gpt-4o-mini: 0.78          # Fast and decent
+    claude-3-haiku: 0.72       # Quick responses
 
-  # Creative Context: Creative writing, storytelling, content generation
-  # Primary benchmark: Qualitative assessments, community consensus
-  # Note: No standardized creative benchmark; estimates based on model capabilities
   creative:
-    gpt-4o: [7800, 2200]              # 78% - Good creative output
-    gpt-4o-mini: [6500, 3500]         # 65% - Acceptable for drafts
-    claude-3-5-sonnet-20241022: [8800, 1200]  # 88% - Known for nuanced writing
-    claude-3-opus-20240229: [9200, 800]       # 92% - Best creative quality
+    claude-3-opus: 0.94        # Excellent creativity
+    gpt-4o: 0.86               # Good creative writing
+    claude-3-sonnet: 0.82      # Solid creative tasks
+    gpt-4o-mini: 0.74          # Acceptable for simple creative
+    claude-3-haiku: 0.68       # Basic creative tasks
 
-  # Analysis Context: Analytical reasoning, comparison, evaluation
-  # Primary benchmark: GPQA Diamond (Vellum), Intelligence Index (AA)
   analysis:
-    gpt-4o: [7500, 2500]              # 75% - GPQA ~75% (Vellum)
-    gpt-4o-mini: [6000, 4000]         # 60% - Limited reasoning depth
-    claude-3-5-sonnet-20241022: [7800, 2200]  # 78% - Strong reasoning
-    claude-3-opus-20240229: [8700, 1300]      # 87% - GPQA 87% (Vellum)
+    claude-3-opus: 0.91        # Deep analytical ability
+    gpt-4o: 0.89               # Strong analysis
+    claude-3-sonnet: 0.84      # Good for most analysis
+    gpt-4o-mini: 0.76          # Lighter analysis
+    claude-3-haiku: 0.70       # Quick analytical tasks
 
-  # Simple QA Context: Factual questions, straightforward queries
-  # Primary benchmark: MMLU Pro (Artificial Analysis)
   simple_qa:
-    gpt-4o: [8200, 1800]              # 82% - MMLU Pro ~82% (AA)
-    gpt-4o-mini: [6800, 3200]         # 68% - MMLU Pro ~68% (AA)
-    claude-3-5-sonnet-20241022: [8750, 1250]  # 87.5% - MMLU Pro 87.5% (AA)
-    claude-3-opus-20240229: [8950, 1050]      # 89.5% - MMLU Pro 89.5% (AA)
+    gpt-4o-mini: 0.90          # Excellent for simple questions
+    claude-3-haiku: 0.88       # Fast and accurate
+    gpt-4o: 0.85               # Overkill but works
+    claude-3-sonnet: 0.82      # Reliable
+    claude-3-opus: 0.80        # Unnecessary power
 
-  # General Context: Default for unclassified queries
-  # Weighted average across benchmarks (see docs/PRIORS.md for weights)
   general:
-    gpt-4o: [7900, 2100]              # 79% - Balanced performance
-    gpt-4o-mini: [6600, 3400]         # 66% - Cost-effective baseline
-    claude-3-5-sonnet-20241022: [8300, 1700]  # 83% - Strong all-around
-    claude-3-opus-20240229: [8700, 1300]      # 87% - Premium quality
+    gpt-4o: 0.87               # Good all-rounder
+    claude-3-sonnet: 0.85      # Balanced performance
+    claude-3-opus: 0.88        # Premium quality
+    gpt-4o-mini: 0.78          # Cost-effective
+    claude-3-haiku: 0.72       # Budget option

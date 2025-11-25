@@ -1,6 +1,6 @@
 """Utility functions for Conduit LiteLLM plugin."""
 
-from typing import Any
+from typing import Any, Optional
 
 
 def validate_litellm_model_list(model_list: list[dict[str, Any]]) -> None:
@@ -81,45 +81,6 @@ def normalize_model_name(model_name: str) -> str:
     return model_name
 
 
-def extract_query_text(
-    messages: list[dict[str, str]] | None = None,
-    input_data: str | list[Any] | None = None,
-) -> str:
-    """Extract query text from LiteLLM request parameters.
-
-    Handles both chat completion (messages) and other formats (input).
-    Used by both ConduitRoutingStrategy and ConduitFeedbackLogger.
-
-    Args:
-        messages: Chat messages in OpenAI format.
-        input_data: Alternative input format (string or list).
-
-    Returns:
-        Extracted query text or empty string.
-
-    Example:
-        >>> extract_query_text(messages=[{"content": "Hello"}])
-        'Hello'
-        >>> extract_query_text(input_data="What is 2+2?")
-        'What is 2+2?'
-        >>> extract_query_text(input_data=["Query 1", "Query 2"])
-        'Query 1 Query 2'
-    """
-    # Try messages format (chat completions)
-    if messages and isinstance(messages, list) and len(messages) > 0:
-        last_msg = messages[-1]
-        if isinstance(last_msg, dict):
-            return last_msg.get("content", "")
-
-    # Try input format (embeddings, etc.)
-    if isinstance(input_data, str):
-        return input_data
-    elif isinstance(input_data, list):
-        return " ".join(str(x) for x in input_data)
-
-    return ""
-
-
 def format_routing_metadata(
     selected_model: str,
     confidence: float,
@@ -152,3 +113,62 @@ def format_routing_metadata(
         "conduit_complexity": getattr(features, "complexity_score", None),
         "conduit_domain": getattr(features, "domain", None),
     }
+
+
+def extract_query_text(
+    messages: Optional[list[dict[str, Any]]] = None,
+    input_data: Any = None,
+) -> str:
+    """Extract query text from LiteLLM messages or input format.
+
+    Extracts the query text from either messages (OpenAI format) or input_data
+    (completion API format) for feature regeneration in feedback callbacks.
+
+    Args:
+        messages: LiteLLM messages list (OpenAI chat format).
+        input_data: LiteLLM input string or list (completion format).
+
+    Returns:
+        Query text extracted from messages or input, empty string if not found.
+
+    Example:
+        >>> messages = [
+        ...     {"role": "system", "content": "You are helpful"},
+        ...     {"role": "user", "content": "What is 2+2?"}
+        ... ]
+        >>> extract_query_text(messages=messages)
+        'What is 2+2?'
+        >>> extract_query_text(input_data="Direct prompt")
+        'Direct prompt'
+    """
+    # Try messages first (chat format)
+    if messages:
+        # Find the last user message
+        for message in reversed(messages):
+            if not isinstance(message, dict):
+                continue
+
+            role = message.get("role", "")
+            if role == "user":
+                content = message.get("content", "")
+                # Handle string content
+                if isinstance(content, str):
+                    return content
+                # Handle list content (e.g., multimodal messages)
+                if isinstance(content, list):
+                    for part in content:
+                        if isinstance(part, dict) and part.get("type") == "text":
+                            return part.get("text", "")
+                        if isinstance(part, str):
+                            return part
+                break  # User message found but no valid content
+
+    # Try input_data (completion format)
+    if input_data is not None:
+        if isinstance(input_data, str):
+            return input_data
+        if isinstance(input_data, list):
+            # Join list elements
+            return " ".join(str(item) for item in input_data)
+
+    return ""

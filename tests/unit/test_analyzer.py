@@ -61,13 +61,15 @@ class TestQueryAnalyzer:
     """Tests for QueryAnalyzer."""
 
     @pytest.mark.asyncio
-    @patch('conduit.engines.analyzer.SentenceTransformer')
-    async def test_analyze_simple_query(self, mock_transformer_class):
+    @patch('conduit.engines.analyzer.create_embedding_provider')
+    async def test_analyze_simple_query(self, mock_create_provider):
         """Test analysis of simple query."""
-        # Mock the sentence transformer
-        mock_transformer = Mock()
-        mock_transformer.encode.return_value = Mock(tolist=lambda: [0.1] * 384)
-        mock_transformer_class.return_value = mock_transformer
+        # Mock the embedding provider
+        from unittest.mock import AsyncMock
+        mock_provider = Mock()
+        mock_provider.embed = AsyncMock(return_value=[0.1] * 384)
+        mock_provider.dimension = 384
+        mock_create_provider.return_value = mock_provider
 
         from conduit.engines.analyzer import QueryAnalyzer
         analyzer = QueryAnalyzer()
