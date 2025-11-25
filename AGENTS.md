@@ -767,37 +767,7 @@ features = embedding + [
 
 ---
 
-## Current Status (2025-11-22)
 
-### Latest: Measurement & Evaluation Complete ✅
-
-**Arbiter LLM-as-Judge Integration** (commits: 0598f61, a1ceb96):
-1. **ArbiterEvaluator** - Async LLM-as-judge quality assessment
-   - File: `conduit/evaluation/arbiter_evaluator.py` (174 lines)
-   - Fire-and-forget evaluation (doesn't block routing)
-   - Semantic + factuality evaluators
-   - Configurable sampling (10% default) with budget control
-   - Automatic cost tracking via Arbiter framework
-   - Stores feedback for bandit learning
-   - 11/11 unit tests passing, 100% coverage
-   - Live integration tested with real API calls
-
-**LiteLLM Feedback Loop** (commit: c68b7d0):
-1. **ConduitFeedbackLogger** - Automatic bandit learning from LiteLLM
-   - `CustomLogger` integration with LiteLLM callbacks
-   - Captures cost from `response._hidden_params['response_cost']`
-   - Calculates latency from `end_time - start_time`
-   - Regenerates features from query text using `router.analyzer`
-   - Quality estimation: success=0.9, failure=0.1
-   - Updates bandit with composite rewards (quality + cost + latency)
-   - Supports both hybrid and standard routing modes
-   - Comprehensive unit tests (test_litellm_feedback.py, 19 tests)
-   - File: `conduit_litellm/feedback.py` (390 lines)
-
-2. **Feedback Integration** - Zero-config automatic learning
-   - Auto-registered with LiteLLM on strategy initialization
-   - Eliminates llm-prices.com dependency for conduit_litellm usage
-   - Stateless design: regenerates features in callback (no request tracking)
    - Handles async/sync contexts correctly
    - Integrated into `ConduitRoutingStrategy._initialize_feedback_logger()`
 

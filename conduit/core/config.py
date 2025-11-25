@@ -362,34 +362,33 @@ def get_fallback_pricing() -> dict[str, dict[str, float]]:
     Returns:
         Dict mapping model_id to input/output costs per million tokens.
     """
-    return {
-        # OpenAI (Nov 2025)
-        "o4-mini": {"input": 1.10, "output": 4.40},
-        "gpt-5.1": {"input": 2.00, "output": 8.00},
-        "gpt-5": {"input": 2.00, "output": 8.00},
-        "gpt-4o": {"input": 2.50, "output": 10.00},
-        "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-        # Anthropic (Nov 2025)
-        "claude-opus-4-5-20241124": {"input": 5.00, "output": 25.00},
-        "claude-sonnet-4-5-20241124": {"input": 3.00, "output": 15.00},
-        "claude-haiku-4-5-20241124": {"input": 0.80, "output": 4.00},
-        "claude-3-5-sonnet-20241022": {"input": 3.00, "output": 15.00},
-        "claude-3.5-sonnet": {"input": 3.00, "output": 15.00},  # Alias
-        "claude-3-opus-20240229": {"input": 15.00, "output": 75.00},
-        "claude-3-sonnet-20240229": {"input": 3.00, "output": 15.00},
-        "claude-3-haiku-20240307": {"input": 0.25, "output": 1.25},
-        # Google (Nov 2025)
-        "gemini-3.0-pro": {"input": 1.25, "output": 5.00},
-        "gemini-2.5-pro": {"input": 1.25, "output": 5.00},
-        "gemini-2.5-flash": {"input": 0.075, "output": 0.30},
-        "gemini-2.0-flash": {"input": 0.075, "output": 0.30},
-        # Meta/Llama (via Groq/Together)
-        "llama-4-maverick": {"input": 0.20, "output": 0.20},
-        "llama-4-scout": {"input": 0.10, "output": 0.10},
-        # Mistral
-        "mistral-large-latest": {"input": 2.00, "output": 6.00},
-        "mistral-small-latest": {"input": 0.20, "output": 0.60},
-    }
+    config_path = Path("conduit.yaml")
+    if not config_path.exists():
+        return get_default_pricing()
+        
+    try:
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
+            if not isinstance(config, dict):
+                return get_default_pricing()
+                
+            pricing = config.get("pricing", {})
+            if not isinstance(pricing, dict) or not pricing:
+                return get_default_pricing()
+                
+            # Validate and format pricing
+            result: dict[str, dict[str, float]] = {}
+            for model_id, costs in pricing.items():
+                if isinstance(costs, dict) and "input" in costs and "output" in costs:
+                    result[model_id] = {
+                        "input": float(costs["input"]),
+                        "output": float(costs["output"])
+                    }
+            
+            return result if result else get_default_pricing()
+            
+    except Exception:
+        return get_default_pricing()
 
 
 def get_default_pricing() -> dict[str, float]:

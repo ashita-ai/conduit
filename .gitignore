@@ -50,7 +50,7 @@ htmlcov/
 .env.*.local
 
 # Project-specific
-PROJECT_TODO.md
+
 *.db
 *.sqlite
 *.log
