@@ -13,27 +13,27 @@ logger = logging.getLogger(__name__)
 class HuggingFaceEmbeddingProvider(EmbeddingProvider):
     """HuggingFace Inference API embedding provider.
 
-    Free default option - no API key required for public models.
-    Uses HuggingFace Inference API which is free for public models.
+    Free default option - requires HF_TOKEN for the router API.
+    Uses HuggingFace Inference API router endpoint.
 
-    Default model: sentence-transformers/all-MiniLM-L6-v2 (384 dims)
+    Default model: BAAI/bge-small-en-v1.5 (384 dims)
     """
 
     def __init__(
         self,
-        model: str = "sentence-transformers/all-MiniLM-L6-v2",
+        model: str = "BAAI/bge-small-en-v1.5",
         api_key: Optional[str] = None,
         timeout: float = 30.0,
     ):
         """Initialize HuggingFace embedding provider.
 
         Args:
-            model: HuggingFace model identifier (default: all-MiniLM-L6-v2)
-            api_key: Optional API key for private models (not needed for public models)
+            model: HuggingFace model identifier (default: BAAI/bge-small-en-v1.5)
+            api_key: API key (HF_TOKEN) - required for router API
             timeout: Request timeout in seconds (default: 30s)
 
         Example:
-            >>> provider = HuggingFaceEmbeddingProvider()
+            >>> provider = HuggingFaceEmbeddingProvider(api_key="hf_...")
             >>> embedding = await provider.embed("Hello world")
             >>> len(embedding)
             384
@@ -41,10 +41,10 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
         self.model = model
         self.api_key = api_key
         self.timeout = timeout
-        self._dimension = 384  # all-MiniLM-L6-v2 dimension
+        self._dimension = 384  # bge-small-en-v1.5 dimension
 
-        # Build API URL (router.huggingface.co replaced deprecated api-inference.huggingface.co)
-        self.api_url = f"https://router.huggingface.co/hf-inference/pipeline/feature-extraction/{model}"
+        # Build API URL (router.huggingface.co/hf-inference/models/{model})
+        self.api_url = f"https://router.huggingface.co/hf-inference/models/{model}"
 
         # Build headers
         self.headers = {"Content-Type": "application/json"}
