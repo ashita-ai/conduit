@@ -1,13 +1,14 @@
 """Core infrastructure for Conduit routing system."""
 
 from conduit.core.config import (
+    APIConfig,
+    ArbiterConfig,
+    DatabaseConfig,
+    MLConfig,
+    ProviderConfig,
+    RedisConfig,
     Settings,
-    get_arbiter_model,
-    get_default_models,
-    get_default_pricing,
-    get_fallback_model,
-    get_fallback_pricing,
-    get_provider_fallback,
+    TelemetryConfig,
     load_context_priors,
     load_preference_weights,
     settings,
@@ -50,14 +51,16 @@ __all__ = [
     # Config
     "Settings",
     "settings",
-    "load_preference_weights",
     "load_context_priors",
-    "get_default_models",
-    "get_arbiter_model",
-    "get_fallback_model",
-    "get_provider_fallback",
-    "get_fallback_pricing",
-    "get_default_pricing",
+    "load_preference_weights",
+    # Nested Config Classes
+    "DatabaseConfig",
+    "RedisConfig",
+    "ProviderConfig",
+    "MLConfig",
+    "APIConfig",
+    "ArbiterConfig",
+    "TelemetryConfig",
     # Context Detection
     "ContextDetector",
     # Database
