@@ -68,8 +68,8 @@ class Settings(BaseSettings):
 
     # ML Configuration - Embedding Provider
     embedding_provider: str = Field(
-        default="huggingface",
-        description="Embedding provider type (huggingface, openai, cohere, sentence-transformers)",
+        default="auto",
+        description="Embedding provider type (auto, openai, cohere, fastembed, sentence-transformers, huggingface)",
     )
     embedding_model: str = Field(
         default="",
