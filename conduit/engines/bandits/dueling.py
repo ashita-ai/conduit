@@ -196,6 +196,21 @@ class DuelingBandit(BanditAlgorithm):
             ... )
             >>> await bandit.update(feedback, features)
         """
+        model_a_id = feedback.model_a_id
+        model_b_id = feedback.model_b_id
+
+        # Validate both model_ids exist in available arms
+        if model_a_id not in self.arms:
+            raise ValueError(
+                f"Model ID '{model_a_id}' not in arms. "
+                f"Available: {list(self.arms.keys())}"
+            )
+        if model_b_id not in self.arms:
+            raise ValueError(
+                f"Model ID '{model_b_id}' not in arms. "
+                f"Available: {list(self.arms.keys())}"
+            )
+
         # Extract feature vector (d × 1)
         x = self._extract_features(features)
 
@@ -204,8 +219,6 @@ class DuelingBandit(BanditAlgorithm):
 
         # Update weights for both arms
         # Winner gets positive gradient, loser gets negative
-        model_a_id = feedback.model_a_id
-        model_b_id = feedback.model_b_id
 
         # Update arm A: move in direction of preference
         self.preference_weights[model_a_id] += self.learning_rate * gradient_scale * x

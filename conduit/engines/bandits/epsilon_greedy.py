@@ -240,6 +240,13 @@ class EpsilonGreedyBandit(BanditAlgorithm):
         """
         model_id = feedback.model_id
 
+        # Validate model_id exists in available arms
+        if model_id not in self.arms:
+            raise ValueError(
+                f"Model ID '{model_id}' not in arms. "
+                f"Available: {list(self.arms.keys())}"
+            )
+
         # Calculate composite reward from quality, cost, and latency (Phase 3)
         reward = feedback.calculate_reward(
             quality_weight=self.reward_weights["quality"],
