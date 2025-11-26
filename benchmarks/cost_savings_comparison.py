@@ -73,6 +73,10 @@ class CostSavingsBenchmark:
         self.static_always_best = StaticRouter("gpt-4o")  # Always use best model
         self.static_always_cheap = StaticRouter("gpt-4o-mini")  # Always use cheapest
         self.results: List[dict] = []
+        
+        # Load real pricing from pricing.yaml
+        self.pricing = get_fallback_pricing()
+        self.default_pricing = get_default_pricing()
 
     def generate_queries(self, count: int = 1000) -> List[dict]:
         """Generate diverse queries.
@@ -313,6 +317,9 @@ class CostSavingsBenchmark:
         conduit_cumulative: np.ndarray,
         static_best_cumulative: np.ndarray,
         static_cheap_cumulative: np.ndarray,
+        conduit_quality: List[float],
+        static_best_quality: List[float],
+        static_cheap_quality: List[float],
     ):
         """Generate cost savings graph with dual-axis showing cost and quality.
 
@@ -320,15 +327,18 @@ class CostSavingsBenchmark:
             conduit_cumulative: Cumulative costs for Conduit
             static_best_cumulative: Cumulative costs for static (always best)
             static_cheap_cumulative: Cumulative costs for static (always cheap)
+            conduit_quality: Quality scores for Conduit (per query)
+            static_best_quality: Quality scores for static best (per query)
+            static_cheap_quality: Quality scores for static cheap (per query)
         """
         fig, ax1 = plt.subplots(figsize=(14, 7))
 
         x = np.arange(1, len(conduit_cumulative) + 1)
 
         # Left axis: Cumulative Cost
-        ax1.plot(x, conduit_cumulative, label="Conduit (Adaptive)", linewidth=2.5, color="#10b981")
-        ax1.plot(x, static_best_cumulative, label="Static (Always Best)", linewidth=2, color="#ef4444", linestyle="--", alpha=0.8)
-        ax1.plot(x, static_cheap_cumulative, label="Static (Always Cheap)", linewidth=2, color="#f59e0b", linestyle="--", alpha=0.8)
+        ax1.plot(x, conduit_cumulative, label="Conduit Cost", linewidth=2.5, color="#10b981")
+        ax1.plot(x, static_best_cumulative, label="Static Best Cost", linewidth=2, color="#ef4444", linestyle="--", alpha=0.8)
+        ax1.plot(x, static_cheap_cumulative, label="Static Cheap Cost", linewidth=2, color="#f59e0b", linestyle="--", alpha=0.8)
         ax1.set_xlabel("Query Number", fontsize=12)
         ax1.set_ylabel("Cumulative Cost ($)", fontsize=12, color="#1f2937")
         ax1.tick_params(axis="y", labelcolor="#1f2937")
@@ -343,11 +353,11 @@ class CostSavingsBenchmark:
         static_best_quality_rolling = []
         static_cheap_quality_rolling = []
         
-        for i in range(len(self.results)):
+        for i in range(len(conduit_quality)):
             start = max(0, i - window + 1)
-            conduit_qual = np.mean([float(self.results[j]["conduit_quality"]) for j in range(start, i + 1)])
-            static_best_qual = np.mean([float(self.results[j]["static_best_quality"]) for j in range(start, i + 1)])
-            static_cheap_qual = np.mean([float(self.results[j]["static_cheap_quality"]) for j in range(start, i + 1)])
+            conduit_qual = np.mean(conduit_quality[start : i + 1])
+            static_best_qual = np.mean(static_best_quality[start : i + 1])
+            static_cheap_qual = np.mean(static_cheap_quality[start : i + 1])
             conduit_quality_rolling.append(conduit_qual)
             static_best_quality_rolling.append(static_best_qual)
             static_cheap_quality_rolling.append(static_cheap_qual)
@@ -369,9 +379,9 @@ class CostSavingsBenchmark:
 
         # Add savings annotation
         final_savings = ((static_best_cumulative[-1] - conduit_cumulative[-1]) / static_best_cumulative[-1]) * 100
-        final_conduit_quality = conduit_quality_rolling[-1]
-        final_best_quality = static_best_quality_rolling[-1]
-        quality_retention = (final_conduit_quality / final_best_quality) * 100
+        final_conduit_quality = conduit_quality_rolling[-1] if conduit_quality_rolling else 0.0
+        final_best_quality = static_best_quality_rolling[-1] if static_best_quality_rolling else 1.0
+        quality_retention = (final_conduit_quality / final_best_quality) * 100 if final_best_quality > 0 else 0
         
         ax1.annotate(
             f"Savings: {final_savings:.1f}%\nQuality: {quality_retention:.1f}%",
