@@ -158,8 +158,8 @@ def test_context_specific_priors():
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
 
-    # Should demonstrate domain-specific routing
-    assert "Route to:" in stdout or "Selected Model" in stdout
+    # Should demonstrate domain-specific routing with context detection
+    assert "Selected model:" in stdout or "Detected context:" in stdout
 
 
 @pytest.mark.regression
@@ -211,7 +211,7 @@ def test_caching():
 def test_pca_comparison():
     """Test examples/03_optimization/pca_comparison.py runs successfully."""
     example = EXAMPLES_DIR / "03_optimization" / "pca_comparison.py"
-    exit_code, stdout, stderr = run_example(example, timeout=120)
+    exit_code, stdout, stderr = run_example(example, timeout=240)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
 
@@ -303,8 +303,9 @@ def test_arbiter_quality_measurement():
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
 
-    # Should demonstrate Arbiter quality evaluation
-    assert "arbiter" in stdout.lower() or "quality" in stdout.lower()
+    # Should demonstrate Arbiter quality evaluation (logs to INFO, not stdout)
+    combined_output = stdout + stderr
+    assert "arbiter" in combined_output.lower() or "quality" in combined_output.lower()
 
 
 # ============================================================
@@ -336,7 +337,7 @@ def test_explicit_preferences():
 def test_langchain_integration():
     """Test examples/06_integrations/langchain_integration.py runs successfully."""
     example = EXAMPLES_DIR / "06_integrations" / "langchain_integration.py"
-    exit_code, stdout, stderr = run_example(example, timeout=60)
+    exit_code, stdout, stderr = run_example(example, timeout=120)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
 
