@@ -109,8 +109,8 @@ class TestEvaluationSampling:
         results = [await test_evaluator.should_evaluate() for _ in range(1000)]
         true_count = sum(results)
 
-        # Allow 20% variance (80-120 out of 1000)
-        assert 80 <= true_count <= 120, f"Expected ~100, got {true_count}"
+        # Allow 40% variance (60-140 out of 1000) - ~4 std devs for binomial
+        assert 60 <= true_count <= 140, f"Expected ~100, got {true_count}"
 
     @pytest.mark.asyncio
     async def test_should_evaluate_with_zero_sample_rate(self, test_db):
