@@ -12,9 +12,9 @@ last_updated: 2025-01-22
 
 **Design Philosophy**: Simplicity wins, use good defaults, YAML config where needed, no hardcoded assumptions.
 
-**Current Phase**: Pre-1.0 preparation (CI/CD complete, migration testing next)
+**Current Phase**: Pre-1.0 preparation (version 0.1.0, CI/CD complete, migration testing next)
 **Test Health**: 100% (565/565 tests passing), 81% coverage
-**Latest**: GitHub Actions CI, pre-push hooks, scope documentation, 100% test pass rate
+**Latest**: Version sync, GitHub Actions CI, pre-push hooks, scope documentation
 
 ---
 

@@ -1,6 +1,6 @@
 [project]
 name = "conduit-router"
-version = "0.0.4-alpha"
+version = "0.1.0"
 description = "ML-powered LLM routing system for cost/latency/quality optimization"
 authors = [
     { name = "Evan Volgas", email = "evan@ashita.ai" }

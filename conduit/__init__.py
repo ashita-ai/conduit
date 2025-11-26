@@ -36,7 +36,7 @@ from conduit.core import (
 )
 from conduit.engines import Router
 
-__version__ = "0.1.0"
+__version__ = "0.1.0"  # Single source of truth - sync with pyproject.toml
 
 __all__ = [
     # Main interface

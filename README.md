@@ -204,7 +204,7 @@ All algorithms support:
 
 ## Status
 
-**Version**: 0.0.5-alpha (Phase 3 Complete)
+**Version**: 0.1.0 (Pre-1.0)
 **Tests**: All unit tests passing
 
 ### Recent Additions
