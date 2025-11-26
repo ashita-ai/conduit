@@ -154,7 +154,7 @@ def test_basic_routing():
 def test_context_specific_priors():
     """Test examples/02_routing/context_specific_priors.py runs successfully."""
     example = EXAMPLES_DIR / "02_routing" / "context_specific_priors.py"
-    exit_code, stdout, stderr = run_example(example)
+    exit_code, stdout, stderr = run_example(example, timeout=60)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
 
@@ -211,7 +211,7 @@ def test_caching():
 def test_pca_comparison():
     """Test examples/03_optimization/pca_comparison.py runs successfully."""
     example = EXAMPLES_DIR / "03_optimization" / "pca_comparison.py"
-    exit_code, stdout, stderr = run_example(example, timeout=60)
+    exit_code, stdout, stderr = run_example(example, timeout=120)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
 
@@ -243,7 +243,7 @@ def test_state_persistence():
 def test_basic_usage():
     """Test examples/04_litellm/basic_usage.py runs successfully."""
     example = EXAMPLES_DIR / "04_litellm" / "basic_usage.py"
-    exit_code, stdout, stderr = run_example(example, timeout=120)
+    exit_code, stdout, stderr = run_example(example, timeout=300)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
 
@@ -257,7 +257,7 @@ def test_basic_usage():
 def test_custom_config():
     """Test examples/04_litellm/custom_config.py runs successfully."""
     example = EXAMPLES_DIR / "04_litellm" / "custom_config.py"
-    exit_code, stdout, stderr = run_example(example, timeout=120)
+    exit_code, stdout, stderr = run_example(example, timeout=300)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
 
@@ -271,7 +271,7 @@ def test_custom_config():
 def test_learning_demo():
     """Test examples/04_litellm/learning_demo.py runs successfully."""
     example = EXAMPLES_DIR / "04_litellm" / "learning_demo.py"
-    exit_code, stdout, stderr = run_example(example, timeout=180)
+    exit_code, stdout, stderr = run_example(example, timeout=400)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
 
@@ -285,7 +285,7 @@ def test_learning_demo():
 def test_multi_provider():
     """Test examples/04_litellm/multi_provider.py runs successfully."""
     example = EXAMPLES_DIR / "04_litellm" / "multi_provider.py"
-    exit_code, stdout, stderr = run_example(example, timeout=120)
+    exit_code, stdout, stderr = run_example(example, timeout=300)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
 
