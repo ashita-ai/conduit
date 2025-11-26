@@ -1,10 +1,12 @@
 """Embedding providers for query feature extraction.
 
-Supports multiple embedding backends:
-- HuggingFace Inference API (free default, no API key needed)
-- OpenAI embeddings (recommended for production)
-- Cohere embeddings (recommended for production)
-- Sentence-transformers (optional, for offline use)
+Supports multiple embedding backends with automatic fallback:
+- Auto mode (default): Tries OpenAI → Cohere → FastEmbed → sentence-transformers
+- OpenAI embeddings (fast API, requires OPENAI_API_KEY)
+- Cohere embeddings (fast API, requires COHERE_API_KEY)
+- FastEmbed (lightweight ONNX ~100MB, no API key)
+- Sentence-transformers (full PyTorch ~2GB, no API key)
+- HuggingFace API (legacy, requires API key)
 """
 
 from conduit.engines.embeddings.base import EmbeddingProvider
@@ -16,11 +18,25 @@ from conduit.engines.embeddings.sentence_transformers import (
     SentenceTransformersEmbeddingProvider,
 )
 
-__all__ = [
-    "EmbeddingProvider",
-    "HuggingFaceEmbeddingProvider",
-    "OpenAIEmbeddingProvider",
-    "CohereEmbeddingProvider",
-    "SentenceTransformersEmbeddingProvider",
-    "create_embedding_provider",
-]
+try:
+    from conduit.engines.embeddings.fastembed_provider import FastEmbedProvider
+
+    __all__ = [
+        "EmbeddingProvider",
+        "HuggingFaceEmbeddingProvider",
+        "OpenAIEmbeddingProvider",
+        "CohereEmbeddingProvider",
+        "SentenceTransformersEmbeddingProvider",
+        "FastEmbedProvider",
+        "create_embedding_provider",
+    ]
+except ImportError:
+    # FastEmbed is optional
+    __all__ = [
+        "EmbeddingProvider",
+        "HuggingFaceEmbeddingProvider",
+        "OpenAIEmbeddingProvider",
+        "CohereEmbeddingProvider",
+        "SentenceTransformersEmbeddingProvider",
+        "create_embedding_provider",
+    ]
