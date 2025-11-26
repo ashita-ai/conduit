@@ -124,9 +124,10 @@ disallow_untyped_decorators = false
 
 [tool.pytest.ini_options]
 minversion = "9.0"
-addopts = "-ra -q --strict-markers --cov=conduit --cov-report=term-missing"
+addopts = "-ra -q --strict-markers"
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# For coverage: uv run pytest --cov=conduit --cov-report=term-missing
 
 [dependency-groups]
 dev = [

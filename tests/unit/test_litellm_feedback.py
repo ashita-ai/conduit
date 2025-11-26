@@ -37,12 +37,16 @@ def mock_router():
     router.analyzer = analyzer
 
     # Mock bandit with async update method and arms
+    # Note: Arms use MAPPED Conduit IDs (after map_litellm_to_conduit translation)
+    # LiteLLM "gpt-4o-mini" → Conduit "o4-mini"
+    # LiteLLM "claude-3-haiku" → stays "claude-3-haiku" (no mapping)
+    # LiteLLM "gemini-pro" → Conduit "gemini-2.5-pro"
     bandit = Mock()
     bandit.update = AsyncMock()
     bandit.arms = {
-        "gpt-4o-mini": Mock(),
+        "o4-mini": Mock(),
         "claude-3-haiku": Mock(),
-        "gemini-pro": Mock(),
+        "gemini-2.5-pro": Mock(),
     }
     router.bandit = bandit
     router.hybrid_router = None
@@ -71,13 +75,14 @@ def mock_hybrid_router():
     # Mock hybrid_router with async update method
     hybrid = Mock()
     hybrid.update = AsyncMock()
-    # Mock linucb_bandit with arms
+    # Mock linucb with arms (using MAPPED Conduit IDs)
+    # HybridRouter uses "linucb" attribute (not "linucb_bandit")
     linucb = Mock()
     linucb.arms = {
-        "gpt-4o-mini": Mock(),
+        "o4-mini": Mock(),
         "claude-3-haiku": Mock(),
     }
-    hybrid.linucb_bandit = linucb
+    hybrid.linucb = linucb
     router.hybrid_router = hybrid
     router.bandit = None
 
@@ -155,7 +160,8 @@ class TestConduitFeedbackLogger:
         features = call_args[0][1]  # Second positional arg
 
         assert isinstance(feedback, BanditFeedback)
-        assert feedback.model_id == "gpt-4o-mini"
+        # Model ID is MAPPED from LiteLLM "gpt-4o-mini" to Conduit "o4-mini"
+        assert feedback.model_id == "o4-mini"
         assert feedback.cost == 0.00015
         # Quality is estimated from content (short response "4" gets lower score)
         assert 0.5 <= feedback.quality_score <= 0.6  # Estimated quality
@@ -187,7 +193,8 @@ class TestConduitFeedbackLogger:
         call_args = mock_router.bandit.update.call_args
         feedback = call_args[0][0]
 
-        assert feedback.model_id == "gpt-4o-mini"
+        # Model ID is MAPPED from LiteLLM "gpt-4o-mini" to Conduit "o4-mini"
+        assert feedback.model_id == "o4-mini"
         assert feedback.quality_score == 0.1  # Failure = low quality
         assert feedback.latency == 2.0
         assert feedback.success is False
@@ -318,8 +325,9 @@ class TestConduitFeedbackLogger:
         assert cost is None
 
     def test_validate_model_id_exists(self, feedback_logger):
-        """Test model validation for existing model."""
-        assert feedback_logger._validate_model_id("gpt-4o-mini") is True
+        """Test model validation for existing model (using MAPPED Conduit IDs)."""
+        # Arms contain MAPPED IDs: o4-mini, claude-3-haiku, gemini-2.5-pro
+        assert feedback_logger._validate_model_id("o4-mini") is True
         assert feedback_logger._validate_model_id("claude-3-haiku") is True
 
     def test_validate_model_id_not_exists(self, feedback_logger):
@@ -327,9 +335,9 @@ class TestConduitFeedbackLogger:
         assert feedback_logger._validate_model_id("nonexistent") is False
 
     def test_get_available_model_ids(self, feedback_logger):
-        """Test getting available model IDs."""
+        """Test getting available model IDs (MAPPED Conduit IDs)."""
         model_ids = feedback_logger._get_available_model_ids()
-        assert set(model_ids) == {"gpt-4o-mini", "claude-3-haiku", "gemini-pro"}
+        assert set(model_ids) == {"o4-mini", "claude-3-haiku", "gemini-2.5-pro"}
 
     @pytest.mark.asyncio
     async def test_no_bandit_available(self, litellm_kwargs, litellm_response):
@@ -433,9 +441,12 @@ class TestFeedbackIntegration:
         """Test feedback works with different model IDs."""
         logger = ConduitFeedbackLogger(mock_router)
 
-        models = ["gpt-4o-mini", "claude-3-haiku", "gemini-pro"]
+        # LiteLLM model IDs used in requests
+        litellm_models = ["gpt-4o-mini", "claude-3-haiku", "gemini-pro"]
+        # Expected Conduit model IDs after mapping
+        expected_mapped = ["o4-mini", "claude-3-haiku", "gemini-2.5-pro"]
 
-        for model in models:
+        for model in litellm_models:
             kwargs = {
                 "model": model,
                 "messages": [{"role": "user", "content": f"Test for {model}"}],
@@ -448,8 +459,8 @@ class TestFeedbackIntegration:
         # Verify 3 updates
         assert mock_router.bandit.update.call_count == 3
 
-        # Verify different model IDs
+        # Verify model IDs are MAPPED from LiteLLM to Conduit format
         model_ids = [
             call[0][0].model_id for call in mock_router.bandit.update.call_args_list
         ]
-        assert model_ids == models
+        assert model_ids == expected_mapped
