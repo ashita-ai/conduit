@@ -43,10 +43,10 @@ else
     echo "✅ Mypy passed"
 fi
 
-# 4. Tests (quick - only unit tests to keep it fast)
+# 4. Tests (quick - only fast unit tests, no API keys or downloads)
 echo ""
-echo "🧪 Running unit tests..."
-if ! uv run pytest tests/unit/ -q --tb=no; then
+echo "🧪 Running fast unit tests..."
+if ! uv run pytest tests/unit/ -q --tb=no -m "not slow and not downloads_models and not requires_api_key"; then
     echo "❌ Tests failed"
     exit 1
 fi
