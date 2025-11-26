@@ -114,6 +114,8 @@ def test_fastembed_optional():
 
 
 @pytest.mark.asyncio
+@pytest.mark.downloads_models
+@pytest.mark.slow
 async def test_fastembed_provider():
     """Test FastEmbed embedding provider."""
     try:
@@ -138,6 +140,8 @@ async def test_fastembed_provider():
 
 
 @pytest.mark.asyncio
+@pytest.mark.downloads_models
+@pytest.mark.slow
 async def test_fastembed_empty_batch():
     """Test FastEmbed handles empty batch."""
     try:
@@ -150,6 +154,8 @@ async def test_fastembed_empty_batch():
     assert embeddings == []
 
 
+@pytest.mark.downloads_models
+@pytest.mark.slow
 def test_fastembed_model_dimensions():
     """Test FastEmbed correctly identifies model dimensions."""
     try:
@@ -173,21 +179,14 @@ def test_factory_auto_mode_no_providers(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("COHERE_API_KEY", raising=False)
 
-    # Mock import failures for local providers
-    import sys
-    from unittest.mock import MagicMock
+    # Mock the helper functions to return False (imports fail)
+    from conduit.engines.embeddings import factory
 
-    fastembed_mock = MagicMock()
-    fastembed_mock.side_effect = ImportError
-    sentence_mock = MagicMock()
-    sentence_mock.side_effect = ImportError
+    monkeypatch.setattr(factory, "_try_import_fastembed", lambda: False)
+    monkeypatch.setattr(factory, "_try_import_sentence_transformers", lambda: False)
 
-    with monkeypatch.context() as m:
-        m.setitem(sys.modules, "fastembed", fastembed_mock)
-        m.setitem(sys.modules, "sentence_transformers", sentence_mock)
-
-        with pytest.raises(RuntimeError, match="No embedding providers available"):
-            create_embedding_provider("auto")
+    with pytest.raises(RuntimeError, match="No embedding providers available"):
+        create_embedding_provider("auto")
 
 
 def test_factory_auto_mode_openai_priority(monkeypatch):
