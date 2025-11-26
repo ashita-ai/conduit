@@ -12,8 +12,11 @@ Reference: Agrawal & Goyal (2013) "Thompson Sampling for Contextual Bandits with
 Tutorial: http://proceedings.mlr.press/v28/agrawal13.pdf
 """
 
+from __future__ import annotations
+
 from collections import deque
-from typing import Any
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -21,6 +24,9 @@ from conduit.core.config import load_algorithm_config, load_feature_dimensions
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
+
+if TYPE_CHECKING:
+    from conduit.core.state_store import BanditState
 
 
 class ContextualThompsonSamplingBandit(BanditAlgorithm):
@@ -334,3 +340,111 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
             "arm_mu_norms": mu_norms,
             "arm_sigma_traces": sigma_traces,
         }
+
+    def to_state(self) -> BanditState:
+        """Serialize Contextual Thompson Sampling state for persistence.
+
+        Converts numpy arrays to nested lists for JSON serialization.
+
+        Returns:
+            BanditState object containing all CTS state
+
+        Example:
+            >>> state = bandit.to_state()
+            >>> state.algorithm
+            "contextual_thompson_sampling"
+            >>> len(state.mu_vectors)
+            5
+        """
+        from conduit.core.state_store import BanditState
+
+        # Serialize mu vectors and Sigma matrices
+        mu_vectors = {
+            arm_id: vec.flatten().tolist() for arm_id, vec in self.mu.items()
+        }
+        sigma_matrices = {
+            arm_id: mat.tolist() for arm_id, mat in self.Sigma.items()
+        }
+
+        # Serialize observation history (feature vectors and rewards)
+        observation_history_serialized = []
+        for arm_id, observations in self.observation_history.items():
+            for feature_vec, reward in observations:
+                observation_history_serialized.append({
+                    "arm_id": arm_id,
+                    "features": feature_vec.flatten().tolist(),
+                    "reward": reward,
+                })
+
+        return BanditState(
+            algorithm="contextual_thompson_sampling",
+            arm_ids=list(self.arms.keys()),
+            arm_pulls=self.arm_pulls.copy(),
+            arm_successes=self.arm_successes.copy(),
+            total_queries=self.total_queries,
+            mu_vectors=mu_vectors,
+            sigma_matrices=sigma_matrices,
+            observation_history=observation_history_serialized,
+            feature_dim=self.feature_dim,
+            window_size=self.window_size if self.window_size > 0 else None,
+            updated_at=datetime.now(UTC),
+        )
+
+    def from_state(self, state: BanditState) -> None:
+        """Restore Contextual Thompson Sampling state from persisted data.
+
+        Deserializes numpy arrays from nested lists.
+
+        Args:
+            state: BanditState object with serialized state
+
+        Raises:
+            ValueError: If state is incompatible with current configuration
+
+        Example:
+            >>> state = await store.load_bandit_state("router-1", "contextual_thompson_sampling")
+            >>> bandit.from_state(state)
+        """
+        if state.algorithm != "contextual_thompson_sampling":
+            raise ValueError(
+                f"State algorithm '{state.algorithm}' != 'contextual_thompson_sampling'"
+            )
+
+        # Verify arms match
+        state_arms = set(state.arm_ids)
+        current_arms = set(self.arms.keys())
+        if state_arms != current_arms:
+            raise ValueError(
+                f"State arms {state_arms} don't match current arms {current_arms}"
+            )
+
+        # Verify feature dimension matches
+        if state.feature_dim is not None and state.feature_dim != self.feature_dim:
+            raise ValueError(
+                f"State feature_dim {state.feature_dim} != {self.feature_dim}"
+            )
+
+        # Restore counters
+        self.total_queries = state.total_queries
+        self.arm_pulls = state.arm_pulls.copy()
+        self.arm_successes = state.arm_successes.copy()
+
+        # Restore mu vectors and Sigma matrices
+        self.mu = {
+            arm_id: np.array(vec).reshape(-1, 1)
+            for arm_id, vec in state.mu_vectors.items()
+        }
+        self.Sigma = {
+            arm_id: np.array(mat) for arm_id, mat in state.sigma_matrices.items()
+        }
+
+        # Restore observation history
+        for arm_id in self.arms:
+            self.observation_history[arm_id].clear()
+
+        for entry in state.observation_history:
+            arm_id = entry["arm_id"]
+            features = np.array(entry["features"]).reshape(-1, 1)
+            reward = entry["reward"]
+            if arm_id in self.observation_history:
+                self.observation_history[arm_id].append((features, reward))

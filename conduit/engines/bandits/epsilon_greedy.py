@@ -10,8 +10,12 @@ to adapt to model quality/cost changes over time.
 Reference: https://en.wikipedia.org/wiki/Multi-armed_bandit#Approximate_solutions
 """
 
+from __future__ import annotations
+
 import random
 from collections import deque
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -19,6 +23,9 @@ from conduit.core.config import load_algorithm_config
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
+
+if TYPE_CHECKING:
+    from conduit.core.state_store import BanditState
 
 
 class EpsilonGreedyBandit(BanditAlgorithm):
@@ -325,3 +332,83 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             "arm_successes": self.arm_successes,
             "arm_success_rates": success_rates,
         }
+
+    def to_state(self) -> BanditState:
+        """Serialize Epsilon-Greedy state for persistence.
+
+        Returns:
+            BanditState object containing all Epsilon-Greedy state
+
+        Example:
+            >>> state = bandit.to_state()
+            >>> state.algorithm
+            "epsilon_greedy"
+        """
+        from conduit.core.state_store import BanditState
+
+        # Convert reward history deques to list of dicts for serialization
+        reward_history_serialized = []
+        for arm_id, rewards in self.reward_history.items():
+            for reward in rewards:
+                reward_history_serialized.append({"arm_id": arm_id, "reward": reward})
+
+        return BanditState(
+            algorithm="epsilon_greedy",
+            arm_ids=list(self.arms.keys()),
+            arm_pulls=self.arm_pulls.copy(),
+            arm_successes=self.arm_successes.copy(),
+            total_queries=self.total_queries,
+            mean_reward=self.mean_reward.copy(),
+            sum_reward=self.sum_reward.copy(),
+            reward_history=reward_history_serialized,
+            epsilon=self.epsilon,
+            window_size=self.window_size if self.window_size > 0 else None,
+            updated_at=datetime.now(UTC),
+        )
+
+    def from_state(self, state: BanditState) -> None:
+        """Restore Epsilon-Greedy state from persisted data.
+
+        Args:
+            state: BanditState object with serialized state
+
+        Raises:
+            ValueError: If state is incompatible with current configuration
+
+        Example:
+            >>> state = await store.load_bandit_state("router-1", "epsilon_greedy")
+            >>> bandit.from_state(state)
+        """
+        if state.algorithm != "epsilon_greedy":
+            raise ValueError(
+                f"State algorithm '{state.algorithm}' != 'epsilon_greedy'"
+            )
+
+        # Verify arms match
+        state_arms = set(state.arm_ids)
+        current_arms = set(self.arms.keys())
+        if state_arms != current_arms:
+            raise ValueError(
+                f"State arms {state_arms} don't match current arms {current_arms}"
+            )
+
+        # Restore counters
+        self.total_queries = state.total_queries
+        self.arm_pulls = state.arm_pulls.copy()
+        self.arm_successes = state.arm_successes.copy()
+        self.mean_reward = state.mean_reward.copy()
+        self.sum_reward = state.sum_reward.copy()
+
+        # Restore epsilon if present
+        if state.epsilon is not None:
+            self.epsilon = state.epsilon
+
+        # Restore reward history
+        for arm_id in self.arms:
+            self.reward_history[arm_id].clear()
+
+        for entry in state.reward_history:
+            arm_id = entry["arm_id"]
+            reward = entry["reward"]
+            if arm_id in self.reward_history:
+                self.reward_history[arm_id].append(reward)

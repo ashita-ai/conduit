@@ -6,16 +6,24 @@ Reduces cold-start exploration overhead by ~30% through phased routing strategy:
 
 The transition transfers learned quality estimates from UCB1 to LinUCB,
 providing a warm start for the contextual algorithm.
+
+Supports state persistence across server restarts via StateStore.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from conduit.core.config import load_context_priors
 from conduit.core.models import Query, QueryFeatures, RoutingDecision
+from conduit.core.state_store import HybridRouterState, RouterPhase
 from conduit.engines.analyzer import QueryAnalyzer
 from conduit.engines.bandits import LinUCBBandit, UCB1Bandit
 from conduit.engines.bandits.base import BanditFeedback, ModelArm
+
+if TYPE_CHECKING:
+    from conduit.core.state_store import StateStore
 
 logger = logging.getLogger(__name__)
 
@@ -434,3 +442,108 @@ class HybridRouter:
         self.ucb1.reset()
         self.linucb.reset()
         logger.info("HybridRouter reset to initial state")
+
+    def to_state(self) -> HybridRouterState:
+        """Serialize HybridRouter state for persistence.
+
+        Captures:
+        - Query count and current phase
+        - UCB1 bandit state
+        - LinUCB bandit state
+
+        Returns:
+            HybridRouterState object containing all router state
+
+        Example:
+            >>> state = router.to_state()
+            >>> state.current_phase
+            <RouterPhase.UCB1: 'ucb1'>
+            >>> state.query_count
+            1500
+        """
+        phase = RouterPhase.UCB1 if self.current_phase == "ucb1" else RouterPhase.LINUCB
+
+        return HybridRouterState(
+            query_count=self.query_count,
+            current_phase=phase,
+            transition_threshold=self.switch_threshold,
+            ucb1_state=self.ucb1.to_state(),
+            linucb_state=self.linucb.to_state(),
+        )
+
+    def from_state(self, state: HybridRouterState) -> None:
+        """Restore HybridRouter state from persisted data.
+
+        Restores:
+        - Query count and current phase
+        - UCB1 bandit state (if present)
+        - LinUCB bandit state (if present)
+
+        Args:
+            state: HybridRouterState object with serialized state
+
+        Example:
+            >>> state = await store.load_hybrid_router_state("router-1")
+            >>> router.from_state(state)
+            >>> router.current_phase
+            "linucb"
+        """
+        self.query_count = state.query_count
+        self.current_phase = state.current_phase.value  # Convert enum to string
+
+        # Restore UCB1 state
+        if state.ucb1_state is not None:
+            self.ucb1.from_state(state.ucb1_state)
+
+        # Restore LinUCB state
+        if state.linucb_state is not None:
+            self.linucb.from_state(state.linucb_state)
+
+        logger.info(
+            f"HybridRouter state restored: phase={self.current_phase}, "
+            f"query_count={self.query_count}"
+        )
+
+    async def save_state(self, store: StateStore, router_id: str) -> None:
+        """Persist current state to storage.
+
+        Args:
+            store: StateStore implementation (e.g., PostgresStateStore)
+            router_id: Unique identifier for this router instance
+
+        Example:
+            >>> from conduit.core import PostgresStateStore
+            >>> store = PostgresStateStore(pool)
+            >>> await router.save_state(store, "production-router")
+        """
+        state = self.to_state()
+        await store.save_hybrid_router_state(router_id, state)
+        logger.debug(f"Saved HybridRouter state for {router_id}")
+
+    async def load_state(self, store: StateStore, router_id: str) -> bool:
+        """Load state from storage if available.
+
+        Args:
+            store: StateStore implementation
+            router_id: Unique identifier for this router instance
+
+        Returns:
+            True if state was loaded, False if no state found
+
+        Example:
+            >>> from conduit.core import PostgresStateStore
+            >>> store = PostgresStateStore(pool)
+            >>> router = HybridRouter(models=["gpt-4o-mini", "gpt-4o"])
+            >>> if await router.load_state(store, "production-router"):
+            ...     print("Resumed from saved state")
+            ... else:
+            ...     print("Starting fresh")
+        """
+        state = await store.load_hybrid_router_state(router_id)
+        if state is None:
+            logger.info(f"No saved state found for {router_id}")
+            return False
+
+        self.from_state(state)
+        logger.info(f"Loaded HybridRouter state for {router_id}")
+        return True

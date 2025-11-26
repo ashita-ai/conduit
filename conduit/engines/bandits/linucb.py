@@ -14,8 +14,11 @@ Reference: https://arxiv.org/abs/1003.0146 (Li et al. 2010)
 Tutorial: https://kfoofw.github.io/contextual-bandits-linear-ucb-disjoint/
 """
 
+from __future__ import annotations
+
 from collections import deque
-from typing import Any
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -23,6 +26,9 @@ from conduit.core.config import load_algorithm_config, load_feature_dimensions
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
+
+if TYPE_CHECKING:
+    from conduit.core.state_store import BanditState
 
 
 class LinUCBBandit(BanditAlgorithm):
@@ -378,3 +384,107 @@ class LinUCBBandit(BanditAlgorithm):
             "arm_success_rates": success_rates,
             "arm_theta_norms": theta_norms,
         }
+
+    def to_state(self) -> BanditState:
+        """Serialize LinUCB state for persistence.
+
+        Converts numpy arrays to nested lists for JSON serialization.
+        A_inv is not persisted (recomputed from A on restore).
+
+        Returns:
+            BanditState object containing all LinUCB state
+
+        Example:
+            >>> state = bandit.to_state()
+            >>> state.algorithm
+            "linucb"
+            >>> len(state.A_matrices)
+            5
+        """
+        from conduit.core.state_store import BanditState, serialize_bandit_matrices
+
+        # Serialize A matrices and b vectors
+        A_matrices, b_vectors = serialize_bandit_matrices(self.A, self.b)
+
+        # Serialize observation history (feature vectors and rewards)
+        observation_history_serialized = []
+        for arm_id, observations in self.observation_history.items():
+            for feature_vec, reward in observations:
+                observation_history_serialized.append({
+                    "arm_id": arm_id,
+                    "features": feature_vec.flatten().tolist(),
+                    "reward": reward,
+                })
+
+        return BanditState(
+            algorithm="linucb",
+            arm_ids=list(self.arms.keys()),
+            arm_pulls=self.arm_pulls.copy(),
+            arm_successes=self.arm_successes.copy(),
+            total_queries=self.total_queries,
+            A_matrices=A_matrices,
+            b_vectors=b_vectors,
+            observation_history=observation_history_serialized,
+            alpha=self.alpha,
+            feature_dim=self.feature_dim,
+            window_size=self.window_size if self.window_size > 0 else None,
+            updated_at=datetime.now(UTC),
+        )
+
+    def from_state(self, state: BanditState) -> None:
+        """Restore LinUCB state from persisted data.
+
+        Deserializes numpy arrays from nested lists and recomputes A_inv.
+
+        Args:
+            state: BanditState object with serialized state
+
+        Raises:
+            ValueError: If state is incompatible with current configuration
+
+        Example:
+            >>> state = await store.load_bandit_state("router-1", "linucb")
+            >>> bandit.from_state(state)
+        """
+        from conduit.core.state_store import deserialize_bandit_matrices
+
+        if state.algorithm != "linucb":
+            raise ValueError(f"State algorithm '{state.algorithm}' != 'linucb'")
+
+        # Verify arms match
+        state_arms = set(state.arm_ids)
+        current_arms = set(self.arms.keys())
+        if state_arms != current_arms:
+            raise ValueError(
+                f"State arms {state_arms} don't match current arms {current_arms}"
+            )
+
+        # Verify feature dimension matches
+        if state.feature_dim is not None and state.feature_dim != self.feature_dim:
+            raise ValueError(
+                f"State feature_dim {state.feature_dim} != {self.feature_dim}"
+            )
+
+        # Restore counters
+        self.total_queries = state.total_queries
+        self.arm_pulls = state.arm_pulls.copy()
+        self.arm_successes = state.arm_successes.copy()
+
+        # Restore A matrices and b vectors
+        self.A, self.b = deserialize_bandit_matrices(state.A_matrices, state.b_vectors)
+
+        # Recompute A_inv from A (not stored to save space)
+        self.A_inv = {
+            arm_id: np.linalg.inv(A_mat) for arm_id, A_mat in self.A.items()
+        }
+
+        # Restore observation history
+        for arm_id in self.arms:
+            self.observation_history[arm_id].clear()
+
+        for entry in state.observation_history:
+            arm_id = entry["arm_id"]
+            features = np.array(entry["features"]).reshape(-1, 1)
+            reward = entry["reward"]
+            if arm_id in self.observation_history:
+                self.observation_history[arm_id].append((features, reward))

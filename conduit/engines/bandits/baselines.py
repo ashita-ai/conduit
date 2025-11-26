@@ -7,11 +7,18 @@ These baselines provide reference points for evaluating bandit performance:
 - AlwaysCheapest: Always select cheapest model (ignores quality)
 """
 
+from __future__ import annotations
+
 import random
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, BanditFeedback, ModelArm
+
+if TYPE_CHECKING:
+    from conduit.core.state_store import BanditState
 
 
 class RandomBaseline(BanditAlgorithm):
@@ -74,6 +81,31 @@ class RandomBaseline(BanditAlgorithm):
         """Get statistics."""
         base_stats = super().get_stats()
         return {**base_stats, "arm_pulls": self.arm_pulls}
+
+    def to_state(self) -> BanditState:
+        """Serialize Random baseline state for persistence."""
+        from conduit.core.state_store import BanditState
+
+        return BanditState(
+            algorithm="random",
+            arm_ids=list(self.arms.keys()),
+            arm_pulls=self.arm_pulls.copy(),
+            total_queries=self.total_queries,
+            updated_at=datetime.now(UTC),
+        )
+
+    def from_state(self, state: BanditState) -> None:
+        """Restore Random baseline state from persisted data."""
+        if state.algorithm != "random":
+            raise ValueError(f"State algorithm '{state.algorithm}' != 'random'")
+
+        state_arms = set(state.arm_ids)
+        current_arms = set(self.arms.keys())
+        if state_arms != current_arms:
+            raise ValueError(f"State arms {state_arms} don't match current arms {current_arms}")
+
+        self.total_queries = state.total_queries
+        self.arm_pulls = state.arm_pulls.copy()
 
 
 class OracleBaseline(BanditAlgorithm):
@@ -176,6 +208,44 @@ class OracleBaseline(BanditAlgorithm):
             "oracle_knowledge_size": len(self.oracle_rewards),
         }
 
+    def to_state(self) -> BanditState:
+        """Serialize Oracle baseline state for persistence."""
+        from conduit.core.state_store import BanditState
+
+        # Serialize oracle_rewards dict with tuple keys as string
+        oracle_rewards_serialized = {
+            f"{k[0]}:{k[1]}": v for k, v in self.oracle_rewards.items()
+        }
+
+        return BanditState(
+            algorithm="oracle",
+            arm_ids=list(self.arms.keys()),
+            arm_pulls=self.arm_pulls.copy(),
+            total_queries=self.total_queries,
+            oracle_rewards=oracle_rewards_serialized,
+            updated_at=datetime.now(UTC),
+        )
+
+    def from_state(self, state: BanditState) -> None:
+        """Restore Oracle baseline state from persisted data."""
+        if state.algorithm != "oracle":
+            raise ValueError(f"State algorithm '{state.algorithm}' != 'oracle'")
+
+        state_arms = set(state.arm_ids)
+        current_arms = set(self.arms.keys())
+        if state_arms != current_arms:
+            raise ValueError(f"State arms {state_arms} don't match current arms {current_arms}")
+
+        self.total_queries = state.total_queries
+        self.arm_pulls = state.arm_pulls.copy()
+
+        # Deserialize oracle_rewards
+        if state.oracle_rewards:
+            self.oracle_rewards = {
+                (int(k.split(":")[0]), k.split(":")[1]): v
+                for k, v in state.oracle_rewards.items()
+            }
+
 
 class AlwaysBestBaseline(BanditAlgorithm):
     """Always select highest quality model (ignores cost).
@@ -235,6 +305,31 @@ class AlwaysBestBaseline(BanditAlgorithm):
             "best_arm_quality": self.best_arm.expected_quality,
             "arm_pulls": self.arm_pulls,
         }
+
+    def to_state(self) -> BanditState:
+        """Serialize AlwaysBest baseline state for persistence."""
+        from conduit.core.state_store import BanditState
+
+        return BanditState(
+            algorithm="always_best",
+            arm_ids=list(self.arms.keys()),
+            arm_pulls=self.arm_pulls.copy(),
+            total_queries=self.total_queries,
+            updated_at=datetime.now(UTC),
+        )
+
+    def from_state(self, state: BanditState) -> None:
+        """Restore AlwaysBest baseline state from persisted data."""
+        if state.algorithm != "always_best":
+            raise ValueError(f"State algorithm '{state.algorithm}' != 'always_best'")
+
+        state_arms = set(state.arm_ids)
+        current_arms = set(self.arms.keys())
+        if state_arms != current_arms:
+            raise ValueError(f"State arms {state_arms} don't match current arms {current_arms}")
+
+        self.total_queries = state.total_queries
+        self.arm_pulls = state.arm_pulls.copy()
 
 
 class AlwaysCheapestBaseline(BanditAlgorithm):
@@ -301,3 +396,28 @@ class AlwaysCheapestBaseline(BanditAlgorithm):
             "cheapest_arm_avg_cost": avg_cost,
             "arm_pulls": self.arm_pulls,
         }
+
+    def to_state(self) -> BanditState:
+        """Serialize AlwaysCheapest baseline state for persistence."""
+        from conduit.core.state_store import BanditState
+
+        return BanditState(
+            algorithm="always_cheapest",
+            arm_ids=list(self.arms.keys()),
+            arm_pulls=self.arm_pulls.copy(),
+            total_queries=self.total_queries,
+            updated_at=datetime.now(UTC),
+        )
+
+    def from_state(self, state: BanditState) -> None:
+        """Restore AlwaysCheapest baseline state from persisted data."""
+        if state.algorithm != "always_cheapest":
+            raise ValueError(f"State algorithm '{state.algorithm}' != 'always_cheapest'")
+
+        state_arms = set(state.arm_ids)
+        current_arms = set(self.arms.keys())
+        if state_arms != current_arms:
+            raise ValueError(f"State arms {state_arms} don't match current arms {current_arms}")
+
+        self.total_queries = state.total_queries
+        self.arm_pulls = state.arm_pulls.copy()

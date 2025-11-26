@@ -5,7 +5,7 @@ for context, ensuring consistency across the routing system.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from pydantic import BaseModel, Field
@@ -13,6 +13,9 @@ from pydantic import BaseModel, Field
 from conduit.core.config import load_feature_dimensions
 from conduit.core.models import QueryFeatures
 from conduit.core.reward_calculation import calculate_composite_reward
+
+if TYPE_CHECKING:
+    from conduit.core.state_store import BanditState
 
 
 class ModelArm(BaseModel):
@@ -184,6 +187,46 @@ class BanditAlgorithm(ABC):
             >>> algorithm.reset()
             >>> algorithm.total_queries
             0
+        """
+        pass
+
+    @abstractmethod
+    def to_state(self) -> "BanditState":
+        """Serialize algorithm state for persistence.
+
+        Converts all internal state (matrices, vectors, counters) to a
+        BanditState object that can be serialized to JSON for database storage.
+
+        Returns:
+            BanditState object containing all algorithm state
+
+        Example:
+            >>> state = algorithm.to_state()
+            >>> state.algorithm
+            "linucb"
+            >>> len(state.A_matrices)  # LinUCB-specific
+            5
+        """
+        pass
+
+    @abstractmethod
+    def from_state(self, state: "BanditState") -> None:
+        """Restore algorithm state from persisted data.
+
+        Loads internal state from a BanditState object, typically loaded
+        from database storage after a server restart.
+
+        Args:
+            state: BanditState object with serialized state
+
+        Raises:
+            ValueError: If state is incompatible with algorithm configuration
+
+        Example:
+            >>> state = await store.load_bandit_state("router-1", "linucb")
+            >>> algorithm.from_state(state)
+            >>> algorithm.total_queries
+            1500
         """
         pass
 

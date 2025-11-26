@@ -13,6 +13,10 @@ Reference: Chowdhury & Gopalan (2017), "Thompson Sampling for Contextual Bandits
 with Gaussian Processes"
 """
 
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import numpy as np
 from pydantic import BaseModel, Field
@@ -20,6 +24,9 @@ from pydantic import BaseModel, Field
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, ModelArm
+
+if TYPE_CHECKING:
+    from conduit.core.state_store import BanditState
 
 
 class DuelingFeedback(BaseModel):
@@ -301,3 +308,65 @@ class DuelingBandit(BanditAlgorithm):
                 preferences[(model_a, model_b)] = float(preference_prob)
 
         return preferences
+
+    def to_state(self) -> BanditState:
+        """Serialize DuelingBandit state for persistence."""
+        from conduit.core.state_store import BanditState
+
+        # Serialize preference weights (numpy arrays to lists)
+        pref_weights = {
+            arm_id: w.flatten().tolist()
+            for arm_id, w in self.preference_weights.items()
+        }
+
+        # Serialize preference counts (tuple keys to string keys)
+        pref_counts = {
+            f"{k[0]}:{k[1]}": v for k, v in self.preference_counts.items()
+        }
+
+        return BanditState(
+            algorithm="dueling_bandit",
+            arm_ids=list(self.arms.keys()),
+            total_queries=self.total_queries,
+            preference_weights=pref_weights,
+            preference_counts=pref_counts,
+            exploration_weight=self.exploration_weight,
+            learning_rate=self.learning_rate,
+            feature_dim=self.feature_dim,
+            updated_at=datetime.now(UTC),
+        )
+
+    def from_state(self, state: BanditState) -> None:
+        """Restore DuelingBandit state from persisted data."""
+        if state.algorithm != "dueling_bandit":
+            raise ValueError(
+                f"State algorithm '{state.algorithm}' != 'dueling_bandit'"
+            )
+
+        state_arms = set(state.arm_ids)
+        current_arms = set(self.arms.keys())
+        if state_arms != current_arms:
+            raise ValueError(
+                f"State arms {state_arms} don't match current arms {current_arms}"
+            )
+
+        if state.feature_dim is not None and state.feature_dim != self.feature_dim:
+            raise ValueError(
+                f"State feature_dim {state.feature_dim} != {self.feature_dim}"
+            )
+
+        self.total_queries = state.total_queries
+
+        # Restore preference weights
+        if state.preference_weights:
+            self.preference_weights = {
+                arm_id: np.array(w).reshape(-1, 1)
+                for arm_id, w in state.preference_weights.items()
+            }
+
+        # Restore preference counts
+        if state.preference_counts:
+            self.preference_counts = {
+                (k.split(":")[0], k.split(":")[1]): v
+                for k, v in state.preference_counts.items()
+            }

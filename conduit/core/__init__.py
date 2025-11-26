@@ -39,6 +39,18 @@ from conduit.core.reward_calculation import (
     normalize_quality,
     validate_weights,
 )
+from conduit.core.postgres_state_store import PostgresStateStore
+from conduit.core.state_store import (
+    BanditState,
+    HybridRouterState,
+    RouterPhase,
+    StateStore,
+    StateStoreError,
+    deserialize_bandit_matrices,
+    list_to_numpy,
+    numpy_to_list,
+    serialize_bandit_matrices,
+)
 
 __all__ = [
     # Config
@@ -79,4 +91,15 @@ __all__ = [
     "normalize_latency",
     "validate_weights",
     "apply_user_preferences",
+    # State Persistence
+    "StateStore",
+    "StateStoreError",
+    "PostgresStateStore",
+    "BanditState",
+    "HybridRouterState",
+    "RouterPhase",
+    "numpy_to_list",
+    "list_to_numpy",
+    "serialize_bandit_matrices",
+    "deserialize_bandit_matrices",
 ]
