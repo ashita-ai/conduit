@@ -39,6 +39,15 @@ class PostgresStateStore(StateStore):
             UNIQUE(router_id, bandit_id)
         );
 
+    pgBouncer Compatibility:
+        When using pgBouncer in transaction pooling mode, create the asyncpg
+        pool with statement_cache_size=0 to avoid prepared statement conflicts:
+
+            pool = await asyncpg.create_pool(
+                database_url,
+                statement_cache_size=0  # Required for pgBouncer
+            )
+
     Attributes:
         pool: asyncpg connection pool
     """
