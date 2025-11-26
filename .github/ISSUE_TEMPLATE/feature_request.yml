@@ -6,14 +6,14 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for suggesting a feature! Please provide details about your routing use case.
+        Thanks for suggesting a feature! Please describe what you'd like to see.
 
   - type: textarea
     id: problem
     attributes:
       label: Problem Statement
-      description: What routing problem does this feature solve?
-      placeholder: "Example: Need to route queries based on user sentiment, but current features don't capture emotional context."
+      description: What problem does this feature solve?
+      placeholder: I'm trying to... but I can't because...
     validations:
       required: true
 
@@ -21,47 +21,8 @@ body:
     id: solution
     attributes:
       label: Proposed Solution
-      description: How would you like this feature to work?
-      placeholder: |
-        Add sentiment analysis to feature extraction:
-        
-        features = QueryFeatures(
-            embedding=[...],
-            token_count=50,
-            sentiment_score=0.8,  # New feature
-            sentiment_label="positive"
-        )
-    validations:
-      required: true
-
-  - type: dropdown
-    id: category
-    attributes:
-      label: Feature Category
-      description: What type of feature is this?
-      options:
-        - New bandit algorithm
-        - Enhancement to existing algorithm
-        - New feature extraction
-        - Routing optimization
-        - Cost tracking
-        - Caching improvement
-        - Documentation
-        - Other
-    validations:
-      required: true
-
-  - type: dropdown
-    id: impact
-    attributes:
-      label: Impact on Routing
-      description: How does this affect model selection?
-      options:
-        - Improves routing quality
-        - Reduces routing cost
-        - Reduces routing latency
-        - Enables new routing strategies
-        - No impact on routing decisions
+      description: How would you like this to work?
+      placeholder: I'd like to be able to...
     validations:
       required: true
 
@@ -69,27 +30,36 @@ body:
     id: alternatives
     attributes:
       label: Alternatives Considered
-      description: What alternatives have you considered or tried?
-      placeholder: "Example: Tried manual feature engineering but need automatic extraction"
+      description: What alternatives have you considered?
+      placeholder: I could also...
 
   - type: textarea
-    id: additional
+    id: use-case
     attributes:
-      label: Additional Context
-      description: Any other context, routing scenarios, or examples
-      placeholder: "Example: E-commerce queries need sentiment routing for customer support"
+      label: Use Case
+      description: Describe your specific use case
+      placeholder: In my application, I need to...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this to you?
+      options:
+        - Nice to have
+        - Important for my use case
+        - Blocking my adoption
+    validations:
+      required: true
 
   - type: checkboxes
-    id: compatibility
+    id: checks
     attributes:
-      label: Compatibility
-      description: Please confirm this aligns with Conduit's design
+      label: Checks
       options:
-        - label: This feature is ML-driven (not static IF/ELSE rules)
-          required: false
-        - label: This feature works with contextual bandit algorithms
-          required: false
-        - label: This feature is provider-agnostic
-          required: false
-        - label: I'm willing to contribute a PR for this feature
-          required: false
+        - label: I've searched existing issues for duplicates
+          required: true
+        - label: This aligns with Conduit's scope (ML routing, not hosting/auth/streaming)
+          required: true

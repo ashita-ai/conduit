@@ -1,0 +1,62 @@
+name: Performance Issue
+description: Report slow performance or resource usage
+title: "[Performance]: "
+labels: ["performance"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a performance issue! Benchmarks help us prioritize.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Performance Issue
+      description: What operation is slow or resource-intensive?
+      placeholder: Routing decision takes 500ms when...
+    validations:
+      required: true
+
+  - type: textarea
+    id: benchmark
+    attributes:
+      label: Benchmark Results
+      description: Measurements showing the issue
+      placeholder: |
+        p50: 200ms
+        p95: 500ms
+        p99: 1000ms
+        
+        Memory: 500MB
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Performance
+      description: What performance do you expect?
+      placeholder: Should be <100ms p95
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      value: |
+        - Conduit version: [e.g., 0.1.0]
+        - Python version: [e.g., 3.13]
+        - Query volume: [e.g., 1000/day]
+        - Bandit algorithm: [e.g., LinUCB]
+        - Redis/PostgreSQL: [yes/no]
+        - Hardware: [e.g., 4 CPU, 8GB RAM]
+    validations:
+      required: true
+
+  - type: textarea
+    id: profiling
+    attributes:
+      label: Profiling Data
+      description: cProfile or other profiling output (if available)
+      render: shell

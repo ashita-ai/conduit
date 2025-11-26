@@ -1,86 +1,33 @@
 name: Bug Report
-description: Report a bug or unexpected routing behavior
+description: Report a bug or unexpected behavior
 title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a bug! Please provide routing details to help us reproduce and fix the issue.
+        Thanks for taking the time to report a bug! Please fill out the information below.
 
   - type: textarea
     id: description
     attributes:
       label: Bug Description
       description: A clear description of what the bug is
-      placeholder: "Example: LinUCB selects expensive model even when cheap model has higher UCB score"
-    validations:
-      required: true
-
-  - type: textarea
-    id: query
-    attributes:
-      label: Query Details
-      description: What query were you routing?
-      placeholder: |
-        Query text: "What is 2+2?"
-        Query type: simple_math
-        Token count: 10
-        Complexity: low
-      render: text
-    validations:
-      required: true
-
-  - type: input
-    id: selected_model
-    attributes:
-      label: Model Selected
-      description: Which model did the router choose?
-      placeholder: "Example: gpt-4o (expected gpt-4o-mini)"
-    validations:
-      required: true
-
-  - type: dropdown
-    id: algorithm
-    attributes:
-      label: Bandit Algorithm
-      description: Which routing algorithm are you using?
-      options:
-        - LinUCB (contextual)
-        - UCB1 (non-contextual)
-        - Thompson Sampling
-        - Epsilon-Greedy
-        - Hybrid (UCB1 + LinUCB)
-        - Other
-    validations:
-      required: true
-
-  - type: textarea
-    id: metrics
-    attributes:
-      label: Observed Metrics
-      description: What metrics did you observe?
-      value: |
-        - Quality score: 
-        - Cost: 
-        - Latency: 
-        - Confidence: 
+      placeholder: When I try to... I expect... but instead...
     validations:
       required: true
 
   - type: textarea
     id: reproduction
     attributes:
-      label: Minimal Reproduction Code
-      description: Provide code that reproduces the issue
+      label: Steps to Reproduce
+      description: Minimal code to reproduce the issue
       placeholder: |
-        from conduit.engines.router import Router
-        from conduit.core.models import Query
-        
+        ```python
+        from conduit import Router, Query
         router = Router()
-        decision = await router.route(Query(text="What is 2+2?"))
-        print(decision.selected_model)  # Expected gpt-4o-mini, got gpt-4o
-      render: python
+        # ...
+        ```
     validations:
       required: true
 
@@ -88,8 +35,7 @@ body:
     id: expected
     attributes:
       label: Expected Behavior
-      description: What did you expect to happen?
-      placeholder: "Example: Should route to gpt-4o-mini for simple queries"
+      description: What you expected to happen
     validations:
       required: true
 
@@ -97,9 +43,9 @@ body:
     id: actual
     attributes:
       label: Actual Behavior
-      description: What actually happened? Include error messages if applicable
-      placeholder: "Example: Routed to expensive gpt-4o despite high confidence in cheaper model"
-      render: shell
+      description: What actually happened (include error messages)
+    validations:
+      required: true
 
   - type: textarea
     id: environment
@@ -107,18 +53,27 @@ body:
       label: Environment
       description: Your environment details
       value: |
-        - Conduit version: 
-        - Python version: 
-        - OS: 
-        - Redis enabled: yes/no
-        - PostgreSQL enabled: yes/no
-        - Embedding provider: 
+        - Conduit version: [e.g., 0.1.0]
+        - Python version: [e.g., 3.13]
+        - OS: [e.g., Ubuntu 22.04]
+        - LLM Provider: [e.g., OpenAI, Anthropic]
+        - Redis/PostgreSQL: [yes/no]
     validations:
       required: true
 
   - type: textarea
-    id: additional
+    id: logs
     attributes:
-      label: Additional Context
-      description: Any other context about the problem
-      placeholder: "Example: Only happens after 100+ queries (cold start vs warm routing)"
+      label: Logs
+      description: Relevant log output (if any)
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I've searched existing issues for duplicates
+          required: true
+        - label: I'm using the latest version
+          required: false

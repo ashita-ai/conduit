@@ -1,265 +1,238 @@
 # Contributing to Conduit
 
-Thank you for your interest in contributing to Conduit! This document provides guidelines for contributing to the ML-powered LLM routing system.
+Thank you for your interest in contributing to Conduit! This guide will help you get started.
 
-## Table of Contents
-
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [Development Setup](#development-setup)
-- [Making Changes](#making-changes)
-- [Testing](#testing)
-- [Code Quality](#code-quality)
-- [Pull Request Process](#pull-request-process)
-- [Issue Guidelines](#issue-guidelines)
-
-## Code of Conduct
-
-Be respectful and professional. We're building production-grade ML systems together.
-
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 
-- Python 3.10+ (3.13 recommended)
-- At least one LLM provider API key (OpenAI, Anthropic, Google, Groq, Mistral, Cohere)
-- Redis (optional, for caching)
-- PostgreSQL (optional, for history persistence)
+- Python 3.11+ (3.13 recommended)
+- At least one LLM API key (OpenAI, Anthropic, Google, Groq, etc.)
+- Redis (optional - for caching)
+- PostgreSQL (optional - for history persistence)
 
-### Development Setup
+### Setup
 
 ```bash
 # Clone the repository
 git clone https://github.com/ashita-ai/conduit.git
 cd conduit
 
-# Install dependencies
-uv sync --all-extras
+# Create and activate virtual environment
+python3.13 -m venv .venv
 source .venv/bin/activate
 
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your API keys and connection strings
+# Install dependencies
+pip install -e ".[dev]"
+
+# Install git hooks (recommended)
+bash scripts/install-hooks.sh
 
 # Run tests to verify setup
-uv run pytest tests/unit/test_bandits_linucb.py -v
+pytest
 ```
 
-## Making Changes
+### Configuration
 
-### Before You Start
+Create `.env` file:
+```bash
+# At least one LLM provider API key
+OPENAI_API_KEY=your_key
+# or
+ANTHROPIC_API_KEY=your_key
 
-1. **Check existing issues** - Look for related issues or discussions
-2. **Create an issue first** - For significant changes, discuss your approach
-3. **Create a feature branch** - Never work directly on `main`
+# Optional
+DATABASE_URL=postgresql://postgres:password@localhost:5432/conduit
+REDIS_URL=redis://localhost:6379
+```
+
+## Development Workflow
+
+### 1. Create a Feature Branch
+
+**IMPORTANT**: Never work directly on `main`
 
 ```bash
 git checkout -b feature/your-feature-name
 ```
 
-### Code Standards
+### 2. Make Your Changes
 
-- **Type hints required** - All functions must have complete type annotations (strict mypy)
-- **Async/await patterns** - All bandit methods must be async
-- **Docstrings required** - Use Google-style docstrings with Args, Returns, Raises, Example
-- **No placeholders** - No TODO comments or NotImplementedError in production code
-- **Complete features** - Finish what you start (implementation + tests + docs + examples)
+Follow these coding standards:
 
-### Bandit Algorithm Pattern
+**Type Hints (Mandatory)**
+```python
+async def select_arm(self, features: QueryFeatures) -> ModelArm:
+    """All functions require type hints."""
+    pass
+```
 
-All bandit algorithms must inherit from `BanditAlgorithm`:
+**Naming Conventions**
+- Functions/variables: `snake_case`
+- Classes: `PascalCase`
+- Constants: `UPPER_SNAKE_CASE`
+- Private methods: `_leading_underscore`
+
+**Async/Await**
+- All bandit methods must be `async`
+- Use `asyncio` for I/O operations
+- No blocking calls in async functions
+
+### 3. Write Tests
+
+**Test Coverage Requirements:**
+- Overall: >80% (enforced by CI)
+- New features: >90% coverage
 
 ```python
-class MyBandit(BanditAlgorithm):
-    async def select_arm(self, features: QueryFeatures) -> ModelArm:
-        """Select optimal model arm using your algorithm.
-        
-        Args:
-            features: Query features for context (387 dims)
-            
-        Returns:
-            Selected model arm with highest expected reward
-        """
-        pass
-
-    async def update(self, feedback: BanditFeedback, features: QueryFeatures) -> None:
-        """Update algorithm state with feedback.
-        
-        Args:
-            feedback: Reward signal (quality, cost, latency)
-            features: Query features used for selection
-        """
-        pass
+# Example test structure
+@pytest.mark.asyncio
+async def test_feature_name(test_fixtures):
+    """Test description."""
+    # Arrange
+    bandit = LinUCBBandit(test_arms)
+    
+    # Act
+    result = await bandit.select_arm(test_features)
+    
+    # Assert
+    assert result in test_arms
 ```
 
-## Testing
+### 4. Run Quality Checks
 
-### Running Tests
+Before committing, run all checks:
 
 ```bash
-# All tests (88% passing, 87% coverage)
-uv run pytest
+# Tests (must pass)
+pytest
 
-# Specific test file
-uv run pytest tests/unit/test_bandits_linucb.py -v
+# Type checking (must be clean)
+mypy conduit/
 
-# With coverage report
-uv run pytest --cov=conduit --cov-report=term-missing
+# Linting (must pass)
+ruff check conduit/
 
-# Fast unit tests only
-uv run pytest tests/unit/
+# Formatting (auto-fix)
+black conduit/
+
+# Coverage (must be >80%)
+pytest --cov=conduit --cov-fail-under=80
 ```
 
-### Test Requirements
+**Note**: If you installed git hooks, these run automatically before push.
 
-- **Coverage** - Maintain >80% coverage for all new code
-- **Unit tests** - Test individual functions with mocked dependencies
-- **Integration tests** - Test end-to-end routing flows
-- **Mock external APIs** - Don't hit real LLM APIs in unit tests
-- **Use real numpy** - Don't mock numpy operations (fast enough)
-
-## Code Quality
-
-### Pre-Commit Checklist
-
-Run these commands before every commit:
+### 5. Commit Your Changes
 
 ```bash
-# 1. Tests pass
-uv run pytest
-# Exit if failed
+git add <files>
+git commit -m "Brief description
 
-# 2. Type checking clean
-uv run mypy conduit/
-# Exit if failed
-
-# 3. Linting clean
-uv run ruff check conduit/
-# Exit if failed
-
-# 4. Formatted
-uv run black conduit/
-
-# 5. Coverage >80%
-uv run pytest --cov=conduit --cov-fail-under=80
-# Exit if failed
-
-# 6. No TODOs or placeholders
-grep -r "TODO\|FIXME\|NotImplementedError" conduit/ && exit 1
-
-# 7. No credentials
-grep -r "API_KEY\|SECRET\|PASSWORD" conduit/ tests/ && exit 1
+- Specific changes made
+- Why these changes were needed
+- Test coverage added
+"
 ```
 
-### Required Tools
+### 6. Push and Create Pull Request
 
-- **black** - Code formatting (line length 88)
-- **ruff** - Fast linting
-- **mypy** - Strict type checking
-- **pytest** - Testing framework with pytest-asyncio
-
-## Pull Request Process
-
-### Before Submitting
-
-1. **Update tests** - Add tests for new features or bug fixes
-2. **Update documentation** - Update README.md if API changed
-3. **Add examples** - Create example file in `examples/` for new features
-4. **Update exports** - Add new classes to `__init__.py` files
-5. **Run all checks** - Ensure all pre-commit checks pass
-
-### PR Requirements
-
-- **Clear description** - Explain what and why (not just what)
-- **Reference issues** - Link to related issues
-- **One feature per PR** - Keep PRs focused and reviewable
-- **Passing CI** - All checks must pass
-- **No merge conflicts** - Rebase on main if needed
-
-### PR Template
-
-```markdown
-## Description
-Brief description of changes
-
-## Type of Change
-- [ ] Bug fix
-- [ ] New bandit algorithm
-- [ ] Enhancement
-- [ ] Documentation
-- [ ] Performance optimization
-
-## Testing
-- [ ] Added unit tests
-- [ ] Added integration tests
-- [ ] All tests pass
-- [ ] Coverage >80%
-
-## Bandit Algorithm Validation (if applicable)
-- [ ] Implements BanditAlgorithm interface
-- [ ] Async select_arm() and update() methods
-- [ ] Tested with 387-dim feature vectors
-- [ ] Handles multi-objective rewards (quality + cost + latency)
-
-## Checklist
-- [ ] Code follows style guidelines (black, ruff, mypy pass)
-- [ ] Added/updated docstrings
-- [ ] Updated README.md if needed
-- [ ] Added example in examples/ if needed
-- [ ] Updated __init__.py exports
-- [ ] No credentials in code
+```bash
+git push -u origin feature/your-feature-name
 ```
 
-## Issue Guidelines
+Then create a PR on GitHub with:
+- Clear description of changes
+- Link to related issues (`Closes #123`)
+- Screenshots (if UI changes)
 
-### Bug Reports
+## What to Contribute
 
-Use the bug report template. Include:
-- **Query type and text** - What were you routing?
-- **Model selected** - Which model did the router choose?
-- **Expected vs actual behavior**
-- **Quality score, cost, and latency** - Observed metrics
-- **Minimal reproduction code**
-- **Error messages and stack traces**
+### Good First Issues
 
-### Feature Requests
+Look for issues labeled `good first issue` or `difficulty: beginner`:
+- Documentation improvements
+- Test coverage increases
+- Simple bug fixes
+- Example code additions
 
-Use the feature request template. Include:
-- **Use case** - Why is this needed?
-- **Proposed solution** - What should it do?
-- **Impact on routing** - How does this affect model selection?
-- **Alternatives considered** - What else did you consider?
+### Areas Needing Help
 
-### Questions
+- **Testing**: Increase coverage in low-coverage areas
+- **Documentation**: Improve docstrings, add examples
+- **Performance**: Optimize hot paths with benchmarks
+- **Integration**: Test with different LLM providers
 
-For questions about usage:
-- Check README.md and examples/ first
-- Search existing issues
-- Check docs/ directory for architecture and algorithms
-- Provide context about your routing scenario
+## Code Standards
 
-## What We Won't Build
+### What We Enforce
 
-To set clear expectations:
+- ✅ Type hints on all functions (mypy strict mode)
+- ✅ Test coverage >80% (pytest-cov)
+- ✅ Clean linting (ruff)
+- ✅ Consistent formatting (black, line length 88)
+- ✅ Async/await patterns for I/O
+- ✅ No placeholders or TODO comments in production code
 
-- **Static rule-based routing** - Conduit is ML-driven, not IF/ELSE rules
-- **Support for Python <3.10** - Modern type hints and async/await required
-- **Hosted routing service** - Self-hosted only
-- **Non-contextual routing** - Query features required for all algorithms
+### What We Don't Allow
 
-## Additional Resources
+- ❌ Working directly on `main` branch
+- ❌ Skipping or disabling tests
+- ❌ Committing credentials or API keys
+- ❌ Partial implementations (no `NotImplementedError`)
+- ❌ Using `Any` type without justification
 
-- **README.md** - User documentation and quickstart
-- **AGENTS.md** - Detailed development guide (AI-focused)
-- **examples/** - Usage examples organized by category
-- **docs/ARCHITECTURE.md** - System architecture
-- **docs/BANDIT_ALGORITHMS.md** - Algorithm details
-- **docs/EMBEDDING_PROVIDERS.md** - Embedding configuration
+## Common Tasks
 
-## Questions?
+### Adding a New Bandit Algorithm
 
-- Open an issue for bugs or features
-- Check existing issues and examples first
-- Be specific and provide routing context
+1. Create `conduit/engines/bandits/my_algorithm.py`
+2. Inherit from `BanditAlgorithm` base class
+3. Implement `async def select_arm()` and `async def update()`
+4. Add to `conduit/engines/bandits/__init__.py` exports
+5. Create `tests/unit/test_bandits_my_algorithm.py` with >90% coverage
+6. Add algorithm description to documentation
 
-Thank you for contributing to Conduit!
+### Running Examples
+
+```bash
+# Basic routing
+uv run python examples/01_quickstart/hello_world.py
+
+# With constraints
+uv run python examples/02_routing/with_constraints.py
+
+# Caching
+uv run python examples/03_optimization/caching.py
+```
+
+## Getting Help
+
+- **Issues**: Check existing [issues](https://github.com/ashita-ai/conduit/issues)
+- **Discussions**: Ask questions in [GitHub Discussions](https://github.com/ashita-ai/conduit/discussions)
+- **Documentation**: See [docs/](docs/) directory
+
+## Pull Request Checklist
+
+Before submitting your PR, verify:
+
+- [ ] Tests pass: `pytest`
+- [ ] Type checking clean: `mypy conduit/`
+- [ ] Linting clean: `ruff check conduit/`
+- [ ] Formatting applied: `black conduit/`
+- [ ] Coverage >80%: `pytest --cov=conduit --cov-fail-under=80`
+- [ ] No credentials committed
+- [ ] Documentation updated (if needed)
+- [ ] Examples added/updated (if needed)
+
+## Code Review Process
+
+1. **Automated Checks**: CI must pass (tests, linting, coverage)
+2. **Manual Review**: Maintainer reviews code quality and design
+3. **Feedback**: Address review comments
+4. **Approval**: Maintainer approves and merges
+
+Typical turnaround: 1-3 days for initial review.
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the MIT License.
