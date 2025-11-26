@@ -334,6 +334,10 @@ def test_explicit_preferences():
 @pytest.mark.regression
 @requires_langchain
 @requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
+@pytest.mark.skipif(
+    sys.version_info >= (3, 14),
+    reason="LangChain has Python 3.14 compatibility issues with AsyncCallbackHandlerForLLMRun",
+)
 def test_langchain_integration():
     """Test examples/06_integrations/langchain_integration.py runs successfully."""
     example = EXAMPLES_DIR / "06_integrations" / "langchain_integration.py"
