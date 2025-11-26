@@ -265,6 +265,54 @@ async def test_router():
 
 ---
 
+## Regression Testing
+
+Regression tests ensure that all example files work correctly and catch breaking changes.
+
+### Running Regression Tests
+```bash
+# Run all regression tests
+pytest tests/regression/ -v
+
+# Run using pytest marker
+pytest -m regression
+
+# Run specific example category
+pytest tests/regression/ -k litellm
+
+# Run with summary (shows skip reasons)
+pytest tests/regression/ -v --tb=short
+```
+
+### Test Structure
+- **tests/regression/test_examples.py**: 18 tests covering all 16 example files
+- **Automatic Skipping**: Tests auto-skip if required API keys or dependencies missing
+- **Meta Tests**: `test_all_examples_have_tests()` ensures we don't forget new examples
+
+### Example Categories Tested
+1. **Quickstart** (2 examples): hello_world.py, simple_router.py
+2. **Routing** (4 examples): basic_routing.py, hybrid_routing.py, with_constraints.py, context_specific_priors.py
+3. **Optimization** (3 examples): caching.py, pca_comparison.py, state_persistence.py
+4. **LiteLLM** (5 examples): basic_usage.py, custom_config.py, learning_demo.py, multi_provider.py, arbiter_quality_measurement.py
+5. **Personalization** (1 example): explicit_preferences.py
+6. **Integrations** (1 example): langchain_integration.py
+
+### Adding Tests for New Examples
+When adding a new example file, add a corresponding test in `test_examples.py`:
+```python
+@pytest.mark.regression
+@requires_api_key("OPENAI_API_KEY")  # List required API keys
+def test_my_new_example():
+    """Test examples/XX_category/my_new_example.py runs successfully."""
+    example = EXAMPLES_DIR / "XX_category" / "my_new_example.py"
+    exit_code, stdout, stderr = run_example(example)
+
+    assert exit_code == 0, f"Example failed with stderr: {stderr}"
+    assert "expected_output" in stdout  # Verify expected behavior
+```
+
+---
+
 ## Executable Commands
 
 Run these commands exactly as shown. They must pass before any commit.
