@@ -46,15 +46,15 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/conduit_test
         run: uv run alembic upgrade head
 
-      - name: Run tests
+      - name: Run fast tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/conduit_test
-        run: uv run pytest tests/ -v --tb=short
+        run: uv run pytest tests/ -v --tb=short -m "not slow and not downloads_models and not requires_api_key"
 
-      - name: Check coverage
+      - name: Check coverage (fast tests only)
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/conduit_test
-        run: uv run pytest --cov=conduit --cov-report=term-missing --cov-fail-under=80
+        run: uv run pytest --cov=conduit --cov-report=term-missing --cov-fail-under=80 -m "not slow and not downloads_models and not requires_api_key"
 
   lint:
     name: Lint & Format

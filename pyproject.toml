@@ -137,6 +137,13 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 # For coverage: uv run pytest --cov=conduit --cov-report=term-missing
 
+# Custom markers for test categorization
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "requires_api_key: marks tests requiring API keys (deselect with '-m \"not requires_api_key\"')",
+    "downloads_models: marks tests that download ML models (deselect with '-m \"not downloads_models\"')",
+]
+
 [dependency-groups]
 dev = [
     "black>=25.11.0",

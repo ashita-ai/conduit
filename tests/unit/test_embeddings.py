@@ -10,6 +10,8 @@ from conduit.engines.embeddings.openai import OpenAIEmbeddingProvider
 
 
 @pytest.mark.asyncio
+@pytest.mark.downloads_models
+@pytest.mark.slow
 async def test_huggingface_provider():
     """Test HuggingFace embedding provider (free default)."""
     provider = HuggingFaceEmbeddingProvider()
@@ -58,6 +60,8 @@ def test_factory_invalid_provider():
         create_embedding_provider("invalid")
 
 
+@pytest.mark.downloads_models
+@pytest.mark.slow
 def test_sentence_transformers_optional():
     """Test sentence-transformers provider is optional."""
     try:
@@ -70,6 +74,8 @@ def test_sentence_transformers_optional():
 
 
 @pytest.mark.asyncio
+@pytest.mark.downloads_models
+@pytest.mark.slow
 async def test_provider_interface():
     """Test all providers implement EmbeddingProvider interface."""
     providers = [
