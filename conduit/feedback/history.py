@@ -289,7 +289,9 @@ class QueryHistoryTracker:
             query_ids = await self.redis.zrange(index_key, 0, -1, withscores=False)
 
             # Delete all entry keys
-            keys_to_delete = [f"conduit:history:{user_id}:{qid.decode()}" for qid in query_ids]
+            keys_to_delete = [
+                f"conduit:history:{user_id}:{qid.decode()}" for qid in query_ids
+            ]
             keys_to_delete.append(index_key)
 
             if keys_to_delete:

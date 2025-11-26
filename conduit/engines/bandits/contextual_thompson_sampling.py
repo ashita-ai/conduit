@@ -130,18 +130,12 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
             }
         else:
             # Use deque for unlimited history (no maxlen)
-            self.observation_history = {
-                arm.model_id: deque() for arm in arms
-            }
+            self.observation_history = {arm.model_id: deque() for arm in arms}
 
         # Initialize posterior parameters
         # Prior: theta ~ N(0, I) (uninformative prior)
-        self.mu = {
-            arm.model_id: np.zeros((feature_dim, 1)) for arm in arms
-        }
-        self.Sigma = {
-            arm.model_id: np.identity(feature_dim) for arm in arms
-        }
+        self.mu = {arm.model_id: np.zeros((feature_dim, 1)) for arm in arms}
+        self.Sigma = {arm.model_id: np.identity(feature_dim) for arm in arms}
 
         # Track arm pulls and successes
         self.arm_pulls = {arm.model_id: 0 for arm in arms}
@@ -359,22 +353,20 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
         from conduit.core.state_store import BanditState
 
         # Serialize mu vectors and Sigma matrices
-        mu_vectors = {
-            arm_id: vec.flatten().tolist() for arm_id, vec in self.mu.items()
-        }
-        sigma_matrices = {
-            arm_id: mat.tolist() for arm_id, mat in self.Sigma.items()
-        }
+        mu_vectors = {arm_id: vec.flatten().tolist() for arm_id, vec in self.mu.items()}
+        sigma_matrices = {arm_id: mat.tolist() for arm_id, mat in self.Sigma.items()}
 
         # Serialize observation history (feature vectors and rewards)
         observation_history_serialized = []
         for arm_id, observations in self.observation_history.items():
             for feature_vec, reward in observations:
-                observation_history_serialized.append({
-                    "arm_id": arm_id,
-                    "features": feature_vec.flatten().tolist(),
-                    "reward": reward,
-                })
+                observation_history_serialized.append(
+                    {
+                        "arm_id": arm_id,
+                        "features": feature_vec.flatten().tolist(),
+                        "reward": reward,
+                    }
+                )
 
         return BanditState(
             algorithm="contextual_thompson_sampling",

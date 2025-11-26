@@ -102,7 +102,9 @@ class RandomBaseline(BanditAlgorithm):
         state_arms = set(state.arm_ids)
         current_arms = set(self.arms.keys())
         if state_arms != current_arms:
-            raise ValueError(f"State arms {state_arms} don't match current arms {current_arms}")
+            raise ValueError(
+                f"State arms {state_arms} don't match current arms {current_arms}"
+            )
 
         self.total_queries = state.total_queries
         self.arm_pulls = state.arm_pulls.copy()
@@ -234,7 +236,9 @@ class OracleBaseline(BanditAlgorithm):
         state_arms = set(state.arm_ids)
         current_arms = set(self.arms.keys())
         if state_arms != current_arms:
-            raise ValueError(f"State arms {state_arms} don't match current arms {current_arms}")
+            raise ValueError(
+                f"State arms {state_arms} don't match current arms {current_arms}"
+            )
 
         self.total_queries = state.total_queries
         self.arm_pulls = state.arm_pulls.copy()
@@ -326,7 +330,9 @@ class AlwaysBestBaseline(BanditAlgorithm):
         state_arms = set(state.arm_ids)
         current_arms = set(self.arms.keys())
         if state_arms != current_arms:
-            raise ValueError(f"State arms {state_arms} don't match current arms {current_arms}")
+            raise ValueError(
+                f"State arms {state_arms} don't match current arms {current_arms}"
+            )
 
         self.total_queries = state.total_queries
         self.arm_pulls = state.arm_pulls.copy()
@@ -388,7 +394,8 @@ class AlwaysCheapestBaseline(BanditAlgorithm):
         """Get statistics."""
         base_stats = super().get_stats()
         avg_cost = (
-            self.cheapest_arm.cost_per_input_token + self.cheapest_arm.cost_per_output_token
+            self.cheapest_arm.cost_per_input_token
+            + self.cheapest_arm.cost_per_output_token
         ) / 2
         return {
             **base_stats,
@@ -412,12 +419,16 @@ class AlwaysCheapestBaseline(BanditAlgorithm):
     def from_state(self, state: BanditState) -> None:
         """Restore AlwaysCheapest baseline state from persisted data."""
         if state.algorithm != "always_cheapest":
-            raise ValueError(f"State algorithm '{state.algorithm}' != 'always_cheapest'")
+            raise ValueError(
+                f"State algorithm '{state.algorithm}' != 'always_cheapest'"
+            )
 
         state_arms = set(state.arm_ids)
         current_arms = set(self.arms.keys())
         if state_arms != current_arms:
-            raise ValueError(f"State arms {state_arms} don't match current arms {current_arms}")
+            raise ValueError(
+                f"State arms {state_arms} don't match current arms {current_arms}"
+            )
 
         self.total_queries = state.total_queries
         self.arm_pulls = state.arm_pulls.copy()

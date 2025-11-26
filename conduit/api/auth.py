@@ -107,7 +107,9 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         # Parse bearer token
         parts = auth_header.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
-            logger.warning(f"Invalid Authorization header format for {request.url.path}")
+            logger.warning(
+                f"Invalid Authorization header format for {request.url.path}"
+            )
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={

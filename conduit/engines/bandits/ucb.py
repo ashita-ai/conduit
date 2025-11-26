@@ -111,9 +111,7 @@ class UCB1Bandit(BanditAlgorithm):
             }
         else:
             # Use deque for unlimited history (no maxlen)
-            self.reward_history = {
-                arm.model_id: deque() for arm in arms
-            }
+            self.reward_history = {arm.model_id: deque() for arm in arms}
 
         # Initialize statistics for each arm
         self.mean_reward = {arm.model_id: 0.0 for arm in arms}
@@ -166,7 +164,9 @@ class UCB1Bandit(BanditAlgorithm):
                 ucb_values[model_id] = float("inf")
             else:
                 # UCB = mean + c * sqrt(ln(total) / pulls)
-                exploration_term = self.c * math.sqrt(math.log(self.total_queries) / pulls)
+                exploration_term = self.c * math.sqrt(
+                    math.log(self.total_queries) / pulls
+                )
                 ucb_values[model_id] = mean + exploration_term
 
         # Select arm with highest UCB

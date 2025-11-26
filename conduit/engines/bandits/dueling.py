@@ -132,9 +132,7 @@ class DuelingBandit(BanditAlgorithm):
         arm_a, _ = await self.select_pair(features)
         return arm_a
 
-    async def select_pair(
-        self, features: QueryFeatures
-    ) -> tuple[ModelArm, ModelArm]:
+    async def select_pair(self, features: QueryFeatures) -> tuple[ModelArm, ModelArm]:
         """Select pair of arms for comparison using Thompson Sampling.
 
         For each arm:
@@ -176,9 +174,7 @@ class DuelingBandit(BanditAlgorithm):
 
         return self.arms[model_a_id], self.arms[model_b_id]
 
-    async def update(
-        self, feedback: DuelingFeedback, features: QueryFeatures
-    ) -> None:
+    async def update(self, feedback: DuelingFeedback, features: QueryFeatures) -> None:
         """Update preference weights based on comparison outcome.
 
         Uses gradient descent on preference loss:
@@ -212,21 +208,15 @@ class DuelingBandit(BanditAlgorithm):
         model_b_id = feedback.model_b_id
 
         # Update arm A: move in direction of preference
-        self.preference_weights[model_a_id] += (
-            self.learning_rate * gradient_scale * x
-        )
+        self.preference_weights[model_a_id] += self.learning_rate * gradient_scale * x
 
         # Update arm B: move opposite direction
-        self.preference_weights[model_b_id] -= (
-            self.learning_rate * gradient_scale * x
-        )
+        self.preference_weights[model_b_id] -= self.learning_rate * gradient_scale * x
 
         # Track comparison count (always use sorted tuple for consistency)
         pair_key = tuple(sorted([model_a_id, model_b_id]))
         # Always increment (pair should exist from init, but handle gracefully)
-        self.preference_counts[pair_key] = (
-            self.preference_counts.get(pair_key, 0) + 1
-        )
+        self.preference_counts[pair_key] = self.preference_counts.get(pair_key, 0) + 1
 
     def reset(self) -> None:
         """Reset algorithm to initial state.
@@ -235,9 +225,7 @@ class DuelingBandit(BanditAlgorithm):
         """
         # Reset weights to zero
         for model_id in self.preference_weights:
-            self.preference_weights[model_id] = np.zeros(
-                (self.feature_dim, 1)
-            )
+            self.preference_weights[model_id] = np.zeros((self.feature_dim, 1))
 
         # Reset comparison counts
         for pair_key in self.preference_counts:
@@ -301,9 +289,7 @@ class DuelingBandit(BanditAlgorithm):
                 # Convert to probability using sigmoid with scaling
                 # Scale factor helps distinguish small weight differences
                 scale_factor = 5.0
-                preference_prob = 1.0 / (
-                    1.0 + np.exp(-scale_factor * weight_diff)
-                )
+                preference_prob = 1.0 / (1.0 + np.exp(-scale_factor * weight_diff))
 
                 preferences[(model_a, model_b)] = float(preference_prob)
 
@@ -320,9 +306,7 @@ class DuelingBandit(BanditAlgorithm):
         }
 
         # Serialize preference counts (tuple keys to string keys)
-        pref_counts = {
-            f"{k[0]}:{k[1]}": v for k, v in self.preference_counts.items()
-        }
+        pref_counts = {f"{k[0]}:{k[1]}": v for k, v in self.preference_counts.items()}
 
         return BanditState(
             algorithm="dueling_bandit",
@@ -339,9 +323,7 @@ class DuelingBandit(BanditAlgorithm):
     def from_state(self, state: BanditState) -> None:
         """Restore DuelingBandit state from persisted data."""
         if state.algorithm != "dueling_bandit":
-            raise ValueError(
-                f"State algorithm '{state.algorithm}' != 'dueling_bandit'"
-            )
+            raise ValueError(f"State algorithm '{state.algorithm}' != 'dueling_bandit'")
 
         state_arms = set(state.arm_ids)
         current_arms = set(self.arms.keys())

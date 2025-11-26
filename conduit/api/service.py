@@ -84,6 +84,7 @@ class RoutingService:
 
             class DefaultResult(BaseModel):
                 """Default result type for unstructured responses."""
+
                 content: str
 
             result_type = DefaultResult
@@ -201,7 +202,9 @@ class RoutingService:
             )
             await self.router.hybrid_router.update(bandit_feedback, features)
         else:
-            logger.warning(f"Could not find query {response.query_id} for feedback update")
+            logger.warning(
+                f"Could not find query {response.query_id} for feedback update"
+            )
 
         # Note: Model state persistence removed - HybridRouter doesn't expose state
         # See GitHub issue #76 for state persistence implementation
@@ -233,4 +236,3 @@ class RoutingService:
             List of model IDs
         """
         return self.router.hybrid_router.models
-

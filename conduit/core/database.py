@@ -82,6 +82,7 @@ class Database:
                 min_size=self.min_size,
                 max_size=self.max_size,
                 command_timeout=60,
+                statement_cache_size=0,  # Disable prepared statements for pgBouncer/test compatibility
             )
             logger.info(
                 f"PostgreSQL pool created: {self.min_size}-{self.max_size} connections"

@@ -5,11 +5,10 @@ variables with validation and type safety.
 """
 
 import os
+from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pathlib import Path
-
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -45,7 +44,10 @@ class Settings(BaseSettings):
         default=5, description="Failures before opening circuit", ge=1, le=20
     )
     redis_circuit_breaker_timeout: int = Field(
-        default=300, description="Circuit breaker timeout seconds (5 min)", ge=60, le=3600
+        default=300,
+        description="Circuit breaker timeout seconds (5 min)",
+        ge=60,
+        le=3600,
     )
 
     # LLM Provider API Keys (all providers supported by PydanticAI)
@@ -55,8 +57,12 @@ class Settings(BaseSettings):
     groq_api_key: str = Field(default="", description="Groq API key")
     mistral_api_key: str = Field(default="", description="Mistral API key")
     cohere_api_key: str = Field(default="", description="Cohere API key")
-    aws_access_key_id: str = Field(default="", description="AWS Access Key (for Bedrock)")
-    aws_secret_access_key: str = Field(default="", description="AWS Secret Key (for Bedrock)")
+    aws_access_key_id: str = Field(
+        default="", description="AWS Access Key (for Bedrock)"
+    )
+    aws_secret_access_key: str = Field(
+        default="", description="AWS Secret Key (for Bedrock)"
+    )
     aws_region: str = Field(default="us-east-1", description="AWS Region (for Bedrock)")
     huggingface_api_key: str = Field(default="", description="HuggingFace API key")
 
@@ -75,11 +81,11 @@ class Settings(BaseSettings):
     )
     default_models: list[str] = Field(
         default=[
-            "o4-mini",           # OpenAI - cheap, fast reasoning
-            "gpt-5.1",           # OpenAI - latest flagship
-            "claude-sonnet-4.5", # Anthropic - balanced quality
-            "claude-opus-4.5",   # Anthropic - premium quality
-            "gemini-2.5-pro",    # Google - competitive flagship
+            "o4-mini",  # OpenAI - cheap, fast reasoning
+            "gpt-5.1",  # OpenAI - latest flagship
+            "claude-sonnet-4.5",  # Anthropic - balanced quality
+            "claude-opus-4.5",  # Anthropic - premium quality
+            "gemini-2.5-pro",  # Google - competitive flagship
         ],
         description="Available models for routing (must match conduit.yaml priors)",
     )
@@ -151,12 +157,17 @@ class Settings(BaseSettings):
     )
     api_host: str = Field(default="0.0.0.0", description="API host")
     api_port: int = Field(default=8000, description="API port", ge=1, le=65535)
-    api_key: str = Field(default="", description="API key for authentication (empty = disabled)")
+    api_key: str = Field(
+        default="", description="API key for authentication (empty = disabled)"
+    )
     api_require_auth: bool = Field(
         default=False, description="Require API key authentication for /v1/* endpoints"
     )
     api_max_request_size: int = Field(
-        default=10_000, description="Maximum request body size in bytes", ge=1000, le=1_000_000
+        default=10_000,
+        description="Maximum request body size in bytes",
+        ge=1000,
+        le=1_000_000,
     )
 
     # Execution Timeouts
@@ -190,10 +201,16 @@ class Settings(BaseSettings):
         default=False, description="Enable Arbiter LLM-as-judge evaluation"
     )
     arbiter_sample_rate: float = Field(
-        default=0.1, description="Fraction of responses to evaluate (0.0-1.0)", ge=0.0, le=1.0
+        default=0.1,
+        description="Fraction of responses to evaluate (0.0-1.0)",
+        ge=0.0,
+        le=1.0,
     )
     arbiter_daily_budget: float = Field(
-        default=10.0, description="Maximum daily evaluation budget (USD)", ge=0.0, le=1000.0
+        default=10.0,
+        description="Maximum daily evaluation budget (USD)",
+        ge=0.0,
+        le=1000.0,
     )
     arbiter_model: str = Field(
         default="gpt-4o-mini", description="Model for evaluation (cheap recommended)"
@@ -251,7 +268,9 @@ class Settings(BaseSettings):
         return self.environment.lower() == "production"
 
 
-def load_preference_weights(optimize_for: Literal["balanced", "quality", "cost", "speed"]) -> dict[str, float]:
+def load_preference_weights(
+    optimize_for: Literal["balanced", "quality", "cost", "speed"],
+) -> dict[str, float]:
     """Load reward weights for user preference preset from conduit.yaml.
 
     Args:
@@ -279,7 +298,7 @@ def load_preference_weights(optimize_for: Literal["balanced", "quality", "cost",
         return defaults[optimize_for]
 
     try:
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             config = yaml.safe_load(f)
             if not isinstance(config, dict):
                 return defaults[optimize_for]
@@ -327,7 +346,7 @@ def load_context_priors(context: str) -> dict[str, tuple[float, float]]:
         return {}
 
     try:
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             config = yaml.safe_load(f)
             if not isinstance(config, dict):
                 return {}
@@ -429,7 +448,7 @@ def load_routing_config() -> dict[str, Any]:
     # Try YAML
     if config_path.exists():
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = yaml.safe_load(f)
                 if isinstance(config, dict):
                     routing_config = config.get("routing", {})
@@ -437,9 +456,14 @@ def load_routing_config() -> dict[str, Any]:
                         # Deep merge presets
                         result = defaults.copy()
                         if "default_optimization" in routing_config:
-                            result["default_optimization"] = routing_config["default_optimization"]
+                            result["default_optimization"] = routing_config[
+                                "default_optimization"
+                            ]
                         if "presets" in routing_config:
-                            result["presets"] = {**defaults["presets"], **routing_config["presets"]}
+                            result["presets"] = {
+                                **defaults["presets"],
+                                **routing_config["presets"],
+                            }
                         return result
         except Exception:
             pass
@@ -489,7 +513,7 @@ def load_algorithm_config(algorithm: str) -> dict[str, Any]:
     # Try YAML first
     if config_path.exists():
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = yaml.safe_load(f)
                 if isinstance(config, dict):
                     algorithms_section = config.get("algorithms", {})
@@ -550,7 +574,7 @@ def load_feature_dimensions() -> dict[str, int | float]:
     # Try YAML
     if config_path.exists():
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = yaml.safe_load(f)
                 if isinstance(config, dict):
                     features = config.get("features", {})
@@ -623,7 +647,7 @@ def load_quality_estimation_config() -> dict[str, Any]:
     # Try YAML
     if config_path.exists():
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = yaml.safe_load(f)
                 if isinstance(config, dict):
                     quality_config = config.get("quality_estimation", {})
@@ -631,7 +655,11 @@ def load_quality_estimation_config() -> dict[str, Any]:
                         # Merge nested dicts
                         result = defaults.copy()
                         for key, value in quality_config.items():
-                            if isinstance(value, dict) and key in result and isinstance(result[key], dict):
+                            if (
+                                isinstance(value, dict)
+                                and key in result
+                                and isinstance(result[key], dict)
+                            ):
                                 result[key] = {**result[key], **value}
                             else:
                                 result[key] = value
@@ -641,7 +669,12 @@ def load_quality_estimation_config() -> dict[str, Any]:
 
     # Environment variable override for top-level values only
     env_overrides = {}
-    simple_keys = ["base_quality", "empty_quality", "failure_quality", "min_response_chars"]
+    simple_keys = [
+        "base_quality",
+        "empty_quality",
+        "failure_quality",
+        "min_response_chars",
+    ]
     for key in simple_keys:
         env_key = f"QUALITY_{key.upper()}"
         env_value = os.getenv(env_key)
@@ -713,7 +746,7 @@ def load_feedback_config() -> dict[str, Any]:
     # Try YAML
     if config_path.exists():
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = yaml.safe_load(f)
                 if isinstance(config, dict):
                     feedback_config = config.get("feedback", {})
@@ -721,7 +754,11 @@ def load_feedback_config() -> dict[str, Any]:
                         # Deep merge nested dicts
                         result = defaults.copy()
                         for key, value in feedback_config.items():
-                            if isinstance(value, dict) and key in result and isinstance(result[key], dict):
+                            if (
+                                isinstance(value, dict)
+                                and key in result
+                                and isinstance(result[key], dict)
+                            ):
                                 result[key] = {**result[key], **value}
                             else:
                                 result[key] = value
@@ -760,7 +797,7 @@ def load_hybrid_routing_config() -> dict[str, Any]:
     # Try YAML
     if config_path.exists():
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = yaml.safe_load(f)
                 if isinstance(config, dict):
                     hybrid_config = config.get("hybrid_routing", {})
@@ -817,7 +854,7 @@ def load_arbiter_config() -> dict[str, Any]:
     # Try YAML
     if config_path.exists():
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = yaml.safe_load(f)
                 if isinstance(config, dict):
                     arbiter_config = config.get("arbiter", {})
@@ -879,7 +916,7 @@ def load_cache_config() -> dict[str, Any]:
     # Try YAML (overrides Settings class values)
     if config_path.exists():
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = yaml.safe_load(f)
                 if isinstance(config, dict):
                     cache_config = config.get("cache", {})
@@ -887,7 +924,11 @@ def load_cache_config() -> dict[str, Any]:
                         # Deep merge circuit_breaker
                         result = defaults.copy()
                         for key, value in cache_config.items():
-                            if isinstance(value, dict) and key in result and isinstance(result[key], dict):
+                            if (
+                                isinstance(value, dict)
+                                and key in result
+                                and isinstance(result[key], dict)
+                            ):
                                 result[key] = {**result[key], **value}
                             else:
                                 result[key] = value
@@ -946,7 +987,7 @@ def load_litellm_config() -> dict[str, Any]:
     # Try YAML
     if config_path.exists():
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = yaml.safe_load(f)
                 if isinstance(config, dict):
                     litellm_config = config.get("litellm", {})
@@ -1016,7 +1057,7 @@ def load_pricing_config() -> dict[str, dict[str, float]]:
     # Try pricing.yaml
     if pricing_path.exists():
         try:
-            with open(pricing_path, "r") as f:
+            with open(pricing_path) as f:
                 config = yaml.safe_load(f)
                 if isinstance(config, dict):
                     pricing_data = config.get("pricing", {})

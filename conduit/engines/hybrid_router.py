@@ -234,7 +234,8 @@ class HybridRouter:
                 metadata={
                     "phase": "linucb",
                     "query_count": self.query_count,
-                    "queries_since_transition": self.query_count - self.switch_threshold,
+                    "queries_since_transition": self.query_count
+                    - self.switch_threshold,
                 },
             )
 
@@ -341,6 +342,7 @@ class HybridRouter:
             pull_confidence = 0.1
         else:
             import math
+
             pull_confidence = min(0.95, 0.1 + 0.25 * math.log10(pulls + 1))
 
         # 3. Blend prior and empirical confidence

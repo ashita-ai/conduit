@@ -30,6 +30,7 @@ from conduit.core.models import (
     RoutingResult,
     UserPreferences,
 )
+from conduit.core.postgres_state_store import PostgresStateStore
 from conduit.core.pricing import ModelPricing
 from conduit.core.reward_calculation import (
     apply_user_preferences,
@@ -39,7 +40,6 @@ from conduit.core.reward_calculation import (
     normalize_quality,
     validate_weights,
 )
-from conduit.core.postgres_state_store import PostgresStateStore
 from conduit.core.state_store import (
     BanditState,
     HybridRouterState,

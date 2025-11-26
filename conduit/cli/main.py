@@ -167,7 +167,9 @@ def run(
                 click.echo("Routing Results")
                 click.echo(f"{'='*60}")
                 click.echo(f"Model: {result.model}")
-                click.echo(f"Confidence: {result.metadata.get('routing_confidence', 0.0):.2f}")
+                click.echo(
+                    f"Confidence: {result.metadata.get('routing_confidence', 0.0):.2f}"
+                )
                 click.echo(f"Cost: ${result.metadata.get('cost', 0.0):.6f}")
                 click.echo(f"Latency: {result.metadata.get('latency', 0.0):.2f}s")
                 click.echo(f"Tokens: {result.metadata.get('tokens', 0)}")
@@ -217,6 +219,7 @@ def demo(queries: int, compare: bool) -> None:
     async def run_demo() -> None:
         """Run demo queries."""
         try:
+
             class SimpleResult(BaseModel):
                 content: str
 
@@ -240,7 +243,9 @@ def demo(queries: int, compare: bool) -> None:
                 click.echo(f"[{i}/{queries}] {query_text[:50]}...")
 
                 try:
-                    result = await service.complete(prompt=query_text, user_id="demo_user")
+                    result = await service.complete(
+                        prompt=query_text, user_id="demo_user"
+                    )
 
                     cost = result.metadata.get("cost", 0.0)
                     latency = result.metadata.get("latency", 0.0)
@@ -272,7 +277,9 @@ def demo(queries: int, compare: bool) -> None:
                 click.echo(f"\n{'='*60}")
                 click.echo("Comparison with Static Routing")
                 click.echo(f"{'='*60}")
-                click.echo("Note: Static routing comparison requires baseline implementation")
+                click.echo(
+                    "Note: Static routing comparison requires baseline implementation"
+                )
                 click.echo("This feature is coming in Phase 2")
 
             await service.database.disconnect()
@@ -293,4 +300,3 @@ def version() -> None:
 
 if __name__ == "__main__":
     cli()
-

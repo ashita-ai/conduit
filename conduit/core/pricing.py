@@ -67,5 +67,3 @@ class ModelPricing(BaseModel):
         if self.cached_input_cost_per_million is None:
             return None
         return self.cached_input_cost_per_million / 1_000_000.0
-
-

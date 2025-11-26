@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 from conduit.engines.embeddings.base import EmbeddingProvider
 from conduit.engines.embeddings.cohere import CohereEmbeddingProvider
@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 def create_embedding_provider(
     provider: str = "huggingface",
-    model: Optional[str] = None,
-    api_key: Optional[str] = None,
+    model: str | None = None,
+    api_key: str | None = None,
     **kwargs: Any,
 ) -> EmbeddingProvider:
     """Create embedding provider based on configuration.
@@ -59,7 +59,9 @@ def create_embedding_provider(
         # Check EMBEDDING_MODEL env var, then parameter, then default
         model = model or os.getenv("EMBEDDING_MODEL") or "BAAI/bge-small-en-v1.5"
         # Check for HF_TOKEN or HUGGINGFACE_API_KEY env vars as fallback
-        hf_api_key = api_key or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_KEY")
+        hf_api_key = (
+            api_key or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_KEY")
+        )
         return HuggingFaceEmbeddingProvider(
             model=model,
             api_key=hf_api_key,
@@ -93,4 +95,3 @@ def create_embedding_provider(
             f"Unknown embedding provider: {provider}. "
             f"Supported: huggingface, openai, cohere, sentence-transformers"
         )
-

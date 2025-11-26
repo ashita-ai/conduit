@@ -7,7 +7,7 @@ Runs in background without blocking routing, stores results in feedback table.
 import logging
 import random
 from datetime import date, datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 # Lazy import for optional arbiter dependency
 try:
@@ -145,9 +145,7 @@ class ArbiterEvaluator:
 
         return True
 
-    async def evaluate_async(
-        self, response: Response, query: Query
-    ) -> Optional[float]:
+    async def evaluate_async(self, response: Response, query: Query) -> float | None:
         """Evaluate response quality asynchronously.
 
         This is a fire-and-forget async operation that:
@@ -182,7 +180,9 @@ class ArbiterEvaluator:
             overall_score = result.overall_score
 
             # Extract cost from first interaction (evaluation LLM call)
-            eval_cost = result.interactions[0].cost if result.interactions[0].cost else 0.0
+            eval_cost = (
+                result.interactions[0].cost if result.interactions[0].cost else 0.0
+            )
             cost_float = float(eval_cost) if eval_cost is not None else 0.0
 
             # Track cost for budget management
@@ -250,7 +250,11 @@ class ArbiterEvaluator:
         self._check_and_reset_daily_budget()
 
         budget_remaining = max(0.0, self.daily_budget - self._daily_cost)
-        utilization = (self._daily_cost / self.daily_budget * 100) if self.daily_budget > 0 else 0.0
+        utilization = (
+            (self._daily_cost / self.daily_budget * 100)
+            if self.daily_budget > 0
+            else 0.0
+        )
 
         return {
             "daily_cost": self._daily_cost,

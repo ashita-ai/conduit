@@ -410,11 +410,13 @@ class LinUCBBandit(BanditAlgorithm):
         observation_history_serialized = []
         for arm_id, observations in self.observation_history.items():
             for feature_vec, reward in observations:
-                observation_history_serialized.append({
-                    "arm_id": arm_id,
-                    "features": feature_vec.flatten().tolist(),
-                    "reward": reward,
-                })
+                observation_history_serialized.append(
+                    {
+                        "arm_id": arm_id,
+                        "features": feature_vec.flatten().tolist(),
+                        "reward": reward,
+                    }
+                )
 
         return BanditState(
             algorithm="linucb",
@@ -474,9 +476,7 @@ class LinUCBBandit(BanditAlgorithm):
         self.A, self.b = deserialize_bandit_matrices(state.A_matrices, state.b_vectors)
 
         # Recompute A_inv from A (not stored to save space)
-        self.A_inv = {
-            arm_id: np.linalg.inv(A_mat) for arm_id, A_mat in self.A.items()
-        }
+        self.A_inv = {arm_id: np.linalg.inv(A_mat) for arm_id, A_mat in self.A.items()}
 
         # Restore observation history
         for arm_id in self.arms:

@@ -75,4 +75,3 @@ def setup_middleware(app: FastAPI) -> None:
     app.add_middleware(RequestSizeLimitMiddleware)
 
     logger.info("All middleware configured successfully")
-

@@ -37,7 +37,9 @@ async def create_service(
         models=settings.default_models,
         embedding_provider_type=settings.embedding_provider,
         embedding_model=settings.embedding_model if settings.embedding_model else None,
-        embedding_api_key=settings.embedding_api_key if settings.embedding_api_key else None,
+        embedding_api_key=(
+            settings.embedding_api_key if settings.embedding_api_key else None
+        ),
     )
     executor = ModelExecutor()
 
@@ -53,4 +55,3 @@ async def create_service(
     )
 
     return service
-

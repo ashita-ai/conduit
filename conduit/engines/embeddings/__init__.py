@@ -24,4 +24,3 @@ __all__ = [
     "SentenceTransformersEmbeddingProvider",
     "create_embedding_provider",
 ]
-

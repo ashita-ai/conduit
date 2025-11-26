@@ -7,8 +7,6 @@ from conduit.cache import CacheConfig, CacheService
 from conduit.core.config import load_preference_weights, settings
 from conduit.core.models import (
     Query,
-    QueryConstraints,
-    QueryFeatures,
     RoutingDecision,
 )
 from conduit.engines.analyzer import QueryAnalyzer
@@ -81,7 +79,9 @@ class Router:
         # Initialize analyzer with embedding provider
         embedding_provider_type = embedding_provider_type or settings.embedding_provider
         embedding_model_config = embedding_model or settings.embedding_model or None
-        embedding_api_key_config = embedding_api_key or settings.embedding_api_key or None
+        embedding_api_key_config = (
+            embedding_api_key or settings.embedding_api_key or None
+        )
 
         self.analyzer = QueryAnalyzer(
             embedding_provider_type=embedding_provider_type,

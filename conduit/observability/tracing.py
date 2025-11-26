@@ -73,9 +73,7 @@ def trace_operation(
                     return result
                 except Exception as e:
                     span.set_status(
-                        trace.Status(
-                            trace.StatusCode.ERROR, description=str(e)
-                        )
+                        trace.Status(trace.StatusCode.ERROR, description=str(e))
                     )
                     span.record_exception(e)
                     raise
@@ -101,9 +99,7 @@ def trace_operation(
                     return result
                 except Exception as e:
                     span.set_status(
-                        trace.Status(
-                            trace.StatusCode.ERROR, description=str(e)
-                        )
+                        trace.Status(trace.StatusCode.ERROR, description=str(e))
                     )
                     span.record_exception(e)
                     raise

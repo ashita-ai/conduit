@@ -103,9 +103,7 @@ class ThompsonSamplingBandit(BanditAlgorithm):
             }
         else:
             # Use list for unlimited history (no maxlen)
-            self.reward_history = {
-                arm.model_id: deque() for arm in arms
-            }
+            self.reward_history = {arm.model_id: deque() for arm in arms}
 
         # Initialize Beta distributions for each arm
         self.alpha = {arm.model_id: prior_alpha for arm in arms}

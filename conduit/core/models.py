@@ -6,11 +6,10 @@ responses, feedback, and ML model state.
 
 import json
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
-from typing import Literal
 
 
 class UserPreferences(BaseModel):
@@ -31,8 +30,7 @@ class UserPreferences(BaseModel):
     """
 
     optimize_for: Literal["balanced", "quality", "cost", "speed"] = Field(
-        default="balanced",
-        description="Routing optimization priority"
+        default="balanced", description="Routing optimization priority"
     )
 
 
@@ -64,8 +62,7 @@ class Query(BaseModel):
         None, description="Routing constraints"
     )
     preferences: UserPreferences = Field(
-        default_factory=UserPreferences,
-        description="User routing preferences"
+        default_factory=UserPreferences, description="User routing preferences"
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -199,7 +196,9 @@ class ImplicitFeedback(BaseModel):
     )
     query_id: str = Field(..., description="Associated query ID")
     model_id: str = Field(..., description="Model that generated response")
-    timestamp: float = Field(..., description="Unix timestamp of signal capture", ge=0.0)
+    timestamp: float = Field(
+        ..., description="Unix timestamp of signal capture", ge=0.0
+    )
 
     # Error signals
     error_occurred: bool = Field(

@@ -75,12 +75,27 @@ class ContextDetector:
         query_lower = query_text.lower()
 
         # Code keywords
-        code_keywords = ["python", "code", "function", "debug", "class", "algorithm", "programming"]
+        code_keywords = [
+            "python",
+            "code",
+            "function",
+            "debug",
+            "class",
+            "algorithm",
+            "programming",
+        ]
         if any(kw in query_lower for kw in code_keywords):
             return "code"
 
         # Creative keywords
-        creative_keywords = ["write", "story", "poem", "creative", "imagine", "describe"]
+        creative_keywords = [
+            "write",
+            "story",
+            "poem",
+            "creative",
+            "imagine",
+            "describe",
+        ]
         if any(kw in query_lower for kw in creative_keywords):
             return "creative"
 
@@ -91,5 +106,3 @@ class ContextDetector:
 
         # Default to simple_qa
         return "simple_qa"
-
-

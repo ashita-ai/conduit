@@ -67,6 +67,9 @@ pip install -e .
 
 # Development tools
 pip install -e ".[dev]"
+
+# Install git hooks (optional but recommended for contributors)
+bash scripts/install-hooks.sh
 ```
 
 ### Configuration

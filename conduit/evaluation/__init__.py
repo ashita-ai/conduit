@@ -18,6 +18,7 @@ def __getattr__(name: str):
     if name == "ArbiterEvaluator":
         try:
             from conduit.evaluation.arbiter_evaluator import ArbiterEvaluator
+
             return ArbiterEvaluator
         except ImportError as e:
             raise ImportError(

@@ -15,7 +15,7 @@ from __future__ import annotations
 import random
 from collections import deque
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -89,7 +89,12 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             >>> bandit3 = EpsilonGreedyBandit(arms, window_size=1000)
         """
         # Load config if parameters not provided
-        if epsilon is None or decay is None or min_epsilon is None or success_threshold is None:
+        if (
+            epsilon is None
+            or decay is None
+            or min_epsilon is None
+            or success_threshold is None
+        ):
             config = load_algorithm_config("epsilon_greedy")
             if epsilon is None:
                 epsilon = config["epsilon"]
@@ -106,7 +111,9 @@ class EpsilonGreedyBandit(BanditAlgorithm):
         if not 0.0 <= min_epsilon <= 1.0:
             raise ValueError(f"min_epsilon must be between 0 and 1, got {min_epsilon}")
         if not 0.0 < decay <= 1.0:
-            raise ValueError(f"decay must be between 0 and 1 (exclusive of 0), got {decay}")
+            raise ValueError(
+                f"decay must be between 0 and 1 (exclusive of 0), got {decay}"
+            )
 
         super().__init__(name="epsilon_greedy", arms=arms)
 
@@ -132,9 +139,7 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             }
         else:
             # Use deque for unlimited history (no maxlen)
-            self.reward_history = {
-                arm.model_id: deque() for arm in arms
-            }
+            self.reward_history = {arm.model_id: deque() for arm in arms}
 
         # Initialize statistics for each arm
         self.mean_reward = {arm.model_id: 0.0 for arm in arms}
@@ -147,7 +152,9 @@ class EpsilonGreedyBandit(BanditAlgorithm):
         self.exploitation_count = 0
 
         # Set random seed for reproducibility
-        self.random_state = random.Random(random_seed) if random_seed is not None else random
+        self.random_state = (
+            random.Random(random_seed) if random_seed is not None else random
+        )
         if random_seed is not None:
             np.random.seed(random_seed)
 
@@ -380,9 +387,7 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             >>> bandit.from_state(state)
         """
         if state.algorithm != "epsilon_greedy":
-            raise ValueError(
-                f"State algorithm '{state.algorithm}' != 'epsilon_greedy'"
-            )
+            raise ValueError(f"State algorithm '{state.algorithm}' != 'epsilon_greedy'")
 
         # Verify arms match
         state_arms = set(state.arm_ids)

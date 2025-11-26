@@ -168,7 +168,9 @@ class ModelExecutor:
             )
         elif isinstance(usage, dict):
             # Dict with keys
-            input_tokens = usage.get("request_tokens", 0) or usage.get("input_tokens", 0)
+            input_tokens = usage.get("request_tokens", 0) or usage.get(
+                "input_tokens", 0
+            )
             output_tokens = usage.get("response_tokens", 0) or usage.get(
                 "output_tokens", 0
             )

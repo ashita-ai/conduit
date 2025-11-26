@@ -59,4 +59,3 @@ class EmbeddingProvider(ABC):
             Provider identifier (e.g., "huggingface", "openai", "cohere")
         """
         pass
-

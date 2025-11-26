@@ -2,14 +2,15 @@
 
 import asyncio
 import logging
-from typing import Optional
 
 from conduit.engines.embeddings.base import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
 
 try:
-    from sentence_transformers import SentenceTransformer  # type: ignore[import-untyped,unused-ignore]
+    from sentence_transformers import (
+        SentenceTransformer,  # type: ignore[import-untyped,unused-ignore]
+    )
 except ImportError:
     SentenceTransformer = None  # type: ignore
 
@@ -122,4 +123,3 @@ class SentenceTransformersEmbeddingProvider(EmbeddingProvider):
     def provider_name(self) -> str:
         """Get provider name."""
         return "sentence-transformers"
-

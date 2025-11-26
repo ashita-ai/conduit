@@ -276,7 +276,5 @@ def deserialize_bandit_matrices(
         Tuple of (A matrices as numpy arrays, b vectors as column vectors)
     """
     A = {arm_id: list_to_numpy(mat) for arm_id, mat in A_data.items()}
-    b = {
-        arm_id: list_to_numpy(vec).reshape(-1, 1) for arm_id, vec in b_data.items()
-    }
+    b = {arm_id: list_to_numpy(vec).reshape(-1, 1) for arm_id, vec in b_data.items()}
     return A, b

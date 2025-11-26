@@ -1,7 +1,6 @@
 """HuggingFace Inference API embedding provider (free default)."""
 
 import logging
-from typing import Optional
 
 import httpx
 
@@ -22,7 +21,7 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
     def __init__(
         self,
         model: str = "BAAI/bge-small-en-v1.5",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         timeout: float = 30.0,
     ):
         """Initialize HuggingFace embedding provider.
@@ -95,7 +94,9 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
 
                 # Ensure we have the right shape
                 if not isinstance(embeddings, list):
-                    raise RuntimeError(f"Unexpected response format: {type(embeddings)}")
+                    raise RuntimeError(
+                        f"Unexpected response format: {type(embeddings)}"
+                    )
 
                 # Convert to list of lists
                 result: list[list[float]] = []
@@ -109,13 +110,17 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
                 return result
 
             except httpx.HTTPStatusError as e:
-                logger.error(f"HuggingFace API error: {e.response.status_code} - {e.response.text}")
+                logger.error(
+                    f"HuggingFace API error: {e.response.status_code} - {e.response.text}"
+                )
                 raise RuntimeError(
                     f"HuggingFace embedding API failed: {e.response.status_code}"
                 ) from e
             except httpx.RequestError as e:
                 logger.error(f"HuggingFace API request error: {e}")
-                raise RuntimeError(f"HuggingFace embedding API request failed: {e}") from e
+                raise RuntimeError(
+                    f"HuggingFace embedding API request failed: {e}"
+                ) from e
 
     @property
     def dimension(self) -> int:
@@ -126,4 +131,3 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
     def provider_name(self) -> str:
         """Get provider name."""
         return "huggingface"
-

@@ -20,6 +20,7 @@ from conduit.core.exceptions import ExecutionError, RoutingError
 
 logger = logging.getLogger(__name__)
 
+
 def create_routes(service: RoutingService) -> APIRouter:
     """Create and configure API routes.
 
@@ -51,6 +52,7 @@ def create_routes(service: RoutingService) -> APIRouter:
 
             class DictResult(BaseModel):
                 """Default result type for unstructured responses."""
+
                 content: str
 
             # Use provided result_type or default
@@ -234,4 +236,3 @@ def create_routes(service: RoutingService) -> APIRouter:
         )
 
     return api_router
-

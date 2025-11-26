@@ -1,7 +1,6 @@
 """Cohere embedding provider (recommended for production)."""
 
 import logging
-from typing import Optional
 
 import httpx
 
@@ -22,7 +21,7 @@ class CohereEmbeddingProvider(EmbeddingProvider):
     def __init__(
         self,
         model: str = "embed-english-v3.0",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         input_type: str = "search_query",
         timeout: float = 30.0,
     ):
@@ -134,7 +133,9 @@ class CohereEmbeddingProvider(EmbeddingProvider):
                 return result
 
             except httpx.HTTPStatusError as e:
-                logger.error(f"Cohere API error: {e.response.status_code} - {e.response.text}")
+                logger.error(
+                    f"Cohere API error: {e.response.status_code} - {e.response.text}"
+                )
                 raise RuntimeError(
                     f"Cohere embedding API failed: {e.response.status_code}"
                 ) from e
@@ -151,4 +152,3 @@ class CohereEmbeddingProvider(EmbeddingProvider):
     def provider_name(self) -> str:
         """Get provider name."""
         return "cohere"
-

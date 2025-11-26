@@ -100,6 +100,14 @@ select = [
 ]
 ignore = [
     "E501",  # line too long (handled by black)
+    "E402",  # module level import not at top of file (load_dotenv needs to run first)
+    "F401",  # imported but unused (re-exports in __init__.py)
+    "F823",  # local variable referenced before assignment (PCA conditional import)
+    "N803",  # argument name should be lowercase (matrices use math notation: A, L, etc.)
+    "N806",  # variable in function should be lowercase (matrices use math notation)
+    "SIM105",  # use contextlib.suppress (explicit try-except-pass is clearer)
+    "SIM108",  # use ternary operator (if-else blocks are clearer for complex logic)
+    "B905",  # zip without strict parameter (Python 3.10+ only, maintaining 3.10 compat)
 ]
 
 [tool.mypy]

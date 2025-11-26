@@ -1,7 +1,6 @@
 """OpenAI embedding provider (recommended for production)."""
 
 import logging
-from typing import Optional
 
 from conduit.engines.embeddings.base import EmbeddingProvider
 
@@ -25,8 +24,8 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
     def __init__(
         self,
         model: str = "text-embedding-3-small",
-        api_key: Optional[str] = None,
-        dimensions: Optional[int] = None,
+        api_key: str | None = None,
+        dimensions: int | None = None,
         timeout: float = 30.0,
     ):
         """Initialize OpenAI embedding provider.
@@ -146,4 +145,3 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
     def provider_name(self) -> str:
         """Get provider name."""
         return "openai"
-

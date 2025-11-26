@@ -65,9 +65,7 @@ class StatsResponse(BaseModel):
     total_queries: int = Field(..., description="Total queries processed")
     total_cost: float = Field(..., description="Total cost in dollars")
     avg_latency: float = Field(..., description="Average latency in seconds")
-    model_distribution: dict[str, int] = Field(
-        ..., description="Query count per model"
-    )
+    model_distribution: dict[str, int] = Field(..., description="Query count per model")
     quality_metrics: dict[str, float] = Field(
         ..., description="Quality metrics (avg_quality, success_rate)"
     )
@@ -93,4 +91,3 @@ class ErrorResponse(BaseModel):
     error: str = Field(..., description="Error message")
     detail: str | None = Field(None, description="Error details")
     code: str | None = Field(None, description="Error code")
-

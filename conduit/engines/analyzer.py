@@ -1,11 +1,10 @@
 """Query analysis and feature extraction for routing decisions."""
 
-import asyncio
 import logging
 import pickle
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from conduit.cache import CacheService
 from conduit.core.models import QueryFeatures
@@ -34,10 +33,10 @@ class QueryAnalyzer:
 
     def __init__(
         self,
-        embedding_provider: Optional[EmbeddingProvider] = None,
+        embedding_provider: EmbeddingProvider | None = None,
         embedding_provider_type: str = "huggingface",
-        embedding_model: Optional[str] = None,
-        embedding_api_key: Optional[str] = None,
+        embedding_model: str | None = None,
+        embedding_api_key: str | None = None,
         cache_service: CacheService | None = None,
         use_pca: bool = False,
         pca_dimensions: int = 64,
@@ -93,7 +92,7 @@ class QueryAnalyzer:
         self.use_pca = use_pca
         self.pca_dimensions = pca_dimensions
         self.pca_model_path = pca_model_path
-        self.pca: "PCA | None" = None
+        self.pca: PCA | None = None
 
         if use_pca:
             # Lazy load sklearn.decomposition.PCA only when needed
