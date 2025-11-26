@@ -40,6 +40,10 @@ def run_example(example_path: Path, timeout: int = 30) -> tuple[int, str, str]:
     Returns:
         Tuple of (exit_code, stdout, stderr)
     """
+    # Set PYTHONPATH to include project root so examples can import conduit
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(PROJECT_ROOT)
+
     # Use uv run to ensure correct environment with conduit installed
     result = subprocess.run(
         ["uv", "run", "python", str(example_path)],
@@ -47,6 +51,7 @@ def run_example(example_path: Path, timeout: int = 30) -> tuple[int, str, str]:
         capture_output=True,
         text=True,
         timeout=timeout,
+        env=env,
     )
     return result.returncode, result.stdout, result.stderr
 
