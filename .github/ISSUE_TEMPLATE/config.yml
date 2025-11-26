@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/ashita-ai/conduit#readme
+    about: Check the README for routing examples and quickstart
+  - name: Examples
+    url: https://github.com/ashita-ai/conduit/tree/main/examples
+    about: Browse examples organized by category (routing, optimization, etc.)
+  - name: Architecture Docs
+    url: https://github.com/ashita-ai/conduit/tree/main/docs
+    about: System architecture and bandit algorithm documentation

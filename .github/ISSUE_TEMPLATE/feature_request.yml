@@ -1,0 +1,95 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please provide details about your routing use case.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What routing problem does this feature solve?
+      placeholder: "Example: Need to route queries based on user sentiment, but current features don't capture emotional context."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How would you like this feature to work?
+      placeholder: |
+        Add sentiment analysis to feature extraction:
+        
+        features = QueryFeatures(
+            embedding=[...],
+            token_count=50,
+            sentiment_score=0.8,  # New feature
+            sentiment_label="positive"
+        )
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      description: What type of feature is this?
+      options:
+        - New bandit algorithm
+        - Enhancement to existing algorithm
+        - New feature extraction
+        - Routing optimization
+        - Cost tracking
+        - Caching improvement
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact on Routing
+      description: How does this affect model selection?
+      options:
+        - Improves routing quality
+        - Reduces routing cost
+        - Reduces routing latency
+        - Enables new routing strategies
+        - No impact on routing decisions
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What alternatives have you considered or tried?
+      placeholder: "Example: Tried manual feature engineering but need automatic extraction"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context, routing scenarios, or examples
+      placeholder: "Example: E-commerce queries need sentiment routing for customer support"
+
+  - type: checkboxes
+    id: compatibility
+    attributes:
+      label: Compatibility
+      description: Please confirm this aligns with Conduit's design
+      options:
+        - label: This feature is ML-driven (not static IF/ELSE rules)
+          required: false
+        - label: This feature works with contextual bandit algorithms
+          required: false
+        - label: This feature is provider-agnostic
+          required: false
+        - label: I'm willing to contribute a PR for this feature
+          required: false
