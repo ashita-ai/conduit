@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
+from dotenv import load_dotenv
 
 # Get project root
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -40,7 +41,12 @@ def run_example(example_path: Path, timeout: int = 30) -> tuple[int, str, str]:
     Returns:
         Tuple of (exit_code, stdout, stderr)
     """
+    # Load .env file to get API keys
+    dotenv_path = PROJECT_ROOT / ".env"
+    load_dotenv(dotenv_path)
+
     # Set PYTHONPATH to include project root so examples can import conduit
+    # Also pass through API keys from environment
     env = os.environ.copy()
     env["PYTHONPATH"] = str(PROJECT_ROOT)
 
