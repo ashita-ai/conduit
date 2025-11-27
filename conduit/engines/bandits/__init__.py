@@ -28,6 +28,7 @@ from .contextual_thompson_sampling import ContextualThompsonSamplingBandit
 from .dueling import DuelingBandit, DuelingFeedback
 from .epsilon_greedy import EpsilonGreedyBandit
 from .linucb import LinUCBBandit
+from .state_conversion import convert_bandit_state
 from .thompson_sampling import ThompsonSamplingBandit
 from .ucb import UCB1Bandit
 
@@ -46,4 +47,5 @@ __all__ = [
     "OracleBaseline",
     "AlwaysBestBaseline",
     "AlwaysCheapestBaseline",
+    "convert_bandit_state",
 ]

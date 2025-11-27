@@ -101,20 +101,37 @@ class BanditState(BaseModel):
 
 
 class HybridRouterState(BaseModel):
-    """Serializable state for HybridRouter."""
+    """Serializable state for HybridRouter with configurable algorithms.
+
+    Supports 4 algorithm combinations:
+    - UCB1 → LinUCB (default, fast cold start)
+    - Thompson Sampling → LinUCB (higher quality cold start)
+    - UCB1 → Contextual Thompson Sampling
+    - Thompson Sampling → Contextual Thompson Sampling (full Bayesian)
+
+    Maintains backward compatibility with old ucb1_state/linucb_state fields.
+    """
 
     query_count: int = 0
     current_phase: RouterPhase = RouterPhase.UCB1
     transition_threshold: int = 2000
 
-    # Embedded bandit states
+    # Algorithm identifiers (new fields)
+    phase1_algorithm: str | None = None  # "ucb1" or "thompson_sampling"
+    phase2_algorithm: str | None = None  # "linucb" or "contextual_thompson_sampling"
+
+    # Embedded bandit states (new fields)
+    phase1_state: BanditState | None = None
+    phase2_state: BanditState | None = None
+
+    # Backward compatibility (deprecated, prefer phase1_state/phase2_state)
     ucb1_state: BanditState | None = None
     linucb_state: BanditState | None = None
 
     # Metadata
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    version: int = 1
+    version: int = 2  # Increment version for new fields
 
 
 class StateStore(ABC):
