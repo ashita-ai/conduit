@@ -314,7 +314,7 @@ b_new = b + reward · x  # Update weighted rewards
 
 ### Performance Optimization (Sherman-Morrison)
 
-**Problem**: Computing A⁻¹ on every query is expensive: O(d³) ≈ 58M operations (387³)
+**Problem**: Computing A⁻¹ on every query is expensive: O(d³) ≈ 58M operations (386³)
 
 **Solution**: Cache A⁻¹ and update incrementally using Sherman-Morrison formula:
 
