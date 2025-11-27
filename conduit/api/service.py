@@ -140,9 +140,6 @@ class RoutingService:
         )
         await self.router.hybrid_router.update(feedback, routing.features)
 
-        # Note: Model state persistence removed - HybridRouter doesn't expose state
-        # See GitHub issue #76 for state persistence implementation
-
         # Return result
         return RoutingResult.from_response(response, routing)
 
@@ -205,9 +202,6 @@ class RoutingService:
             logger.warning(
                 f"Could not find query {response.query_id} for feedback update"
             )
-
-        # Note: Model state persistence removed - HybridRouter doesn't expose state
-        # See GitHub issue #76 for state persistence implementation
 
         return feedback
 
