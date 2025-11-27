@@ -1,4 +1,4 @@
-# Conduit
+# Conduit Router
 
 [![CI](https://github.com/ashita-ai/conduit/actions/workflows/ci.yml/badge.svg)](https://github.com/ashita-ai/conduit/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/coverage-81%25-brightgreen)](https://github.com/ashita-ai/conduit/actions/workflows/ci.yml)
@@ -61,7 +61,7 @@ Query → Analyze → Smart Selection → LLM Provider → Response
 3. **Execute**: Route to selected model via PydanticAI or LiteLLM
 4. **Learn**: Track what worked and improve future routing decisions
 
-**Under the hood**: Uses contextual bandits (LinUCB, Thompson Sampling) for multi-armed optimization. If you don't know what that means, don't worry - it just works.
+**Under the hood**: Uses contextual bandits (Thompson Sampling → LinUCB) for multi-armed optimization. Thompson Sampling provides superior cold-start quality through Bayesian exploration, automatically transitioning to contextual LinUCB after 2,000 queries.
 
 ## Key Features
 
@@ -82,58 +82,35 @@ git clone https://github.com/ashita-ai/conduit.git
 cd conduit && source .venv/bin/activate || python3.13 -m venv .venv && source .venv/bin/activate
 pip install -e .
 
-# Set API keys (at least one LLM provider required)
-export OPENAI_API_KEY=sk-...      # For LLMs AND embeddings (recommended)
-export ANTHROPIC_API_KEY=sk-...   # Alternative LLM provider
-
-# Optional: Install local embeddings (if not using OpenAI embeddings)
-# pip install fastembed  # Lightweight option (~100MB)
-# OR
-# pip install sentence-transformers  # Full PyTorch (~2GB)
+# Set API keys (at least one required)
+export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-...
 
 # Run example
 python examples/01_quickstart/hello_world.py
 ```
-
-**Note**: If you have `OPENAI_API_KEY` set, embeddings work automatically (uses same key for both LLMs and embeddings). No additional setup needed.
 
 ### Full Setup
 
 **Prerequisites**:
 - Python 3.10+ (3.13 recommended)
 - At least one LLM API key (OpenAI, Anthropic, Google, Groq, Mistral, Cohere, AWS Bedrock, HuggingFace)
-- **Embedding provider** (choose one):
-  - **OpenAI API key** (recommended - reuses your LLM key, no additional setup)
-  - **Cohere API key** (alternative API option)
-  - **Local embeddings** (`pip install fastembed` or `pip install sentence-transformers`)
 - Optional: Redis (caching), PostgreSQL (history)
 
 **Configuration** (`.env`):
 ```bash
-# LLM Providers (at least one required)
+# LLM Providers (at least one)
 OPENAI_API_KEY=your_key
 ANTHROPIC_API_KEY=your_key
 
-# Embeddings - Auto-detects in this order:
-# 1. OpenAI (if OPENAI_API_KEY set) - RECOMMENDED, reuses LLM key
-# 2. Cohere (if COHERE_API_KEY set)
-# 3. FastEmbed (if installed via: pip install fastembed)
-# 4. sentence-transformers (if installed via: pip install sentence-transformers)
-EMBEDDING_PROVIDER=auto  # or: openai, cohere, fastembed, sentence-transformers
-
-# If using Cohere for embeddings (separate from LLM provider)
-# COHERE_API_KEY=your_cohere_key
+# Embedding (optional - defaults to free HuggingFace API)
+EMBEDDING_PROVIDER=huggingface  # Options: huggingface, openai, cohere, sentence-transformers
 
 # Optional
 DATABASE_URL=postgresql://postgres:password@localhost:5432/conduit
 REDIS_URL=redis://localhost:6379
 LOG_LEVEL=INFO
 ```
-
-**Embedding Provider Notes**:
-- **Recommended**: Use OpenAI embeddings (no extra setup if you already have `OPENAI_API_KEY`)
-- **No API key options**: Install `fastembed` (~100MB) or `sentence-transformers` (~2GB)
-- **PCA models**: Automatically generated per provider on first use (~5 seconds), then cached
 
 **Database setup** (optional):
 ```bash
@@ -177,6 +154,7 @@ examples/
 
 - **Architecture**: `docs/ARCHITECTURE.md` - System design and components
 - **Algorithms**: `docs/BANDIT_ALGORITHMS.md` - ML algorithm details
+- **Hybrid Routing**: `docs/HYBRID_ROUTING_ALGORITHMS.md` - 4 configurable algorithm combinations, benchmarks, and state conversion
 - **Embeddings**: `docs/EMBEDDING_PROVIDERS.md` - Embedding configuration
 - **Troubleshooting**: `docs/TROUBLESHOOTING.md` - Common issues and solutions
 - **LiteLLM**: `docs/LITELLM_INTEGRATION.md` - Extended provider support
@@ -260,9 +238,11 @@ You can adjust these weights per query using UserPreferences to prioritize quali
 
 ### How long until I see savings?
 
-- **Immediate**: Conduit starts routing from query 1 using UCB1 (non-contextual, fast exploration)
+- **Immediate**: Conduit starts routing from query 1 using Thompson Sampling (Bayesian exploration for quality-first cold start)
 - **2,000 queries**: Switches to LinUCB (contextual, query-aware decisions)
 - **Continuous**: Adapts to model updates, pricing changes, new models as they're added
+
+**Quality-first cold start**: The default Thompson Sampling algorithm uses Bayesian exploration to achieve better model selection during the learning phase compared to simpler exploration strategies.
 
 ### What if I don't have Redis or PostgreSQL?
 

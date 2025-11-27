@@ -21,6 +21,7 @@ def hybrid_router(test_models, test_analyzer):
         switch_threshold=10,  # Low threshold for testing
         analyzer=test_analyzer,
         feature_dim=386,
+        phase1_algorithm="ucb1",  # Use UCB1 for these UCB1-specific tests
         ucb1_c=1.5,
         linucb_alpha=1.0,
     )
@@ -293,7 +294,7 @@ async def test_provider_inference():
 
     assert router._infer_provider("gpt-4o") == "openai"
     assert router._infer_provider("claude-3-5-sonnet") == "anthropic"
-    assert router._infer_provider("gemini-1.5-pro") == "google"
+    assert router._infer_provider("gemini-1.5-pro") == "google-gla"  # pydantic_ai expects google-gla
     assert router._infer_provider("llama-3.1-70b") == "groq"
     assert router._infer_provider("mistral-large") == "mistral"
     assert router._infer_provider("command-r-plus") == "cohere"
