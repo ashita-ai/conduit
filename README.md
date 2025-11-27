@@ -160,17 +160,21 @@ examples/
 - **Development**: `AGENTS.md` - Development guidelines and contribution guide
 - **Strategic Decisions**: `notes/2025-11-18_business_panel_analysis.md`
 
-## Comparison with Alternatives
+## Comparison with Routing Alternatives
 
 | Solution | Best For | Learning | Provider Support | Setup Complexity |
 |----------|----------|----------|------------------|------------------|
-| **Conduit** | Cost optimization with quality guarantees | ✅ Continuous ML | 100+ via LiteLLM | Low (5 lines) |
-| **Martian** | Simple routing rules | ❌ Static rules | Limited | Low |
-| **Portkey** | Enterprise features (observability) | ❌ Static rules | 100+ | Medium |
-| **LiteLLM** | Provider abstraction only | ❌ No routing | 100+ | Low |
-| **Manual** | Full control, low volume | ❌ No learning | Any | None |
+| **Conduit** | ML-based cost optimization | ✅ Continuous ML | 100+ via LiteLLM/PydanticAI | Low (5 lines) |
+| **RouteLLM** | Research/custom ML routing | ✅ Requires training data | Custom integration | High |
+| **Martian** | Simple static rules | ❌ Fixed rules | Limited | Low |
+| **Manual if/else** | Full control, low volume | ❌ No learning | Any | None |
 
-**Note on LiteLLM**: Conduit works WITH LiteLLM, not instead of it. LiteLLM provides unified API access to 100+ providers. Conduit adds intelligent routing on top to pick the right provider for each query. Think of LiteLLM as the roads and Conduit as the GPS that picks the best route.
+**Not Competitors, We Integrate**:
+- **LiteLLM**: Provider abstraction layer. Conduit uses LiteLLM to access 100+ providers, adds ML routing on top.
+- **Portkey**: Enterprise gateway (teams, SSO, observability). Could run Conduit behind Portkey for ML routing + enterprise features.
+- **LangChain**: LLM orchestration framework. Conduit integrates as a routing component (see `examples/06_integrations/`).
+
+Think of it this way: LiteLLM/Portkey are the roads, Conduit is the GPS that picks the best route.
 
 **When Conduit shines**:
 - You're spending $500+/month on LLM APIs (enough volume to benefit)
@@ -185,10 +189,10 @@ examples/
 - **Need streaming**: Conduit doesn't support streaming responses yet (post-1.0)
 - **Enterprise compliance**: Need SOC2, teams, SSO? Use Portkey instead
 
-**When to choose alternatives**:
-- You need enterprise features like teams, SSO, compliance (→ Portkey)
-- You just need provider abstraction without routing (→ LiteLLM)
-- You have fixed routing rules that don't need learning (→ Martian)
+**When to choose routing alternatives**:
+- You have research/custom ML models and training data (→ RouteLLM)
+- You have simple static rules that never change (→ Martian)
+- You want to write all routing logic yourself (→ Manual if/else)
 
 ## Tech Stack
 
