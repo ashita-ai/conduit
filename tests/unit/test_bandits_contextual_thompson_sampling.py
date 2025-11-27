@@ -7,13 +7,11 @@ import numpy as np
 import pytest
 
 from conduit.engines.bandits.contextual_thompson_sampling import (
-    ContextualThompsonSamplingBandit,
-)
+    ContextualThompsonSamplingBandit)
 from conduit.engines.bandits.base import BanditFeedback
 from conduit.core.models import QueryFeatures
 
 # test_arms and test_features fixtures imported from conftest.py
-
 
 class TestContextualThompsonSamplingBandit:
     """Tests for ContextualThompsonSamplingBandit."""
@@ -26,15 +24,15 @@ class TestContextualThompsonSamplingBandit:
         assert len(bandit.arms) == 3
         assert bandit.total_queries == 0
         assert bandit.lambda_reg == 1.0
-        assert bandit.feature_dim == 387
+        assert bandit.feature_dim == 386
 
         # Check initial posterior parameters - should be prior (uninformative)
         for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             # mu should be zero vector (uninformative prior)
-            assert np.allclose(bandit.mu[model_id], np.zeros((387, 1)))
+            assert np.allclose(bandit.mu[model_id], np.zeros((386, 1)))
             # Sigma should be identity (uninformative prior)
-            assert np.allclose(bandit.Sigma[model_id], np.identity(387))
+            assert np.allclose(bandit.Sigma[model_id], np.identity(386))
 
     def test_initialization_custom_lambda(self, test_arms):
         """Test bandit with custom regularization parameter."""
@@ -49,15 +47,15 @@ class TestContextualThompsonSamplingBandit:
         x = bandit._extract_features(test_features)
 
         # Check shape
-        assert x.shape == (387, 1)
+        assert x.shape == (386, 1)
 
         # Check embedding values (first 384 dims)
         assert np.allclose(x[:384, 0], 0.1)
 
-        # Check metadata (last 3 dims)
+        # Check metadata (last 2 dims)
         assert np.isclose(x[384, 0], 50.0 / 1000.0)  # normalized token_count
         assert np.isclose(x[385, 0], 0.5)  # complexity_score
-        assert np.isclose(x[386, 0], 0.8)  # domain_confidence
+        assert np.isclose(x[385, 0], test_features.complexity_score)  # complexity_score (last metadata)
 
     @pytest.mark.asyncio
     async def test_select_arm_returns_valid_arm(self, test_arms, test_features):
@@ -102,8 +100,7 @@ class TestContextualThompsonSamplingBandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
 
         await bandit.update(feedback, test_features)
 
@@ -130,8 +127,7 @@ class TestContextualThompsonSamplingBandit:
             model_id=model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
 
         await bandit.update(feedback, test_features)
 
@@ -142,7 +138,7 @@ class TestContextualThompsonSamplingBandit:
             quality_weight=0.70, cost_weight=0.20, latency_weight=0.10
         )
 
-        Sigma_inv = np.identity(387) + 1.0 * (x @ x.T)
+        Sigma_inv = np.identity(386) + 1.0 * (x @ x.T)
         expected_Sigma = np.linalg.inv(Sigma_inv)
         expected_mu = expected_Sigma @ (1.0 * reward * x)
 
@@ -167,8 +163,7 @@ class TestContextualThompsonSamplingBandit:
                 model_id=model_id,
                 cost=0.001,
                 quality_score=0.9,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
 
         # Final uncertainty
@@ -186,18 +181,14 @@ class TestContextualThompsonSamplingBandit:
         context1 = QueryFeatures(
             embedding=[0.1] * 384,
             token_count=10,
-            complexity_score=0.1,
-            domain="general",
-            domain_confidence=0.9,
+            complexity_score=0.1
         )
 
         # Context 2: Complex query (high complexity)
         context2 = QueryFeatures(
             embedding=[0.9] * 384,
             token_count=100,
-            complexity_score=0.9,
-            domain="technical",
-            domain_confidence=0.8,
+            complexity_score=0.9
         )
 
         # Train on context1: o4-mini performs well
@@ -212,8 +203,7 @@ class TestContextualThompsonSamplingBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, context1)
 
         # Train on context2: gpt-5.1 performs well
@@ -228,8 +218,7 @@ class TestContextualThompsonSamplingBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, context2)
 
         # After learning, bandit should have tried different models
@@ -261,8 +250,7 @@ class TestContextualThompsonSamplingBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=0.9,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
 
         assert bandit.total_queries == 5
@@ -275,9 +263,9 @@ class TestContextualThompsonSamplingBandit:
         for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             # mu should be zero vector (prior)
-            assert np.allclose(bandit.mu[model_id], np.zeros((387, 1)))
+            assert np.allclose(bandit.mu[model_id], np.zeros((386, 1)))
             # Sigma should be identity (prior)
-            assert np.allclose(bandit.Sigma[model_id], np.identity(387))
+            assert np.allclose(bandit.Sigma[model_id], np.identity(386))
             # History should be empty
             assert len(bandit.observation_history[model_id]) == 0
 
@@ -292,8 +280,7 @@ class TestContextualThompsonSamplingBandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
         await bandit.update(feedback, test_features)
 
         stats = bandit.get_stats()
@@ -308,7 +295,7 @@ class TestContextualThompsonSamplingBandit:
         assert "arm_sigma_traces" in stats
 
         assert stats["lambda_reg"] == 1.5
-        assert stats["feature_dim"] == 387
+        assert stats["feature_dim"] == 386
         assert stats["total_queries"] == 1
 
     @pytest.mark.asyncio
@@ -325,8 +312,7 @@ class TestContextualThompsonSamplingBandit:
                 model_id=model_id,
                 cost=0.001,
                 quality_score=0.9,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
 
         # History should only contain last 5
@@ -343,9 +329,7 @@ class TestContextualThompsonSamplingBandit:
         features = QueryFeatures(
             embedding=[0.5] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8,
+            complexity_score=0.5
         )
 
         arm = test_arms[0]
@@ -357,8 +341,7 @@ class TestContextualThompsonSamplingBandit:
                 model_id=model_id,
                 cost=0.001,
                 quality_score=0.95,  # High quality
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, features)
 
         mu_after_good = bandit.mu[model_id].copy()
@@ -370,8 +353,7 @@ class TestContextualThompsonSamplingBandit:
                 model_id=model_id,
                 cost=0.001,
                 quality_score=0.5,  # Low quality
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, features)
 
         mu_after_bad = bandit.mu[model_id].copy()
@@ -396,9 +378,7 @@ class TestContextualThompsonSamplingBandit:
             features = QueryFeatures(
                 embedding=[np.random.rand() for _ in range(384)],
                 token_count=20,
-                complexity_score=0.3,
-                domain="general",
-                domain_confidence=0.8,
+                complexity_score=0.3
             )
 
             arm = await bandit.select_arm(features)
@@ -412,8 +392,7 @@ class TestContextualThompsonSamplingBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, features)
 
         # Long queries (token_count > 200) -> gpt-5.1 performs well
@@ -421,9 +400,7 @@ class TestContextualThompsonSamplingBandit:
             features = QueryFeatures(
                 embedding=[np.random.rand() for _ in range(384)],
                 token_count=300,
-                complexity_score=0.8,
-                domain="technical",
-                domain_confidence=0.7,
+                complexity_score=0.8
             )
 
             arm = await bandit.select_arm(features)
@@ -437,8 +414,7 @@ class TestContextualThompsonSamplingBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, features)
 
         # Both models should have been tried
@@ -464,8 +440,7 @@ class TestContextualThompsonSamplingBandit:
             model_id=model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
 
         # Apply same update to both
         await bandit_low.update(feedback, test_features)
@@ -493,8 +468,7 @@ class TestContextualThompsonSamplingBandit:
             model_id=model_id,
             cost=0.001,
             quality_score=0.85,
-            latency=1.0,
-        )
+            latency=1.0)
         await bandit.update(feedback_low, test_features)
 
         # Reward above threshold (0.95 > 0.90)
@@ -502,8 +476,7 @@ class TestContextualThompsonSamplingBandit:
             model_id=model_id,
             cost=0.001,
             quality_score=0.95,
-            latency=1.0,
-        )
+            latency=1.0)
         await bandit.update(feedback_high, test_features)
 
         # Only the second one should count as success

@@ -46,9 +46,7 @@ def mock_conduit_router():
         features=QueryFeatures(
             embedding=[0.1] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8
+            complexity_score=0.5
         ),
         reasoning="Test routing"
     ))
@@ -160,9 +158,7 @@ async def test_fallback_to_model_group(mock_litellm_router, mock_conduit_router)
         features=QueryFeatures(
             embedding=[0.1] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8
+            complexity_score=0.5
         ),
         reasoning="Test routing"
     ))

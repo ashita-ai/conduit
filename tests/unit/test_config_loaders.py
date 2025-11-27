@@ -162,8 +162,8 @@ class TestLoadFeatureDimensions:
         config = load_feature_dimensions()
 
         assert config["embedding_dim"] == 384
-        assert config["full_dim"] == 387
-        assert config["pca_dim"] == 67
+        assert config["full_dim"] == 386
+        assert config["pca_dim"] == 66
         assert config["token_count_normalization"] == 1000.0
 
     def test_yaml_override(self, tmp_path, monkeypatch):
@@ -183,7 +183,7 @@ class TestLoadFeatureDimensions:
         config = load_feature_dimensions()
         assert config["embedding_dim"] == 512
         assert config["full_dim"] == 515
-        assert config["pca_dim"] == 67  # Not overridden, uses default
+        assert config["pca_dim"] == 66  # Not overridden, uses default
 
 
 class TestLoadQualityEstimationConfig:

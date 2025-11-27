@@ -45,11 +45,13 @@ async def postgres_store():
 
 
 @pytest.fixture
-def small_threshold_router(test_arms):
+def small_threshold_router(test_arms, test_analyzer):
     """Create router with small threshold for fast testing."""
     return HybridRouter(
         models=[arm.model_id for arm in test_arms],
         switch_threshold=10,  # Small threshold for fast tests
+        analyzer=test_analyzer,
+        feature_dim=386,
     )
 
 
@@ -93,7 +95,7 @@ async def test_transition_trigger_at_threshold(small_threshold_router):
 
 
 @pytest.mark.asyncio
-async def test_knowledge_transfer_from_ucb1_to_linucb(test_arms, test_features):
+async def test_knowledge_transfer_from_ucb1_to_linucb(test_arms, test_features, test_analyzer):
     """Test that UCB1 quality estimates are transferred to LinUCB initialization.
 
     Verifies:
@@ -104,6 +106,8 @@ async def test_knowledge_transfer_from_ucb1_to_linucb(test_arms, test_features):
     router = HybridRouter(
         models=[arm.model_id for arm in test_arms],
         switch_threshold=21,  # Set to 21 so 20 queries stay in UCB1
+        analyzer=test_analyzer,
+        feature_dim=386,
     )
 
     # Verify LinUCB starts with zero knowledge
@@ -212,7 +216,7 @@ async def test_phase_detection_accuracy(small_threshold_router):
 
 @pytest.mark.asyncio
 async def test_stateful_persistence_across_restarts(
-    test_arms, postgres_store, test_features
+    test_arms, postgres_store, test_features, test_analyzer
 ):
     """Test that routing state persists across router restarts.
 
@@ -228,6 +232,8 @@ async def test_stateful_persistence_across_restarts(
     router1 = HybridRouter(
         models=[arm.model_id for arm in test_arms],
         switch_threshold=15,
+        analyzer=test_analyzer,
+        feature_dim=386,
     )
 
     for i in range(10):
@@ -249,6 +255,8 @@ async def test_stateful_persistence_across_restarts(
     router2 = HybridRouter(
         models=[arm.model_id for arm in test_arms],
         switch_threshold=15,
+        analyzer=test_analyzer,
+        feature_dim=386,
     )
 
     loaded = await router2.load_state(postgres_store, router_id)
@@ -283,6 +291,8 @@ async def test_stateful_persistence_across_restarts(
     router3 = HybridRouter(
         models=[arm.model_id for arm in test_arms],
         switch_threshold=15,
+        analyzer=test_analyzer,
+        feature_dim=386,
     )
 
     loaded = await router3.load_state(postgres_store, router_id)
@@ -299,7 +309,7 @@ async def test_stateful_persistence_across_restarts(
 
 
 @pytest.mark.asyncio
-async def test_feedback_learning_in_both_phases(test_arms):
+async def test_feedback_learning_in_both_phases(test_arms, test_analyzer):
     """Test that both UCB1 and LinUCB learn from feedback correctly.
 
     Verifies:
@@ -310,6 +320,8 @@ async def test_feedback_learning_in_both_phases(test_arms):
     router = HybridRouter(
         models=[arm.model_id for arm in test_arms],
         switch_threshold=25,
+        analyzer=test_analyzer,
+        feature_dim=386,
     )
 
     # Phase 1: UCB1 Learning
@@ -388,7 +400,7 @@ async def test_feedback_learning_in_both_phases(test_arms):
 
 
 @pytest.mark.asyncio
-async def test_full_lifecycle_with_multiple_models(test_arms):
+async def test_full_lifecycle_with_multiple_models(test_arms, test_analyzer):
     """Test complete lifecycle with 3+ models.
 
     Verifies:
@@ -399,6 +411,8 @@ async def test_full_lifecycle_with_multiple_models(test_arms):
     router = HybridRouter(
         models=[arm.model_id for arm in test_arms],  # 3 models
         switch_threshold=30,
+        analyzer=test_analyzer,
+        feature_dim=386,
     )
 
     # Track which models were selected
@@ -450,7 +464,7 @@ async def test_full_lifecycle_with_multiple_models(test_arms):
 
 
 @pytest.mark.asyncio
-async def test_zero_threshold_starts_with_linucb(test_arms):
+async def test_zero_threshold_starts_with_linucb(test_arms, test_analyzer):
     """Test that switch_threshold=0 starts directly in LinUCB phase.
 
     Verifies:
@@ -461,6 +475,8 @@ async def test_zero_threshold_starts_with_linucb(test_arms):
     router = HybridRouter(
         models=[arm.model_id for arm in test_arms],
         switch_threshold=0,  # Start directly in LinUCB
+        analyzer=test_analyzer,
+        feature_dim=386,
     )
 
     # First query should use LinUCB

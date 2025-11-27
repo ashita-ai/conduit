@@ -18,8 +18,7 @@ from conduit.core.models import (
     RoutingDecision,
     Response,
     Feedback,
-    ModelState,
-)
+    ModelState)
 from conduit.core.pricing import ModelPricing
 from conduit.core.exceptions import DatabaseError
 
@@ -27,8 +26,7 @@ from conduit.core.exceptions import DatabaseError
 # Skip all tests if DATABASE_URL not available
 pytestmark = pytest.mark.skipif(
     not os.getenv("DATABASE_URL"),
-    reason="DATABASE_URL not configured",
-)
+    reason="DATABASE_URL not configured")
 
 
 @pytest.fixture
@@ -47,8 +45,7 @@ def sample_query():
         id=f"test-query-{uuid4()}",
         text="What is 2+2?",
         user_id="test-user",
-        created_at=datetime.now(timezone.utc),
-    )
+        created_at=datetime.now(timezone.utc))
 
 
 @pytest.fixture
@@ -60,8 +57,7 @@ def sample_query_with_constraints():
         user_id="test-user",
         constraints=QueryConstraints(max_cost=0.01, max_latency=2.0, min_quality=0.8),
         context={"source": "test"},
-        created_at=datetime.now(timezone.utc),
-    )
+        created_at=datetime.now(timezone.utc))
 
 
 @pytest.fixture
@@ -70,9 +66,7 @@ def sample_routing_decision(sample_query):
     features = QueryFeatures(
         embedding=[0.1] * 384,
         token_count=10,
-        complexity_score=0.2,
-        domain="general",
-        domain_confidence=0.7,
+        complexity_score=0.2
     )
     return RoutingDecision(
         id=f"test-routing-{uuid4()}",
@@ -81,8 +75,7 @@ def sample_routing_decision(sample_query):
         confidence=0.85,
         features=features,
         reasoning="Selected for simple query",
-        metadata={"attempt": 0},
-    )
+        metadata={"attempt": 0})
 
 
 @pytest.fixture
@@ -96,8 +89,7 @@ def sample_response(sample_query):
         cost=0.001,
         latency=0.5,
         tokens=20,
-        created_at=datetime.now(timezone.utc),
-    )
+        created_at=datetime.now(timezone.utc))
 
 
 @pytest.fixture
@@ -108,8 +100,7 @@ def sample_feedback(sample_response):
         quality_score=0.9,
         met_expectations=True,
         user_rating=5,
-        comments="Great answer!",
-    )
+        comments="Great answer!")
 
 
 class TestDatabaseConnection:
@@ -162,8 +153,7 @@ class TestCompleteInteraction:
         # Then save the complete interaction
         await db.save_complete_interaction(
             routing=sample_routing_decision,
-            response=sample_response,
-        )
+            response=sample_response)
 
         # Should not raise any errors
 
@@ -178,8 +168,7 @@ class TestCompleteInteraction:
         # Save response only (no routing)
         await db.save_complete_interaction(
             routing=None,
-            response=sample_response,
-        )
+            response=sample_response)
 
         # Should not raise any errors
 
@@ -195,8 +184,7 @@ class TestCompleteInteraction:
         await db.save_complete_interaction(
             routing=sample_routing_decision,
             response=sample_response,
-            feedback=sample_feedback,
-        )
+            feedback=sample_feedback)
 
         # Should not raise any errors
 
@@ -210,8 +198,7 @@ class TestModelStateOperations:
         state = ModelState(
             model_id=f"test-model-{uuid4()}",
             alpha=5.0,
-            beta=2.0,
-        )
+            beta=2.0)
 
         await db.update_model_state(state)
 

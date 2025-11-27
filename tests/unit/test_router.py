@@ -17,8 +17,7 @@ from conduit.core.models import (
     Query,
     QueryConstraints,
     QueryFeatures,
-    RoutingDecision,
-)
+    RoutingDecision)
 from conduit.engines.router import Router
 from conduit.engines import Router as RouterFromEngines
 
@@ -30,11 +29,9 @@ def mock_analyzer():
     analyzer.analyze.return_value = QueryFeatures(
         embedding=[0.1] * 384,
         token_count=10,
-        complexity_score=0.5,
-        domain="general",
-        domain_confidence=0.8,
+        complexity_score=0.5
     )
-    analyzer.feature_dim = 387
+    analyzer.feature_dim = 386
     return analyzer
 
 
@@ -50,13 +47,10 @@ def mock_hybrid_router():
             features=QueryFeatures(
                 embedding=[0.1] * 384,
                 token_count=10,
-                complexity_score=0.5,
-                domain="general",
-                domain_confidence=0.8,
+                complexity_score=0.5
             ),
             reasoning="Simple query routed to gpt-4o-mini",
-            metadata={"constraints_relaxed": False},
-        )
+            metadata={"constraints_relaxed": False})
     )
     hybrid_router.models = ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4", "claude-opus-4"]
     return hybrid_router
@@ -103,9 +97,7 @@ class TestRouterBasic:
         features = QueryFeatures(
             embedding=[0.2] * 384,
             token_count=100,
-            complexity_score=0.8,
-            domain="code",
-            domain_confidence=0.9,
+            complexity_score=0.8
         )
 
         # Router.route() doesn't accept features parameter - it always calls analyzer
@@ -205,8 +197,7 @@ class TestConstraintFiltering:
         constraints = QueryConstraints(
             max_cost=0.001,
             max_latency=2.0,
-            min_quality=0.8,
-        )
+            min_quality=0.8)
         query = Query(id="test-7", text="Complex constraints", constraints=constraints)
 
         decision = await router.route(query)
@@ -234,13 +225,10 @@ class TestConstraintRelaxation:
                 features=QueryFeatures(
                     embedding=[0.1] * 384,
                     token_count=10,
-                    complexity_score=0.5,
-                    domain="general",
-                    domain_confidence=0.8,
+                    complexity_score=0.5
                 ),
                 reasoning="Constraints relaxed",
-                metadata={"constraints_relaxed": True},
-            )
+                metadata={"constraints_relaxed": True})
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -271,13 +259,10 @@ class TestConstraintRelaxation:
                 features=QueryFeatures(
                     embedding=[0.1] * 384,
                     token_count=10,
-                    complexity_score=0.5,
-                    domain="general",
-                    domain_confidence=0.8,
+                    complexity_score=0.5
                 ),
                 reasoning="Constraints relaxed",
-                metadata={"constraints_relaxed": True},
-            )
+                metadata={"constraints_relaxed": True})
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -311,13 +296,10 @@ class TestCircuitBreaker:
                 features=QueryFeatures(
                     embedding=[0.1] * 384,
                     token_count=10,
-                    complexity_score=0.5,
-                    domain="general",
-                    domain_confidence=0.8,
+                    complexity_score=0.5
                 ),
                 reasoning="Success after retry",
-                metadata={"attempt": 1},
-            )
+                metadata={"attempt": 1})
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -343,13 +325,10 @@ class TestCircuitBreaker:
                 features=QueryFeatures(
                     embedding=[0.1] * 384,
                     token_count=10,
-                    complexity_score=0.5,
-                    domain="general",
-                    domain_confidence=0.8,
+                    complexity_score=0.5
                 ),
                 reasoning="All circuit breakers open, using default fallback",
-                metadata={"fallback": "circuit_breaker"},
-            )
+                metadata={"fallback": "circuit_breaker"})
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -380,13 +359,10 @@ class TestFallbackStrategies:
                 features=QueryFeatures(
                     embedding=[0.1] * 384,
                     token_count=10,
-                    complexity_score=0.5,
-                    domain="general",
-                    domain_confidence=0.8,
+                    complexity_score=0.5
                 ),
                 reasoning="No models satisfied constraints after relaxation, using default",
-                metadata={"constraints_relaxed": True, "fallback": "default"},
-            )
+                metadata={"constraints_relaxed": True, "fallback": "default"})
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -416,13 +392,10 @@ class TestFallbackStrategies:
                 features=QueryFeatures(
                     embedding=[0.1] * 384,
                     token_count=10,
-                    complexity_score=0.5,
-                    domain="general",
-                    domain_confidence=0.8,
+                    complexity_score=0.5
                 ),
                 reasoning="All circuit breakers open, using default fallback",
-                metadata={"fallback": "circuit_breaker"},
-            )
+                metadata={"fallback": "circuit_breaker"})
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -451,13 +424,10 @@ class TestReasoningGeneration:
                 features=QueryFeatures(
                     embedding=[0.1] * 384,
                     token_count=5,
-                    complexity_score=0.2,
-                    domain="general",
-                    domain_confidence=0.7,
+                    complexity_score=0.2
                 ),
                 reasoning="Simple query in general domain, selected gpt-4o-mini for efficiency",
-                metadata={},
-            )
+                metadata={})
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -482,13 +452,10 @@ class TestReasoningGeneration:
                 features=QueryFeatures(
                     embedding=[0.1] * 384,
                     token_count=200,
-                    complexity_score=0.85,
-                    domain="code",
-                    domain_confidence=0.95,
+                    complexity_score=0.85
                 ),
                 reasoning="Complex code query, selected gpt-4o with high success rate (α=10.0, β=3.0)",
-                metadata={},
-            )
+                metadata={})
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -513,13 +480,10 @@ class TestReasoningGeneration:
                 features=QueryFeatures(
                     embedding=[0.1] * 384,
                     token_count=50,
-                    complexity_score=0.5,
-                    domain="science",
-                    domain_confidence=0.8,
+                    complexity_score=0.5
                 ),
                 reasoning="Moderate complexity science query, selected gpt-4o-mini",
-                metadata={},
-            )
+                metadata={})
         )
         router.hybrid_router = mock_hybrid_router
 

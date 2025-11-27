@@ -12,7 +12,6 @@ from conduit.core.models import QueryFeatures
 
 # test_arms and test_features fixtures imported from conftest.py
 
-
 class TestLinUCBBandit:
     """Tests for LinUCBBandit."""
 
@@ -24,15 +23,15 @@ class TestLinUCBBandit:
         assert len(bandit.arms) == 3
         assert bandit.total_queries == 0
         assert bandit.alpha == 1.0
-        assert bandit.feature_dim == 387
+        assert bandit.feature_dim == 386
 
         # Check initial state - A should be identity, b should be zeros
         for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             # A should be identity matrix
-            assert np.allclose(bandit.A[model_id], np.identity(387))
+            assert np.allclose(bandit.A[model_id], np.identity(386))
             # b should be zero vector
-            assert np.allclose(bandit.b[model_id], np.zeros((387, 1)))
+            assert np.allclose(bandit.b[model_id], np.zeros((386, 1)))
 
     def test_initialization_custom_alpha(self, test_arms):
         """Test LinUCB bandit with custom exploration parameter."""
@@ -47,15 +46,15 @@ class TestLinUCBBandit:
         x = bandit._extract_features(test_features)
 
         # Check shape
-        assert x.shape == (387, 1)
+        assert x.shape == (386, 1)
 
         # Check embedding values (first 384 dims)
         assert np.allclose(x[:384, 0], 0.1)
 
-        # Check metadata (last 3 dims)
+        # Check metadata (last 2 dims)
         assert np.isclose(x[384, 0], 50.0 / 1000.0)  # normalized token_count
         assert np.isclose(x[385, 0], 0.5)  # complexity_score
-        assert np.isclose(x[386, 0], 0.8)  # domain_confidence
+        assert np.isclose(x[385, 0], test_features.complexity_score)  # complexity_score (last metadata)
 
     @pytest.mark.asyncio
     async def test_select_arm_returns_valid_arm(self, test_arms, test_features):
@@ -83,8 +82,7 @@ class TestLinUCBBandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
 
         await bandit.update(feedback, test_features)
 
@@ -115,8 +113,7 @@ class TestLinUCBBandit:
             model_id=model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
 
         await bandit.update(feedback, test_features)
 
@@ -139,18 +136,14 @@ class TestLinUCBBandit:
         context1 = QueryFeatures(
             embedding=[0.1] * 384,
             token_count=10,
-            complexity_score=0.1,
-            domain="general",
-            domain_confidence=0.9,
+            complexity_score=0.1
         )
 
         # Context 2: Complex query (high complexity)
         context2 = QueryFeatures(
             embedding=[0.9] * 384,
             token_count=100,
-            complexity_score=0.9,
-            domain="technical",
-            domain_confidence=0.8,
+            complexity_score=0.9
         )
 
         # Train on context1: o4-mini performs well
@@ -165,8 +158,7 @@ class TestLinUCBBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, context1)
 
         # Train on context2: gpt-5.1 performs well
@@ -181,8 +173,7 @@ class TestLinUCBBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, context2)
 
         # After learning, bandit should have updated its models
@@ -221,8 +212,7 @@ class TestLinUCBBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=0.9,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
 
         assert bandit.total_queries == 5
@@ -235,9 +225,9 @@ class TestLinUCBBandit:
         for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             # A should be identity
-            assert np.allclose(bandit.A[model_id], np.identity(387))
+            assert np.allclose(bandit.A[model_id], np.identity(386))
             # b should be zeros
-            assert np.allclose(bandit.b[model_id], np.zeros((387, 1)))
+            assert np.allclose(bandit.b[model_id], np.zeros((386, 1)))
 
     @pytest.mark.asyncio
     async def test_get_stats(self, test_arms, test_features):
@@ -250,8 +240,7 @@ class TestLinUCBBandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
         await bandit.update(feedback, test_features)
 
         stats = bandit.get_stats()
@@ -265,7 +254,7 @@ class TestLinUCBBandit:
         assert "arm_theta_norms" in stats
 
         assert stats["alpha"] == 1.5
-        assert stats["feature_dim"] == 387
+        assert stats["feature_dim"] == 386
         assert stats["total_queries"] == 1
 
     @pytest.mark.asyncio
@@ -280,9 +269,7 @@ class TestLinUCBBandit:
             features = QueryFeatures(
                 embedding=[np.random.rand() for _ in range(384)],
                 token_count=20,
-                complexity_score=0.3,
-                domain="general",
-                domain_confidence=0.8,
+                complexity_score=0.3
             )
 
             arm = await bandit.select_arm(features)
@@ -296,8 +283,7 @@ class TestLinUCBBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, features)
 
         # Long queries (token_count > 200) -> gpt-5.1 performs well
@@ -305,9 +291,7 @@ class TestLinUCBBandit:
             features = QueryFeatures(
                 embedding=[np.random.rand() for _ in range(384)],
                 token_count=300,
-                complexity_score=0.8,
-                domain="technical",
-                domain_confidence=0.7,
+                complexity_score=0.8
             )
 
             arm = await bandit.select_arm(features)
@@ -321,8 +305,7 @@ class TestLinUCBBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, features)
 
         # Both models should have been tried
@@ -343,8 +326,7 @@ class TestLinUCBBandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
         await bandit.update(feedback, test_features)
 
         # Manually compute UCB for the updated arm
@@ -376,8 +358,7 @@ class TestLinUCBBandit:
             model_id=model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
         await bandit.update(feedback, test_features)
 
         # Verify A_inv was updated (should differ from initial identity)
@@ -392,16 +373,13 @@ class TestLinUCBBandit:
             features_i = QueryFeatures(
                 embedding=[0.1 + i * 0.01] * 384,
                 token_count=50 + i * 10,
-                complexity_score=0.5 + i * 0.05,
-                domain="general",
-                domain_confidence=0.8,
+                complexity_score=0.5 + i * 0.05
             )
             feedback_i = BanditFeedback(
                 model_id=model_id,
                 cost=0.001 * (i + 1),
                 quality_score=0.9 - i * 0.02,
-                latency=1.0 + i * 0.1,
-            )
+                latency=1.0 + i * 0.1)
             await bandit.update(feedback_i, features_i)
 
             # Verify A_inv remains valid after each update
@@ -422,9 +400,7 @@ class TestLinUCBBandit:
             features_i = QueryFeatures(
                 embedding=[np.random.rand() for _ in range(384)],
                 token_count=50 + i * 10,
-                complexity_score=0.5 + i * 0.05,
-                domain="general",
-                domain_confidence=0.8,
+                complexity_score=0.5 + i * 0.05
             )
 
             arm = await bandit_sm.select_arm(features_i)
@@ -432,8 +408,7 @@ class TestLinUCBBandit:
                 model_id=arm.model_id,
                 cost=0.001 * (i + 1),
                 quality_score=0.85 + np.random.rand() * 0.1,
-                latency=1.0 + i * 0.1,
-            )
+                latency=1.0 + i * 0.1)
             await bandit_sm.update(feedback, features_i)
 
         # For each arm, verify that cached A_inv matches direct inversion of A
@@ -454,16 +429,13 @@ class TestLinUCBBandit:
             features_i = QueryFeatures(
                 embedding=[0.1 + i * 0.01] * 384,
                 token_count=50 + i * 10,
-                complexity_score=0.5,
-                domain="general",
-                domain_confidence=0.8,
+                complexity_score=0.5
             )
             feedback = BanditFeedback(
                 model_id=model_id,
                 cost=0.001,
                 quality_score=0.9,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, features_i)
 
             # Verify A_inv is correct inverse of A
@@ -479,10 +451,10 @@ class TestLinUCBBandit:
         bandit = LinUCBBandit(test_arms)
 
         for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
-            assert np.allclose(bandit.A_inv[model_id], np.identity(387))
+            assert np.allclose(bandit.A_inv[model_id], np.identity(386))
             # Verify it's the inverse of A (which is also identity initially)
             product = bandit.A[model_id] @ bandit.A_inv[model_id]
-            assert np.allclose(product, np.identity(387))
+            assert np.allclose(product, np.identity(386))
 
     @pytest.mark.asyncio
     async def test_a_inv_reset(self, test_arms, test_features):
@@ -496,22 +468,21 @@ class TestLinUCBBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=0.9,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
 
         # Verify A_inv changed
         for model_id in bandit.arms:
             if bandit.arm_pulls[model_id] > 0:
                 # This arm was updated, A_inv should differ from identity
-                assert not np.allclose(bandit.A_inv[model_id], np.identity(387))
+                assert not np.allclose(bandit.A_inv[model_id], np.identity(386))
 
         # Reset
         bandit.reset()
 
         # Check A_inv restored to identity
         for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
-            assert np.allclose(bandit.A_inv[model_id], np.identity(387))
+            assert np.allclose(bandit.A_inv[model_id], np.identity(386))
 
     @pytest.mark.asyncio
     async def test_numerical_stability_fallback(self, test_arms):
@@ -527,17 +498,14 @@ class TestLinUCBBandit:
         features = QueryFeatures(
             embedding=[0.1] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8,
+            complexity_score=0.5
         )
 
         feedback = BanditFeedback(
             model_id=model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
 
         await bandit.update(feedback, features)
 
