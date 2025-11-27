@@ -12,9 +12,9 @@ last_updated: 2025-01-22
 
 **Design Philosophy**: Simplicity wins, use good defaults, YAML config where needed, no hardcoded assumptions.
 
-**Current Phase**: Pre-1.0 preparation (version 0.1.0, CI/CD complete, migration testing next)
-**Test Health**: 100% (565/565 tests passing), 81% coverage
-**Latest**: Version sync, GitHub Actions CI, pre-push hooks, scope documentation
+**Current Phase**: Pre-1.0 preparation (version 0.1.0, CI/CD complete, state persistence done)
+**Test Health**: 100% (579/579 tests passing), 81% coverage
+**Latest**: Automatic state persistence, database timeout fix, hybrid routing tests, integration test suite complete
 
 ---
 
@@ -840,9 +840,46 @@ features = embedding + [
 
 ---
 
-## Current Status (2025-11-26)
+## Current Status (2025-11-27)
 
-### Latest: CI/CD & Test Infrastructure Complete ✅
+### Latest: State Persistence & Production Resilience ✅
+
+**Automatic State Persistence** (PR #147):
+- **Auto-load** state on first `route()` call (can't await in `__init__`)
+- **Save after every update()** (~1-5ms overhead, negligible vs ~500ms LLM)
+- **Periodic checkpoints** every N queries (backup, default 100)
+- **Final save on close()** for graceful shutdown
+- **Never lose >1 query** of learning on crash
+- **6 integration tests** covering all scenarios
+- **Removed outdated comments** about state persistence not being supported
+
+**Database Pool Timeout Fix**:
+- **Problem**: Integration tests hung 60+ seconds during teardown
+- **Root cause**: `pool.close()` waited indefinitely for connections
+- **Solution**: 10-second timeout using `asyncio.wait_for()` (per asyncpg docs)
+- **Result**: All integration tests now fast (82s vs hanging)
+
+**Hybrid Routing Integration Tests** (PR #145):
+- **8 tests** covering UCB1→LinUCB transition lifecycle
+- **State persistence** across router restarts
+- **Knowledge transfer** from UCB1 to LinUCB
+- **Phase detection** accuracy
+- **Feedback learning** in both phases
+
+**Pytest Speed Optimization** (PR #144):
+- **Fast tests**: Skip slow/downloads/API tests on PR (1.5min vs 5min)
+- **Full suite**: Run all tests on main/releases
+- **Markers**: `@pytest.mark.slow`, `@pytest.mark.downloads_models`, `@pytest.mark.requires_api_key`
+- **Pre-push hook**: Fast tests only for quick feedback
+
+### Test Health (Updated 2025-11-27)
+- **Overall**: 100% passing (579/579 tests), 81% coverage
+- **Unit Tests**: 553 passing
+- **Integration Tests**: 20 passing (API + database + hybrid routing + auto-persistence)
+- **Skipped**: 14 (optional deps: litellm, Redis, sentence-transformers)
+- **All Bandit Algorithms**: 100% passing
+
+### Previous: CI/CD & Test Infrastructure Complete (2025-11-26)
 
 **GitHub Actions CI Workflow** (PR #112, commits: 454d241, 0b75957, 8e26310):
 - **CI Pipeline** (`.github/workflows/ci.yml`):
