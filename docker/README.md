@@ -19,7 +19,7 @@ Run Conduit + LiteLLM Router with Open WebUI for visual demonstration of ML-powe
        │ OpenAI-compatible API
        ▼
 ┌─────────────────────┐
-│ Conduit Router API  │  (Port 8000)
+│   Conduit API       │  (Port 8000)
 │ - LiteLLM Router    │
 │ - Conduit Strategy  │
 └──────┬──────────────┘

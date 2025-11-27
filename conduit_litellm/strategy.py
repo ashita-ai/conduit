@@ -127,7 +127,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         """Initialize Conduit router from LiteLLM model list on first call.
 
         This method extracts model IDs from LiteLLM's model_list and creates
-        a Conduit Router configured with those models. Initialization is lazy
+        a Conduit instance configured with those models. Initialization is lazy
         (happens on first request) to allow LiteLLM to fully configure the router.
 
         Args:

@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-**Purpose**: Debug common issues with the Conduit Router's ML-powered routing system
+**Purpose**: Debug common issues with Conduit's ML-powered routing system
 
 **Last Updated**: 2025-11-24
 
@@ -220,7 +220,7 @@ if stats['total_queries'] > 1000:
 **Root Causes**:
 - **Poor context features**: Query features don't capture important distinctions
 - **Feature correlation**: Redundant features adding noise
-- **High dimensionality**: Too many features (387 dims) for available data
+- **High dimensionality**: Too many features (386 dims) for available data
 - **Non-stationarity**: Model quality/costs changing over time
 
 **Debug Steps**:
@@ -264,7 +264,7 @@ if hasattr(router.bandit, 'theta'):
     for model_id, theta in router.bandit.theta.items():
         # First dimension is intercept
         # Dimensions 1-384 are embedding
-        # Dimensions 385-387 are metadata
+        # Dimensions 385-386 are metadata
         
         embedding_weight = np.linalg.norm(theta[1:385])
         metadata_weight = np.linalg.norm(theta[385:388])
@@ -314,8 +314,8 @@ print(f"High correlations: {high_corr}")
 ```python
 from conduit.engines.hybrid_router import HybridRouter
 
-# Reduce 387 dims → 67 dims with PCA
-router = HybridRouter(use_pca=True, pca_components=67)
+# Reduce 386 dims → 66 dims with PCA
+router = HybridRouter(use_pca=True, pca_components=66)
 # Reduces sample requirement by 75%
 # Converges in 2,000-3,000 queries vs 10,000+ without PCA
 ```
@@ -370,7 +370,7 @@ bandit = ThompsonSamplingBandit(
 **Problem**: Needs >10,000 queries before making good decisions.
 
 **Root Causes**:
-- **High dimensionality**: 387-dim features require many samples
+- **High dimensionality**: 386-dim features require many samples
 - **Pure LinUCB**: No warm start, learns from scratch
 - **Many arms**: More models = more exploration needed
 
@@ -390,7 +390,7 @@ router = HybridRouter()
 from conduit.engines.hybrid_router import HybridRouter
 
 # Reduces sample requirement by 75%
-router = HybridRouter(use_pca=True, pca_components=67)
+router = HybridRouter(use_pca=True, pca_components=66)
 ```
 
 **Solution 3: Reduce Number of Arms**

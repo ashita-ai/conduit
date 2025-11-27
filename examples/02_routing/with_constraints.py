@@ -18,7 +18,7 @@ async def main() -> None:
         print("Example: export OPENAI_API_KEY=sk-...")
         return
 
-    print("Initializing Conduit Router...")
+    print("Initializing Conduit...")
     router = Router()
 
     # Example 1: Cost-constrained query

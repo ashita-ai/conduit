@@ -1,6 +1,6 @@
-"""LangChain integration example for Conduit Router.
+"""LangChain integration example for Conduit.
 
-This example shows how to use Conduit Router as a custom LLM in LangChain chains.
+This example shows how to use Conduit as a custom LLM in LangChain chains.
 Conduit automatically learns which model to use for each query, optimizing for
 cost and quality.
 
@@ -40,19 +40,19 @@ from conduit.engines.router import Router
 
 
 class ConduitLangChainLLM(BaseLLM):
-    """LangChain LLM wrapper for Conduit Router.
+    """LangChain LLM wrapper for Conduit.
 
-    This class allows Conduit Router to be used as a drop-in replacement for
+    This class allows Conduit to be used as a drop-in replacement for
     LangChain's LLM classes. Conduit automatically selects the optimal model
     for each query based on learned patterns.
 
     Attributes:
-        router: Conduit Router instance
+        router: Conduit instance
         executor: Model executor for running queries
         model_kwargs: Additional kwargs to pass to model calls
     """
 
-    router: Router = Field(description="Conduit Router instance")
+    router: Router = Field(description="Conduit instance")
     executor: Optional[ModelExecutor] = Field(
         default=None, description="Model executor (auto-initialized if None)"
     )
@@ -69,7 +69,7 @@ class ConduitLangChainLLM(BaseLLM):
         """Initialize Conduit LangChain LLM wrapper.
 
         Args:
-            router: Conduit Router instance (required)
+            router: Conduit instance (required)
             executor: Model executor (optional, auto-initialized if None)
             **kwargs: Additional arguments passed to BaseLLM
         """
@@ -169,7 +169,7 @@ class ConduitLangChainLLM(BaseLLM):
     ) -> AsyncIterator[str]:
         """Stream responses (not currently supported).
 
-        Conduit Router doesn't support streaming yet. This yields the full
+        Conduit doesn't support streaming yet. This yields the full
         response as a single chunk.
 
         Args:

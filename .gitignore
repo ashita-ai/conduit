@@ -55,6 +55,10 @@ PROJECT_TODO.md
 *.sqlite
 *.log
 
+# ML Models (generated artifacts - regenerate via fit_pca())
+models/pca.pkl
+conduit/models/
+
 # Distribution
 *.whl
 benchmarks/results/

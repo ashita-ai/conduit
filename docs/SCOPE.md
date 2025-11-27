@@ -12,7 +12,7 @@ This document defines what Conduit does and doesn't do. Clear scope boundaries h
 ### Core Routing Engine
 - **ML-powered LLM routing** using contextual bandit algorithms (LinUCB, UCB1, Thompson Sampling, Epsilon-Greedy)
 - **Multi-objective optimization** balancing quality, cost, and latency
-- **Contextual decision-making** using query embeddings and metadata (387-dimensional feature vectors)
+- **Contextual decision-making** using query embeddings and metadata (386-dimensional feature vectors)
 - **Adaptive learning** from explicit feedback (user ratings) and implicit signals (errors, latency, retries)
 
 ### State Management

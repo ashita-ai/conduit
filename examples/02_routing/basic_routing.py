@@ -6,7 +6,7 @@ Requirements:
     OPENAI_API_KEY or ANTHROPIC_API_KEY in environment
 
 Expected output:
-    Initializing Conduit Router...
+    Initializing Conduit...
 
     Query: What is 2+2? Explain your reasoning.
 
@@ -31,7 +31,6 @@ import os
 from conduit.core.models import Query
 from conduit.engines.router import Router
 
-
 async def main() -> None:
     """Run basic routing example."""
     # Check for API keys
@@ -40,7 +39,7 @@ async def main() -> None:
         print("Example: export OPENAI_API_KEY=sk-...")
         return
 
-    print("Initializing Conduit Router...")
+    print("Initializing Conduit...")
     router = Router()
 
     # Create a simple query
@@ -71,7 +70,6 @@ async def main() -> None:
     finally:
         # Cleanup
         await router.close()
-
 
 if __name__ == "__main__":
     asyncio.run(main())

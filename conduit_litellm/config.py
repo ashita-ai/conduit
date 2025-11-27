@@ -34,10 +34,10 @@ class ConduitLiteLLMConfig:
     cache_ttl: int = 3600
 
     def to_conduit_config(self) -> dict[str, Any]:
-        """Convert to Conduit Router configuration dictionary.
+        """Convert to Conduit configuration dictionary.
 
         Returns:
-            Dictionary of configuration options for Conduit Router.
+            Dictionary of configuration options for Conduit.
         """
         config = {
             "embedding_model": self.embedding_model,

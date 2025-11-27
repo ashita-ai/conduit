@@ -1,6 +1,6 @@
 # Bandit Algorithms Guide
 
-**Purpose**: Understand the multi-armed bandit algorithms available in the Conduit Router for intelligent LLM routing.
+**Purpose**: Understand the multi-armed bandit algorithms available in Conduit for intelligent LLM routing.
 
 **Last Updated**: 2025-11-21
 **Status**: Complete - 6 algorithms implemented and tested (2 contextual, 4 non-contextual)
@@ -9,7 +9,7 @@
 
 ## Overview
 
-The Conduit Router uses **contextual multi-armed bandit algorithms** to learn which LLM model to use for each query. The system balances:
+Conduit uses **contextual multi-armed bandit algorithms** to learn which LLM model to use for each query. The system balances:
 
 - **Exploration**: Try different models to discover their strengths
 - **Exploitation**: Use known-good models to maximize quality/minimize cost
@@ -18,7 +18,7 @@ The Conduit Router uses **contextual multi-armed bandit algorithms** to learn wh
 
 Imagine a casino with multiple slot machines (arms). Each machine has an unknown payout rate. Your goal: maximize total winnings by learning which machines pay best while still exploring new ones.
 
-**In the Conduit Router's context**:
+**In Conduit's context**:
 - **Arms**: LLM models (GPT-4o, Claude Sonnet, Gemini Pro, etc.)
 - **Context**: Query features (embedding, complexity, domain, token count)
 - **Reward**: Multi-objective composite (quality + cost + latency)
@@ -289,9 +289,9 @@ b = sum(r_i * x_i for all (x_i, r_i) in window)
 LinUCB maintains a **linear model** for each LLM model that predicts reward based on query features.
 
 **State per model**:
-- **A matrix** (387×387): Feature covariance (design matrix)
-- **b vector** (387×1): Feature-weighted rewards (response vector)
-- **θ (theta)** (387×1): Regression coefficients = A⁻¹ · b
+- **A matrix** (386×386): Feature covariance (design matrix)
+- **b vector** (386×1): Feature-weighted rewards (response vector)
+- **θ (theta)** (386×1): Regression coefficients = A⁻¹ · b
 
 **Selection formula** (Upper Confidence Bound):
 ```
@@ -302,7 +302,7 @@ UCB(model) = θᵀ · x + α · √(xᵀ · A⁻¹ · x)
 ```
 
 Where:
-- **x**: Query feature vector (387 dimensions)
+- **x**: Query feature vector (386 dimensions)
 - **α (alpha)**: Exploration parameter (default: 1.0, higher = more exploration)
 - **A⁻¹**: Inverse of design matrix (uncertainty estimate)
 
@@ -333,10 +333,10 @@ A_inv_new = A_inv - (a_inv_x @ a_inv_x.T) / denominator
 **Performance gains**:
 - Selection: O(d³) → O(d²) (387x speedup for standard features, 67x for PCA)
 - Test suite: 17.89s → 7.62s (2.3x faster)
-- Benchmark: 3,033 QPS @ 0.33ms latency (387 dims)
+- Benchmark: 3,033 QPS @ 0.33ms latency (386 dims)
 - Numerical stability: Automatic fallback to full inversion if needed
 
-### Feature Vector (387 dimensions)
+### Feature Vector (386 dimensions)
 
 ```python
 [
@@ -417,7 +417,7 @@ await bandit.update(feedback, features)
 - **alpha** (exploration): Default 1.0
   - Higher (2.0-3.0): More exploration, slower convergence
   - Lower (0.5): More exploitation, faster convergence, higher risk
-- **feature_dim**: 387 (fixed by embedding model)
+- **feature_dim**: 386 (fixed by embedding model)
 
 ### References
 
@@ -437,9 +437,9 @@ await bandit.update(feedback, features)
 Contextual Thompson Sampling combines Thompson Sampling's Bayesian exploration strategy with contextual features. It maintains a **Bayesian linear regression model** for each LLM model.
 
 **State per model**:
-- **μ (mu)** (387×1): Posterior mean vector (expected reward coefficients)
-- **Σ (Sigma)** (387×387): Posterior covariance matrix (uncertainty)
-- **θ (theta)** (387×1): Sampled coefficient vector from posterior
+- **μ (mu)** (386×1): Posterior mean vector (expected reward coefficients)
+- **Σ (Sigma)** (386×386): Posterior covariance matrix (uncertainty)
+- **θ (theta)** (386×1): Sampled coefficient vector from posterior
 
 **Posterior distribution**:
 ```
@@ -478,7 +478,7 @@ Where:
 - **Computational cost** is critical (sampling requires Cholesky decomposition)
 - You prefer simpler, more interpretable algorithms
 
-### Feature Vector (387 dimensions)
+### Feature Vector (386 dimensions)
 
 Same as LinUCB:
 ```python
@@ -557,7 +557,7 @@ print(f"Posterior uncertainty: {stats['arm_sigma_traces']}")
 - **lambda_reg**: Regularization parameter (default: 1.0)
   - Higher (2.0-10.0): Tighter posterior, more regularization, slower learning
   - Lower (0.1-1.0): Looser posterior, less regularization, faster learning
-- **feature_dim**: 387 (fixed by embedding model)
+- **feature_dim**: 386 (fixed by embedding model)
 - **window_size**: Sliding window size (default: 1000)
   - 0: Unlimited history (stationary)
   - 500-1000: Moderate adaptation
@@ -587,7 +587,7 @@ weighted_sum = λ · Σ(r_i · x_i)  # Weighted feature sum
 ```
 
 **Uncertainty Decreases with Data**:
-- Initial uncertainty: trace(Σ) = 387 (identity matrix)
+- Initial uncertainty: trace(Σ) = 386 (identity matrix)
 - After N observations: trace(Σ) ↓ monotonically
 - Convergence: trace(Σ) → 0 as N → ∞
 
@@ -881,12 +881,12 @@ Start: Which bandit algorithm should I use?
 
 | Algorithm | Time Complexity | Space Complexity | Notes |
 |-----------|----------------|------------------|-------|
-| LinUCB | O(d² · k) | O(d² · k) | d=387 features, k=models |
+| LinUCB | O(d² · k) | O(d² · k) | d=386 features, k=models |
 | Thompson Sampling | O(k) | O(k) | Very fast |
 | UCB1 | O(k) | O(k) | Very fast |
 | Epsilon-Greedy | O(k) | O(k) | Very fast |
 
-**For LinUCB**: With d=387 and k=5 models, matrix inversion dominates (microseconds on modern CPUs).
+**For LinUCB**: With d=386 and k=5 models, matrix inversion dominates (microseconds on modern CPUs).
 
 ---
 

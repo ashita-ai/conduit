@@ -6,7 +6,7 @@ Requirements:
     OPENAI_API_KEY or ANTHROPIC_API_KEY in environment
 
 Expected output:
-    Initializing Conduit Router...
+    Initializing Conduit...
 
     Query: What is 2+2?
 
@@ -22,14 +22,12 @@ Expected output:
     Features:
       - Token count: 6
       - Complexity: 0.15
-      - Domain: general (0.85)
 """
 
 import asyncio
 import os
 from conduit.engines import Router
 from conduit.core.models import Query
-
 
 async def main() -> None:
     """Run simple router example."""
@@ -39,7 +37,7 @@ async def main() -> None:
         print("Example: export OPENAI_API_KEY=sk-...")
         exit(1)
 
-    print("Initializing Conduit Router...")
+    print("Initializing Conduit...")
     router = Router()
 
     # Create a simple query
@@ -61,12 +59,10 @@ async def main() -> None:
         print(f"\nFeatures:")
         print(f"  - Token count: {decision.features.token_count}")
         print(f"  - Complexity: {decision.features.complexity_score:.2f}")
-        print(f"  - Domain: {decision.features.domain} ({decision.features.domain_confidence:.2f})")
 
     except Exception as e:
         print(f"\nError: {e}")
         exit(1)
-
 
 if __name__ == "__main__":
     asyncio.run(main())

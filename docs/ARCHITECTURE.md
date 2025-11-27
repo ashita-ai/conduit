@@ -1,13 +1,155 @@
-# Conduit Router - System Architecture
+# Conduit - System Architecture
 
-**Version**: 0.0.5-alpha
-**Last Updated**: 2025-11-25
+**Version**: 0.1.0
+**Last Updated**: 2025-11-27
+
+---
+
+## Quick Reference: How Components Work Together
+
+This section explains how Conduit's key components interact.
+
+### Component Relationship Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           CONDUIT ROUTING PIPELINE                               │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│   QUERY INPUT                                                                    │
+│        │                                                                         │
+│        ▼                                                                         │
+│   ┌─────────────────────────────────────────────────────────────────────────┐   │
+│   │                         QUERY ANALYZER                                   │   │
+│   │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                  │   │
+│   │  │  Embedding  │───▶│  PCA        │───▶│  Feature    │                  │   │
+│   │  │  Provider   │    │ (optional)  │    │  Vector     │                  │   │
+│   │  │  384-1536d  │    │  64d        │    │  66-386d    │                  │   │
+│   │  └─────────────┘    └─────────────┘    └─────────────┘                  │   │
+│   │                                              │                           │   │
+│   │  + token_count, complexity_score, domain     │                           │   │
+│   └──────────────────────────────────────────────┼──────────────────────────┘   │
+│                                                  │                               │
+│                                                  ▼                               │
+│   ┌─────────────────────────────────────────────────────────────────────────┐   │
+│   │                         HYBRID ROUTER                                    │   │
+│   │                                                                          │   │
+│   │   Phase 1 (0-2000 queries)        Phase 2 (2000+ queries)               │   │
+│   │   ┌─────────────────┐             ┌─────────────────┐                   │   │
+│   │   │      UCB1       │──transition─▶│     LinUCB      │                   │   │
+│   │   │  (no features)  │             │  (uses features) │                   │   │
+│   │   │  Fast explore   │             │  Smart routing   │                   │   │
+│   │   └─────────────────┘             └─────────────────┘                   │   │
+│   │                                                                          │   │
+│   └──────────────────────────────────────────────┬──────────────────────────┘   │
+│                                                  │                               │
+│                                                  ▼                               │
+│                                         SELECTED MODEL                           │
+│                                         (gpt-4o-mini, etc.)                     │
+│                                                  │                               │
+│                                                  ▼                               │
+│                                          LLM RESPONSE                            │
+│                                                  │                               │
+│                    ┌─────────────────────────────┼─────────────────────────┐    │
+│                    │                             │                         │    │
+│                    ▼                             ▼                         ▼    │
+│            ┌─────────────┐              ┌─────────────┐           ┌───────────┐ │
+│            │  Explicit   │              │  Implicit   │           │  Arbiter  │ │
+│            │  Feedback   │              │  Feedback   │           │  (async)  │ │
+│            │  (user)     │              │  (system)   │           │  LLM-judge│ │
+│            └─────────────┘              └─────────────┘           └───────────┘ │
+│                    │                             │                         │    │
+│                    └─────────────────────────────┼─────────────────────────┘    │
+│                                                  │                               │
+│                                                  ▼                               │
+│                                         ┌─────────────┐                         │
+│                                         │   REWARD    │                         │
+│                                         │ CALCULATION │                         │
+│                                         │ 0.5q+0.3c+  │                         │
+│                                         │   0.2l      │                         │
+│                                         └─────────────┘                         │
+│                                                  │                               │
+│                                                  ▼                               │
+│                                         ┌─────────────┐                         │
+│                                         │   BANDIT    │                         │
+│                                         │   UPDATE    │◀──── Learning Loop      │
+│                                         └─────────────┘                         │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Component Interactions
+
+| Component | Purpose | Inputs | Outputs |
+|-----------|---------|--------|---------|
+| **Embedding Provider** | Convert text to vectors | Query text | 384-1536 dim vector |
+| **PCA** | Compress embeddings | Raw embedding | 64 dim embedding |
+| **Query Analyzer** | Extract routing features | Query text | QueryFeatures (embedding + metadata) |
+| **UCB1 Bandit** | Cold start exploration | None (non-contextual) | Model selection |
+| **LinUCB Bandit** | Contextual routing | QueryFeatures | Model selection |
+| **Hybrid Router** | Phase management | Query | RoutingDecision |
+| **Arbiter** | Quality evaluation | Query + Response | Quality score (0-1) |
+| **Feedback Loop** | Learning signal | Feedback sources | Reward → Bandit update |
+
+### When Each Component Is Used
+
+```
+Query Count:    0        500      1000      1500      2000      5000
+                │         │         │         │         │         │
+Embedding:      ❌ ─────────────────────────────╳ ✅ ──────────────────▶
+                Not needed (UCB1)               Required (LinUCB)
+
+PCA:            ❌ ─────────────────────────────╳ Optional ────────────▶
+                Not needed (UCB1)               Reduces 386→66 dims
+
+UCB1:           ✅ ════════════════════════════╗
+                Active, exploring              ║ Transition
+                                               ╚═══════════════════════▶ ❌
+
+LinUCB:         ❌                              ╔═══════════════════════▶ ✅
+                Waiting                        Active, contextual
+
+Arbiter:        ✅ ─────────────────────────────────────────────────────▶
+                Always available (async, sampled at 10%)
+```
+
+### Arbiter vs Bandit (Common Confusion)
+
+| Aspect | Bandit (UCB1/LinUCB) | Arbiter |
+|--------|---------------------|---------|
+| **Purpose** | SELECT which model to use | EVALUATE response quality |
+| **When** | Before LLM call | After LLM call |
+| **Blocking** | Yes (must select model) | No (async, background) |
+| **Cost** | Free (math only) | LLM call (~$0.001/eval) |
+| **Output** | Model ID | Quality score (0-1) |
+
+### PCA: When and Why
+
+**Without PCA (default):**
+```
+Query → Embedding (384d) → Feature Vector (386d) → LinUCB
+                                                   386x386 matrices
+                                                   ~150KB per arm
+```
+
+**With PCA:**
+```
+Query → Embedding (384d) → PCA (64d) → Feature Vector (66d) → LinUCB
+                                                              66x66 matrices
+                                                              ~4KB per arm
+```
+
+**Trade-offs:**
+- PCA requires fitting on training data first
+- Reduces memory ~40x, speeds up matrix operations
+- Slight information loss (typically retains 95%+ variance)
+- Most beneficial with high-dim embeddings (OpenAI 1536d → 64d)
 
 ---
 
 ## Overview
 
-This document provides detailed technical architecture for the Conduit Router's ML-powered LLM routing system.
+This document provides detailed technical architecture for Conduit's ML-powered LLM routing system.
 
 ## System Context
 

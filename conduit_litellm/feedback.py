@@ -57,7 +57,7 @@ class ConduitFeedbackLogger(CustomLogger):
         """Initialize feedback logger with Conduit router reference.
 
         Args:
-            conduit_router: Conduit Router instance (provides analyzer and bandit)
+            conduit_router: Conduit instance (provides analyzer and bandit)
             evaluator: Optional ArbiterEvaluator for LLM-as-judge quality assessment
         """
         super().__init__()

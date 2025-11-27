@@ -1,6 +1,6 @@
 # Embedding Providers Guide
 
-The Conduit Router supports multiple embedding providers for query feature extraction. Choose the provider that best fits your needs based on cost, quality, and deployment requirements.
+Conduit supports multiple embedding providers for query feature extraction. Choose the provider that best fits your needs based on cost, quality, and deployment requirements.
 
 ## Quick Comparison
 
@@ -13,7 +13,7 @@ The Conduit Router supports multiple embedding providers for query feature extra
 
 ## Default Behavior
 
-**The Conduit Router uses HuggingFace Inference API by default** - no API key or additional dependencies required. This provides a lightweight, free option that works out of the box.
+**Conduit uses HuggingFace Inference API by default** - no API key or additional dependencies required. This provides a lightweight, free option that works out of the box.
 
 ```python
 from conduit.engines.router import Router
@@ -180,7 +180,7 @@ Different providers produce different embedding dimensions:
 | Cohere | embed-english-v3.0 | 1024 |
 | sentence-transformers | all-MiniLM-L6-v2 | 384 |
 
-**Note**: Feature dimensions = embedding_dim + 3 metadata features (token_count, complexity_score, domain_confidence).
+**Note**: Feature dimensions = embedding_dim + 2 metadata features (token_count, complexity_score, domain_confidence).
 
 Conduit automatically handles different embedding dimensions. If using PCA, ensure your PCA model is fitted on embeddings from the same provider.
 

@@ -1,4 +1,4 @@
-# Conduit Router
+# Conduit
 
 [![CI](https://github.com/ashita-ai/conduit/actions/workflows/ci.yml/badge.svg)](https://github.com/ashita-ai/conduit/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/coverage-81%25-brightgreen)](https://github.com/ashita-ai/conduit/actions/workflows/ci.yml)
@@ -82,35 +82,58 @@ git clone https://github.com/ashita-ai/conduit.git
 cd conduit && source .venv/bin/activate || python3.13 -m venv .venv && source .venv/bin/activate
 pip install -e .
 
-# Set API keys (at least one required)
-export OPENAI_API_KEY=sk-...
-export ANTHROPIC_API_KEY=sk-...
+# Set API keys (at least one LLM provider required)
+export OPENAI_API_KEY=sk-...      # For LLMs AND embeddings (recommended)
+export ANTHROPIC_API_KEY=sk-...   # Alternative LLM provider
+
+# Optional: Install local embeddings (if not using OpenAI embeddings)
+# pip install fastembed  # Lightweight option (~100MB)
+# OR
+# pip install sentence-transformers  # Full PyTorch (~2GB)
 
 # Run example
 python examples/01_quickstart/hello_world.py
 ```
+
+**Note**: If you have `OPENAI_API_KEY` set, embeddings work automatically (uses same key for both LLMs and embeddings). No additional setup needed.
 
 ### Full Setup
 
 **Prerequisites**:
 - Python 3.10+ (3.13 recommended)
 - At least one LLM API key (OpenAI, Anthropic, Google, Groq, Mistral, Cohere, AWS Bedrock, HuggingFace)
+- **Embedding provider** (choose one):
+  - **OpenAI API key** (recommended - reuses your LLM key, no additional setup)
+  - **Cohere API key** (alternative API option)
+  - **Local embeddings** (`pip install fastembed` or `pip install sentence-transformers`)
 - Optional: Redis (caching), PostgreSQL (history)
 
 **Configuration** (`.env`):
 ```bash
-# LLM Providers (at least one)
+# LLM Providers (at least one required)
 OPENAI_API_KEY=your_key
 ANTHROPIC_API_KEY=your_key
 
-# Embedding (optional - defaults to free HuggingFace API)
-EMBEDDING_PROVIDER=huggingface  # Options: huggingface, openai, cohere, sentence-transformers
+# Embeddings - Auto-detects in this order:
+# 1. OpenAI (if OPENAI_API_KEY set) - RECOMMENDED, reuses LLM key
+# 2. Cohere (if COHERE_API_KEY set)
+# 3. FastEmbed (if installed via: pip install fastembed)
+# 4. sentence-transformers (if installed via: pip install sentence-transformers)
+EMBEDDING_PROVIDER=auto  # or: openai, cohere, fastembed, sentence-transformers
+
+# If using Cohere for embeddings (separate from LLM provider)
+# COHERE_API_KEY=your_cohere_key
 
 # Optional
 DATABASE_URL=postgresql://postgres:password@localhost:5432/conduit
 REDIS_URL=redis://localhost:6379
 LOG_LEVEL=INFO
 ```
+
+**Embedding Provider Notes**:
+- **Recommended**: Use OpenAI embeddings (no extra setup if you already have `OPENAI_API_KEY`)
+- **No API key options**: Install `fastembed` (~100MB) or `sentence-transformers` (~2GB)
+- **PCA models**: Automatically generated per provider on first use (~5 seconds), then cached
 
 **Database setup** (optional):
 ```bash

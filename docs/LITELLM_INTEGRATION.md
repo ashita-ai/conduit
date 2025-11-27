@@ -1,6 +1,6 @@
 # LiteLLM Integration Status
 
-**Document Purpose**: Implementation status and usage guide for Conduit Router-LiteLLM integration
+**Document Purpose**: Implementation status and usage guide for Conduit-LiteLLM integration
 **Last Updated**: 2025-11-22
 **Status**: Path 1 COMPLETE, Path 2 not started
 
@@ -8,9 +8,9 @@
 
 ## Executive Summary
 
-The Conduit Router integrates with LiteLLM as a native routing strategy, bringing ML-powered model selection to LiteLLM's 100+ provider ecosystem.
+Conduit integrates with LiteLLM as a native routing strategy, bringing ML-powered model selection to LiteLLM's 100+ provider ecosystem.
 
-### Path 1: Conduit Router as LiteLLM Routing Strategy ✅ COMPLETE
+### Path 1: Conduit as LiteLLM Routing Strategy ✅ COMPLETE
 - **Status**: Shipped in `conduit_litellm/` package with feedback loop
 - **Commits**: d7b69cc, ff06a46, c5dd24c, abcae20, [Issue #13 complete]
 - **Features**:
@@ -22,10 +22,10 @@ The Conduit Router integrates with LiteLLM as a native routing strategy, bringin
 - **Usage**: See `conduit_litellm/README.md`
 - **Issues**: All complete ✅
 
-### Path 2: LiteLLM as Conduit Router Execution Backend ❌ NOT STARTED
+### Path 2: LiteLLM as Conduit Execution Backend ❌ NOT STARTED
 - **Status**: Not implemented, no current plans
 - **Reason**: Path 1 provides better strategic value
-- **Alternative**: The Conduit Router continues using PydanticAI (8 providers)
+- **Alternative**: Conduit continues using PydanticAI (8 providers)
 
 ---
 
