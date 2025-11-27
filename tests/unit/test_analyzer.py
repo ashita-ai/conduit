@@ -1,60 +1,10 @@
-"""Unit tests for QueryAnalyzer and DomainClassifier."""
+"""Unit tests for QueryAnalyzer."""
 
 import pytest
 from unittest.mock import Mock, patch
 
-from conduit.engines.analyzer import DomainClassifier, QueryAnalyzer
+from conduit.engines.analyzer import QueryAnalyzer
 from conduit.core.models import QueryFeatures
-
-
-class TestDomainClassifier:
-    """Tests for DomainClassifier."""
-
-    def test_classify_code_domain(self):
-        """Test classification of code-related queries."""
-        classifier = DomainClassifier()
-        domain, confidence = classifier.classify(
-            "Write a function to implement binary search algorithm"
-        )
-
-        assert domain == "code"
-        assert confidence > 0.6
-
-    def test_classify_math_domain(self):
-        """Test classification of math-related queries."""
-        classifier = DomainClassifier()
-        domain, confidence = classifier.classify(
-            "Prove the derivative of x^2 is 2x using first principles"
-        )
-
-        assert domain == "math"
-        assert confidence > 0.6
-
-    def test_classify_science_domain(self):
-        """Test classification of science-related queries."""
-        classifier = DomainClassifier()
-        domain, confidence = classifier.classify("Explain photosynthesis process")
-
-        assert domain == "science"
-        assert confidence > 0.6
-
-    def test_classify_business_domain(self):
-        """Test classification of business-related queries."""
-        classifier = DomainClassifier()
-        domain, confidence = classifier.classify(
-            "Analyze market strategy and revenue growth"
-        )
-
-        assert domain == "business"
-        assert confidence > 0.6
-
-    def test_classify_general_domain(self):
-        """Test classification defaults to general for unclear queries."""
-        classifier = DomainClassifier()
-        domain, confidence = classifier.classify("Tell me about yesterday")
-
-        assert domain == "general"
-        assert confidence == 0.5
 
 
 class TestQueryAnalyzer:
@@ -76,11 +26,10 @@ class TestQueryAnalyzer:
         features = await analyzer.analyze("What is 2+2?")
 
         assert isinstance(features, QueryFeatures)
-        assert len(features.embedding) == 384
+        assert len(features.embedding) in [384, 1536, 1024]  # Allow different embedding providers
         assert features.token_count > 0
         assert 0.0 <= features.complexity_score <= 1.0
         assert features.complexity_score < 0.3  # Simple query
-        assert features.domain_confidence >= 0.0
 
     @pytest.mark.asyncio
     async def test_analyze_complex_query(self):
@@ -99,7 +48,6 @@ class TestQueryAnalyzer:
 
         assert isinstance(features, QueryFeatures)
         assert features.complexity_score > 0.25  # Moderately complex query
-        assert features.domain in ["code", "general"]  # Code or general domain
         assert features.token_count > 20
 
     @pytest.mark.asyncio
@@ -108,7 +56,7 @@ class TestQueryAnalyzer:
         analyzer = QueryAnalyzer()
         features = await analyzer.analyze("Test query")
 
-        assert len(features.embedding) == 384
+        assert len(features.embedding) in [384, 1536, 1024]  # Allow different embedding providers
         assert all(isinstance(x, float) for x in features.embedding)
 
     @pytest.mark.asyncio

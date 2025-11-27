@@ -14,9 +14,7 @@ def sample_features():
     return QueryFeatures(
         embedding=[0.1, 0.2, 0.3] * 128,  # 384 dimensions
         token_count=50,
-        complexity_score=0.5,
-        domain="code",
-        domain_confidence=0.8,
+        complexity_score=0.5
     )
 
 
@@ -44,8 +42,7 @@ class TestQueryHistoryEntry:
             embedding=[0.1, 0.2, 0.3],
             timestamp=100.0,
             user_id="user_abc",
-            model_used="gpt-4o-mini",
-        )
+            model_used="gpt-4o-mini")
 
         assert entry.query_id == "q123"
         assert entry.query_text == "What is Python?"
@@ -60,8 +57,7 @@ class TestQueryHistoryEntry:
             query_text="Test",
             embedding=[0.1],
             timestamp=100.0,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         assert entry.model_used is None
 
@@ -98,8 +94,7 @@ class TestQueryHistoryTrackerAddQuery:
             query_text="What is Python?",
             features=sample_features,
             user_id="user_abc",
-            model_used="gpt-4o-mini",
-        )
+            model_used="gpt-4o-mini")
 
         assert result is True
         # Verify Redis setex was called
@@ -114,8 +109,7 @@ class TestQueryHistoryTrackerAddQuery:
             query_id="q123",
             query_text="Test",
             features=sample_features,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         assert result is False
 
@@ -129,8 +123,7 @@ class TestQueryHistoryTrackerAddQuery:
             query_id="q123",
             query_text="Test",
             features=sample_features,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         assert result is False
 
@@ -144,8 +137,7 @@ class TestQueryHistoryTrackerAddQuery:
             query_id="q123",
             query_text="Test",
             features=sample_features,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         assert result is False
 
@@ -179,15 +171,13 @@ class TestQueryHistoryTrackerGetRecent:
             query_text="Query 1",
             embedding=[0.1],
             timestamp=100.0,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
         entry2 = QueryHistoryEntry(
             query_id="q456",
             query_text="Query 2",
             embedding=[0.2],
             timestamp=200.0,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         mock_redis.get.side_effect = [
             entry2.model_dump_json(),
@@ -209,8 +199,7 @@ class TestQueryHistoryTrackerGetRecent:
             query_text="Test",
             embedding=[0.1],
             timestamp=100.0,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
         mock_redis.get.return_value = entry.model_dump_json()
 
         result = await history_tracker.get_recent_queries("user_abc", limit=2)
@@ -234,8 +223,7 @@ class TestQueryHistoryTrackerFindSimilar:
         tracker = QueryHistoryTracker(redis=None)
         result = await tracker.find_similar_query(
             current_embedding=[0.5],
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         assert result is None
 
@@ -245,8 +233,7 @@ class TestQueryHistoryTrackerFindSimilar:
 
         result = await history_tracker.find_similar_query(
             current_embedding=[0.5],
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         assert result is None
 
@@ -257,8 +244,7 @@ class TestQueryHistoryTrackerFindSimilar:
             query_text="Different query",
             embedding=[1.0, 0.0, 0.0],  # Orthogonal to current
             timestamp=100.0,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         mock_redis.zrangebyscore.return_value = [b"q123"]
         mock_redis.get.return_value = entry.model_dump_json()
@@ -266,8 +252,7 @@ class TestQueryHistoryTrackerFindSimilar:
         result = await history_tracker.find_similar_query(
             current_embedding=[0.0, 1.0, 0.0],  # Different direction
             user_id="user_abc",
-            similarity_threshold=0.85,
-        )
+            similarity_threshold=0.85)
 
         assert result is None
 
@@ -279,8 +264,7 @@ class TestQueryHistoryTrackerFindSimilar:
             query_text="Similar query",
             embedding=[0.9, 0.1, 0.0],
             timestamp=100.0,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         mock_redis.zrangebyscore.return_value = [b"q123"]
         mock_redis.get.return_value = entry.model_dump_json()
@@ -288,8 +272,7 @@ class TestQueryHistoryTrackerFindSimilar:
         result = await history_tracker.find_similar_query(
             current_embedding=[0.95, 0.05, 0.0],  # Very similar
             user_id="user_abc",
-            similarity_threshold=0.85,
-        )
+            similarity_threshold=0.85)
 
         assert result is not None
         assert result.query_id == "q123"
@@ -301,15 +284,13 @@ class TestQueryHistoryTrackerFindSimilar:
             query_text="Somewhat similar",
             embedding=[0.8, 0.2, 0.0],
             timestamp=100.0,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
         entry2 = QueryHistoryEntry(
             query_id="q456",
             query_text="Very similar",
             embedding=[0.95, 0.05, 0.0],
             timestamp=200.0,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         mock_redis.zrangebyscore.return_value = [b"q123", b"q456"]
         mock_redis.get.side_effect = [
@@ -320,8 +301,7 @@ class TestQueryHistoryTrackerFindSimilar:
         result = await history_tracker.find_similar_query(
             current_embedding=[1.0, 0.0, 0.0],
             user_id="user_abc",
-            similarity_threshold=0.7,
-        )
+            similarity_threshold=0.7)
 
         assert result is not None
         assert result.query_id == "q456"  # Better match

@@ -76,8 +76,7 @@ class TestFeedbackValidation:
                 provider="openai",
                 model_name="gpt-4o-mini",
                 cost_per_input_token=0.00015,
-                cost_per_output_token=0.0006,
-            )
+                cost_per_output_token=0.0006)
         ]
 
         bandit = LinUCBBandit(test_arms)
@@ -87,8 +86,7 @@ class TestFeedbackValidation:
                 model_id="gpt-4o-mini",
                 cost=-0.01,  # Invalid: negative cost
                 quality_score=0.8,
-                latency=1.0,
-            )
+                latency=1.0)
 
     @pytest.mark.asyncio
     async def test_quality_score_out_of_range(self):
@@ -98,16 +96,14 @@ class TestFeedbackValidation:
                 model_id="gpt-4o-mini",
                 cost=0.001,
                 quality_score=1.5,  # Invalid: > 1.0
-                latency=1.0,
-            )
+                latency=1.0)
 
         with pytest.raises(ValidationError):
             BanditFeedback(
                 model_id="gpt-4o-mini",
                 cost=0.001,
                 quality_score=-0.2,  # Invalid: < 0.0
-                latency=1.0,
-            )
+                latency=1.0)
 
     @pytest.mark.asyncio
     async def test_negative_latency_raises_validation_error(self):
@@ -147,7 +143,7 @@ class TestConcurrentUpdates:
     @pytest.mark.asyncio
     async def test_concurrent_feedback_updates(self, test_arms, test_features):
         """Concurrent feedback updates should maintain state consistency."""
-        bandit = LinUCBBandit(test_arms, feature_dim=387)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         # Create 100 concurrent feedback updates
         feedbacks = [
@@ -155,8 +151,7 @@ class TestConcurrentUpdates:
                 model_id=test_arms[i % len(test_arms)].model_id,
                 cost=0.001,
                 quality_score=0.8,
-                latency=1.0,
-            )
+                latency=1.0)
             for i in range(100)
         ]
 
@@ -169,7 +164,7 @@ class TestConcurrentUpdates:
             A = bandit.A[arm.model_id]
 
             # A should still be square matrix
-            assert A.shape == (387, 387)
+            assert A.shape == (386, 386)
 
             # A should be symmetric (approximately, due to floating point)
             assert np.allclose(A, A.T, rtol=1e-10)
@@ -217,7 +212,7 @@ class TestStateConsistency:
     @pytest.mark.asyncio
     async def test_bandit_state_after_many_updates(self, test_arms, test_features):
         """After many updates, bandit state should remain valid."""
-        bandit = LinUCBBandit(test_arms, feature_dim=387)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         # Perform 1000 updates
         for i in range(1000):
@@ -226,8 +221,7 @@ class TestStateConsistency:
                 model_id=arm.model_id,
                 cost=0.001 * (i % 10),
                 quality_score=0.5 + (i % 5) * 0.1,
-                latency=1.0 + (i % 3) * 0.5,
-            )
+                latency=1.0 + (i % 3) * 0.5)
             await bandit.update(feedback, test_features)
 
         # State should still be valid
@@ -250,15 +244,13 @@ class TestStateConsistency:
     @pytest.mark.asyncio
     async def test_zero_feature_vector_handling(self, test_arms):
         """Bandit should handle zero feature vector without crashing."""
-        bandit = LinUCBBandit(test_arms, feature_dim=387)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         # Create zero feature vector
         zero_features = QueryFeatures(
             embedding=[0.0] * 384,
             token_count=0,
-            complexity_score=0.0,
-            domain="unknown",
-            domain_confidence=0.0,
+            complexity_score=0.0
         )
 
         # Should not crash on selection
@@ -270,8 +262,7 @@ class TestStateConsistency:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.8,
-            latency=1.0,
-        )
+            latency=1.0)
         await bandit.update(feedback, zero_features)
 
 
@@ -290,24 +281,21 @@ def test_arms() -> list[ModelArm]:
             provider="openai",
             cost_per_input_token=0.00011,
             cost_per_output_token=0.00044,
-            expected_quality=0.7,
-        ),
+            expected_quality=0.7),
         ModelArm(
             model_id="gpt-5.1",
             model_name="gpt-5.1",
             provider="openai",
             cost_per_input_token=0.002,
             cost_per_output_token=0.008,
-            expected_quality=0.9,
-        ),
+            expected_quality=0.9),
         ModelArm(
             model_id="claude-haiku-4-5-20241124",
             model_name="claude-haiku-4-5",
             provider="anthropic",
             cost_per_input_token=0.0008,
             cost_per_output_token=0.004,
-            expected_quality=0.75,
-        ),
+            expected_quality=0.75),
     ]
 
 
@@ -317,7 +305,5 @@ def test_features() -> QueryFeatures:
     return QueryFeatures(
         embedding=[0.1] * 384,
         token_count=50,
-        complexity_score=0.5,
-        domain="general",
-        domain_confidence=0.8,
+        complexity_score=0.5
     )

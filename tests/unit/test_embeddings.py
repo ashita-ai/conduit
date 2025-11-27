@@ -123,7 +123,11 @@ async def test_fastembed_provider():
     except ImportError:
         pytest.skip("fastembed not installed")
 
-    provider = FastEmbedProvider()
+    try:
+        provider = FastEmbedProvider()
+    except ImportError:
+        pytest.skip("fastembed not installed")
+
     assert provider.provider_name == "fastembed"
     assert provider.dimension == 384
 
@@ -149,7 +153,11 @@ async def test_fastembed_empty_batch():
     except ImportError:
         pytest.skip("fastembed not installed")
 
-    provider = FastEmbedProvider()
+    try:
+        provider = FastEmbedProvider()
+    except ImportError:
+        pytest.skip("fastembed not installed")
+
     embeddings = await provider.embed_batch([])
     assert embeddings == []
 
@@ -164,11 +172,17 @@ def test_fastembed_model_dimensions():
         pytest.skip("fastembed not installed")
 
     # Test default model
-    provider_small = FastEmbedProvider("BAAI/bge-small-en-v1.5")
+    try:
+        provider_small = FastEmbedProvider("BAAI/bge-small-en-v1.5")
+    except ImportError:
+        pytest.skip("fastembed not installed")
     assert provider_small.dimension == 384
 
     # Test base model
-    provider_base = FastEmbedProvider("BAAI/bge-base-en-v1.5")
+    try:
+        provider_base = FastEmbedProvider("BAAI/bge-base-en-v1.5")
+    except ImportError:
+        pytest.skip("fastembed not installed")
     assert provider_base.dimension == 768
 
 

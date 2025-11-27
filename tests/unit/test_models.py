@@ -14,9 +14,7 @@ from conduit.core.models import (
     QueryFeatures,
     Response,
     RoutingDecision,
-    RoutingResult,
-)
-
+    RoutingResult)
 
 class TestQueryConstraints:
     """Tests for QueryConstraints model."""
@@ -47,7 +45,6 @@ class TestQueryConstraints:
         with pytest.raises(ValidationError):
             QueryConstraints(min_quality=-0.1)
 
-
 class TestQuery:
     """Tests for Query model."""
 
@@ -76,7 +73,6 @@ class TestQuery:
         assert query.constraints is not None
         assert query.constraints.max_cost == 0.01
 
-
 class TestQueryFeatures:
     """Tests for QueryFeatures model."""
 
@@ -86,15 +82,11 @@ class TestQueryFeatures:
         features = QueryFeatures(
             embedding=embedding,
             token_count=10,
-            complexity_score=0.5,
-            domain="code",
-            domain_confidence=0.9,
+            complexity_score=0.5
         )
         assert len(features.embedding) == 384
         assert features.token_count == 10
         assert features.complexity_score == 0.5
-        assert features.domain == "code"
-        assert features.domain_confidence == 0.9
 
     def test_variable_embedding_length(self):
         """Test embedding accepts variable dimensions for different models."""
@@ -102,18 +94,14 @@ class TestQueryFeatures:
         features_small = QueryFeatures(
             embedding=[0.1] * 100,  # Small embedding (e.g., distilbert)
             token_count=10,
-            complexity_score=0.5,
-            domain="code",
-            domain_confidence=0.9,
+            complexity_score=0.5
         )
         assert len(features_small.embedding) == 100
 
         features_large = QueryFeatures(
             embedding=[0.1] * 768,  # Large embedding (e.g., BERT)
             token_count=10,
-            complexity_score=0.5,
-            domain="code",
-            domain_confidence=0.9,
+            complexity_score=0.5
         )
         assert len(features_large.embedding) == 768
 
@@ -125,10 +113,7 @@ class TestQueryFeatures:
                 embedding=embedding,
                 token_count=10,
                 complexity_score=1.5,  # Out of range
-                domain="code",
-                domain_confidence=0.9,
             )
-
 
 class TestRoutingDecision:
     """Tests for RoutingDecision model."""
@@ -139,22 +124,18 @@ class TestRoutingDecision:
         features = QueryFeatures(
             embedding=embedding,
             token_count=10,
-            complexity_score=0.5,
-            domain="code",
-            domain_confidence=0.9,
+            complexity_score=0.5
         )
         decision = RoutingDecision(
             query_id="query123",
             selected_model="gpt-4o-mini",
             confidence=0.87,
             features=features,
-            reasoning="Simple query, low cost model selected",
-        )
+            reasoning="Simple query, low cost model selected")
         assert decision.query_id == "query123"
         assert decision.selected_model == "gpt-4o-mini"
         assert decision.confidence == 0.87
         assert decision.features == features
-
 
 class TestResponse:
     """Tests for Response model."""
@@ -167,8 +148,7 @@ class TestResponse:
             text='{"answer": "Paris"}',
             cost=0.0002,
             latency=1.2,
-            tokens=15,
-        )
+            tokens=15)
         assert response.query_id == "query123"
         assert response.model == "gpt-4o-mini"
         assert response.cost == 0.0002
@@ -184,9 +164,7 @@ class TestResponse:
                 text="result",
                 cost=-0.01,  # Invalid
                 latency=1.0,
-                tokens=10,
-            )
-
+                tokens=10)
 
 class TestFeedback:
     """Tests for Feedback model."""
@@ -198,8 +176,7 @@ class TestFeedback:
             quality_score=0.95,
             user_rating=5,
             met_expectations=True,
-            comments="Perfect answer",
-        )
+            comments="Perfect answer")
         assert feedback.response_id == "resp123"
         assert feedback.quality_score == 0.95
         assert feedback.user_rating == 5
@@ -221,9 +198,7 @@ class TestFeedback:
                 response_id="resp123",
                 quality_score=0.8,
                 user_rating=6,  # Out of range
-                met_expectations=True,
-            )
-
+                met_expectations=True)
 
 class TestModelState:
     """Tests for ModelState model."""
@@ -236,8 +211,7 @@ class TestModelState:
             beta=5.2,
             total_requests=100,
             total_cost=1.25,
-            avg_quality=0.87,
-        )
+            avg_quality=0.87)
         assert state.model_id == "gpt-4o-mini"
         assert state.alpha == 10.5
         assert state.beta == 5.2
@@ -267,7 +241,6 @@ class TestModelState:
         expected_variance = (10.0 * 5.0) / (ab * ab * (ab + 1))
         assert state.variance == pytest.approx(expected_variance)
 
-
 class TestRoutingResult:
     """Tests for RoutingResult model."""
 
@@ -281,25 +254,21 @@ class TestRoutingResult:
             text='{"answer": "Paris", "confidence": 0.99}',
             cost=0.0002,
             latency=1.2,
-            tokens=15,
-        )
+            tokens=15)
 
         # Create routing decision
         embedding = [0.1] * 384
         features = QueryFeatures(
             embedding=embedding,
             token_count=10,
-            complexity_score=0.3,
-            domain="general",
-            domain_confidence=0.8,
+            complexity_score=0.3
         )
         routing = RoutingDecision(
             query_id="query123",
             selected_model="gpt-4o-mini",
             confidence=0.87,
             features=features,
-            reasoning="Simple query",
-        )
+            reasoning="Simple query")
 
         # Create result
         result = RoutingResult.from_response(response, routing)

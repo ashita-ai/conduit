@@ -79,7 +79,16 @@ class Query(BaseModel):
 
 
 class QueryFeatures(BaseModel):
-    """Extracted features from query for routing decision."""
+    """Extracted features from query for routing decision.
+
+    Feature vector structure (386 dims total):
+    - embedding: 384 dimensions (semantic vector from sentence-transformers)
+    - token_count: 1 dimension (normalized word count estimation)
+    - complexity_score: 1 dimension (0.0-1.0, regex-based analysis)
+
+    Note: Domain classification features removed (were placeholder keyword matching).
+    The embedding already captures semantic domain information implicitly.
+    """
 
     embedding: list[float] = Field(
         ..., description="Semantic embedding vector (dimension depends on model)"
@@ -88,9 +97,8 @@ class QueryFeatures(BaseModel):
     complexity_score: float = Field(
         ..., description="Complexity score (0.0-1.0)", ge=0.0, le=1.0
     )
-    domain: str = Field(..., description="Query domain classification")
-    domain_confidence: float = Field(
-        ..., description="Domain classification confidence", ge=0.0, le=1.0
+    query_text: str | None = Field(
+        None, description="Original query text (for context detection)"
     )
 
 

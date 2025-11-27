@@ -21,7 +21,6 @@ Usage:
 import asyncio
 
 from conduit.core.models import Query
-from conduit.engines.analyzer import QueryAnalyzer
 from conduit.engines.bandits.base import BanditFeedback
 from conduit.engines.hybrid_router import HybridRouter
 
@@ -34,12 +33,12 @@ async def main():
     print("=" * 80)
     print()
 
-    # Initialize hybrid router
+    # Initialize hybrid router with custom parameters for demo
     models = ["o4-mini", "gpt-5.1", "claude-sonnet-4.5"]
     router = HybridRouter(
         models=models,
         switch_threshold=15,  # Low threshold for demo (production: 2000)
-        feature_dim=387,  # 384 embedding + 3 metadata
+        feature_dim=386,  # 384 embedding + 2 metadata
         ucb1_c=2.0,  # Higher exploration parameter for demo
         linucb_alpha=2.0,  # Higher exploration parameter for demo
     )
@@ -48,9 +47,6 @@ async def main():
     print(f"Switch threshold: {router.switch_threshold} queries")
     print(f"Current phase: {router.current_phase}")
     print()
-
-    # Create analyzer for LinUCB phase (UCB1 doesn't need features)
-    analyzer = QueryAnalyzer()
 
     # Diverse test queries for UCB1 phase
     ucb1_queries = [
@@ -149,9 +145,8 @@ async def main():
             latency=1.0 + random.uniform(-0.2, 0.2),
         )
 
-        # LinUCB requires features for update
-        features = await analyzer.analyze(query_text)
-        await router.update(feedback, features)
+        # Update with features from routing decision
+        await router.update(feedback, decision.features)
 
     print()
     print("=" * 80)
@@ -198,8 +193,8 @@ async def main():
     print("=" * 80)
     print()
     print("Sample Requirements Comparison:")
-    print(f"  Pure LinUCB (387 dims):      10,000-15,000 queries")
-    print(f"  Hybrid (387 dims):            2,000-3,000 queries  (30% faster)")
+    print(f"  Pure LinUCB (386 dims):      10,000-15,000 queries")
+    print(f"  Hybrid (386 dims):            2,000-3,000 queries  (30% faster)")
     print(f"  Hybrid + PCA (67 dims):       1,500-2,500 queries  (75% + 30% reduction)")
     print()
     print("Cold Start Performance:")

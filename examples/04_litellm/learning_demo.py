@@ -29,7 +29,6 @@ from conduit.engines.bandits.base import ModelArm, BanditFeedback
 from conduit.core.models import QueryFeatures
 from conduit.core.config import get_fallback_pricing, get_default_pricing
 
-
 # Check for available API keys
 def get_available_models() -> list[dict[str, Any]]:
     """Get list of available models based on API keys."""
@@ -74,13 +73,11 @@ def get_available_models() -> list[dict[str, Any]]:
 
     return models
 
-
 class Answer(BaseModel):
     """Simple answer model for LLM responses."""
 
     answer: str
     confidence: float
-
 
 # Test queries covering different complexity levels
 TEST_QUERIES = [
@@ -101,7 +98,6 @@ TEST_QUERIES = [
     {"text": "How many legs does a spider have?", "domain": "simple_qa", "expected_answer_contains": "8"},
 ]
 
-
 def create_features(query: dict) -> QueryFeatures:
     """Create query features for routing decision."""
     # Simple embedding based on domain (in production, use sentence-transformers)
@@ -120,14 +116,13 @@ def create_features(query: dict) -> QueryFeatures:
         for i in range(256, 384):
             embedding[i] += 0.5
 
-    return QueryFeatures(
+    return QueryFeatures(query_text="test query", 
         embedding=embedding,
         token_count=len(query["text"].split()) * 2,
         complexity_score=0.3 if domain == "simple_qa" else 0.7,
         domain=domain,
         domain_confidence=0.9,
     )
-
 
 async def call_llm(model_id: str, provider: str, prompt: str) -> tuple[str, float, float]:
     """Call LLM and return (response, cost, latency).
@@ -175,7 +170,6 @@ async def call_llm(model_id: str, provider: str, prompt: str) -> tuple[str, floa
         latency = time.time() - start_time
         return f"Error: {e}", 0.0, latency
 
-
 def evaluate_response(response: str, expected: str) -> float:
     """Simple quality evaluation (0-1 scale).
 
@@ -187,7 +181,6 @@ def evaluate_response(response: str, expected: str) -> float:
         return 0.1   # Error response
     else:
         return 0.7   # Plausible response (can't verify without expected)
-
 
 async def run_real_demo():
     """Run the real API learning demonstration."""
@@ -231,7 +224,7 @@ async def run_real_demo():
         ))
 
     # Initialize bandit
-    bandit = LinUCBBandit(arms=arms, alpha=1.5, feature_dim=387)
+    bandit = LinUCBBandit(arms=arms, alpha=1.5, feature_dim=386)
 
     print(f"Initialized LinUCB bandit with {len(arms)} arms")
     print()
@@ -333,7 +326,6 @@ async def run_real_demo():
     print("Conduit learned from real feedback to optimize model selection!")
     print("Run more queries to see the bandit converge to optimal routing.")
     print("=" * 70)
-
 
 if __name__ == "__main__":
     asyncio.run(run_real_demo())

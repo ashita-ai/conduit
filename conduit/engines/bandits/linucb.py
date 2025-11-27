@@ -74,7 +74,7 @@ class LinUCBBandit(BanditAlgorithm):
         Args:
             arms: List of available model arms
             alpha: Exploration parameter (higher = more exploration, default: LINUCB_ALPHA_DEFAULT)
-            feature_dim: Dimensionality of context features (default: 387)
+            feature_dim: Dimensionality of context features (default: 386)
             random_seed: Random seed for reproducibility (not used in LinUCB)
             reward_weights: Multi-objective reward weights. If None, uses defaults
                 (quality: 0.70, cost: 0.20, latency: 0.10)
@@ -162,9 +162,7 @@ class LinUCBBandit(BanditAlgorithm):
             ...     embedding=[0.1] * 384,
             ...     token_count=10,
             ...     complexity_score=0.5,
-            ...     domain="general",
-            ...     domain_confidence=0.8
-            ... )
+            ...     domain="general",            ... )
             >>> arm = await bandit.select_arm(features)
             >>> print(arm.model_id)
             "openai:gpt-4o"

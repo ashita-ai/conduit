@@ -64,7 +64,7 @@ class HybridRouter:
         models: list[str],
         switch_threshold: int = 2000,
         analyzer: QueryAnalyzer | None = None,
-        feature_dim: int = 387,
+        feature_dim: int = 386,
         ucb1_c: float = 1.5,
         linucb_alpha: float = 1.0,
         reward_weights: dict[str, float] | None = None,
@@ -76,22 +76,22 @@ class HybridRouter:
             models: List of model IDs to route between
             switch_threshold: Query count to switch from UCB1 to LinUCB (default: 0 = start with LinUCB)
             analyzer: Query analyzer for feature extraction (created if None)
-            feature_dim: Feature dimensionality for LinUCB (default: 387, or 67 with PCA)
+            feature_dim: Feature dimensionality for LinUCB (default: 386, or 66 with PCA)
             ucb1_c: UCB1 exploration parameter (default: 1.5)
             linucb_alpha: LinUCB exploration parameter (default: 1.0)
             reward_weights: Multi-objective reward weights (quality, cost, latency)
             window_size: Sliding window size for non-stationarity (default: 0)
 
         Example:
-            >>> # Standard 387-dim features
+            >>> # Standard 386-dim features
             >>> router1 = HybridRouter(models=["gpt-4o-mini", "gpt-4o"])
             >>>
-            >>> # With PCA (67-dim features)
+            >>> # With PCA (66-dim features)
             >>> analyzer_pca = QueryAnalyzer(use_pca=True, pca_dimensions=64)
             >>> router2 = HybridRouter(
             ...     models=["gpt-4o-mini", "gpt-4o"],
             ...     analyzer=analyzer_pca,
-            ...     feature_dim=67,  # 64 + 3 metadata
+            ...     feature_dim=66,  # 64 + 2 metadata
             ...     window_size=1000
             ... )
         """
@@ -193,15 +193,11 @@ class HybridRouter:
                 embedding=[0.0] * 384,
                 token_count=len(query.text.split()),
                 complexity_score=0.5,
-                domain="general",
-                domain_confidence=0.5,
             )
             arm = await self.ucb1.select_arm(dummy_features)
 
-            # Calculate confidence using real domain from features
-            confidence = self._calculate_ucb1_confidence(
-                arm.model_id, features.domain, features.domain_confidence
-            )
+            # Calculate confidence based on pull count
+            confidence = self._calculate_ucb1_confidence(arm.model_id)
 
             return RoutingDecision(
                 query_id=query.id,
@@ -220,10 +216,8 @@ class HybridRouter:
             features = await self.analyzer.analyze(query.text)
             arm = await self.linucb.select_arm(features)
 
-            # Calculate confidence using context-specific priors + pull count
-            confidence = self._calculate_linucb_confidence(
-                arm.model_id, features.domain, features.domain_confidence
-            )
+            # Calculate confidence based on pull count
+            confidence = self._calculate_linucb_confidence(arm.model_id)
 
             return RoutingDecision(
                 query_id=query.id,
@@ -257,8 +251,6 @@ class HybridRouter:
                 embedding=[0.0] * 384,
                 token_count=0,
                 complexity_score=0.5,
-                domain="general",
-                domain_confidence=0.5,
             )
             await self.ucb1.update(feedback, dummy_features)
         else:
@@ -313,108 +305,41 @@ class HybridRouter:
         self.current_phase = "linucb"
         logger.info("Transition complete. Now using LinUCB with contextual features.")
 
-    def _calculate_ucb1_confidence(
-        self, model_id: str, domain: str, domain_confidence: float
-    ) -> float:
-        """Calculate confidence for UCB1 selection using context priors.
+    def _calculate_ucb1_confidence(self, model_id: str) -> float:
+        """Calculate confidence for UCB1 selection based on pull count.
 
         Args:
             model_id: Selected model ID
-            domain: Query domain for prior lookup
-            domain_confidence: Confidence in domain detection (0.0-1.0)
 
         Returns:
-            Confidence score (0.0-1.0) blending priors and pull count
+            Confidence score (0.0-1.0) based on number of pulls
         """
         stats = self.ucb1.get_stats()
         pulls = stats["arm_pulls"].get(model_id, 0)
 
-        # 1. Get context-specific prior confidence
-        context_priors = load_context_priors(domain)
-        prior_confidence = 0.5  # Default neutral prior
-
-        if model_id in context_priors:
-            alpha, beta = context_priors[model_id]
-            prior_confidence = alpha / (alpha + beta)
-
-        # 2. Calculate pull-based confidence
+        # Calculate pull-based confidence
         if pulls == 0:
-            pull_confidence = 0.1
+            return 0.1
         else:
             import math
 
-            pull_confidence = min(0.95, 0.1 + 0.25 * math.log10(pulls + 1))
+            return min(0.95, 0.1 + 0.25 * math.log10(pulls + 1))
 
-        # 3. Blend prior and empirical confidence
-        prior_weight = domain_confidence / (1.0 + pulls / 100.0)
-        empirical_weight = 1.0 - prior_weight
-
-        blended_confidence = (
-            prior_weight * prior_confidence + empirical_weight * pull_confidence
-        )
-
-        return min(0.95, blended_confidence)
-
-    def _calculate_linucb_confidence(
-        self, model_id: str, domain: str, domain_confidence: float
-    ) -> float:
-        """Calculate confidence for LinUCB selection using context priors.
-
-        Combines two confidence sources:
-        1. Context-specific Beta priors (domain knowledge)
-        2. Pull-based uncertainty (empirical data)
+    def _calculate_linucb_confidence(self, model_id: str) -> float:
+        """Calculate confidence for LinUCB selection based on pull count.
 
         Args:
             model_id: Selected model ID
-            domain: Query domain (code, creative, analysis, simple_qa, general)
-            domain_confidence: Confidence in domain detection (0.0-1.0)
 
         Returns:
-            Confidence score (0.0-1.0) blending priors and data
-
-        Example:
-            >>> # First query in "code" domain with high domain confidence
-            >>> confidence = router._calculate_linucb_confidence(
-            ...     "gpt-4o", "code", 0.9
-            ... )
-            >>> # Returns ~0.85 (high prior confidence for gpt-4o on code)
-            >>>
-            >>> # After 500 pulls, prior influence decreases
-            >>> confidence = router._calculate_linucb_confidence(
-            ...     "gpt-4o", "code", 0.9
-            ... )
-            >>> # Returns ~0.92 (blend of prior + empirical data)
+            Confidence score (0.0-1.0) based on number of pulls
         """
         stats = self.linucb.get_stats()
         pulls = stats["arm_pulls"].get(model_id, 0)
 
-        # 1. Get context-specific prior confidence
-        context_priors = load_context_priors(domain)
-        prior_confidence = 0.5  # Default neutral prior
-
-        if model_id in context_priors:
-            alpha, beta = context_priors[model_id]
-            # Beta distribution mean = alpha / (alpha + beta)
-            prior_confidence = alpha / (alpha + beta)
-
-        # 2. Calculate pull-based confidence
+        # Calculate pull-based confidence
         # Converges slower (1000 pulls → 0.99) to avoid overconfidence
-        pull_confidence = min(0.99, pulls / 1000.0) if pulls > 0 else 0.1
-
-        # 3. Blend prior and empirical confidence
-        # Early: Rely on priors (weighted by domain_confidence)
-        # Later: Rely on empirical data (as pulls increase)
-        #
-        # Blend weight decays with pulls:
-        # pulls=0 → 100% prior, pulls=100 → 50% prior, pulls=500 → 10% prior
-        prior_weight = domain_confidence / (1.0 + pulls / 100.0)
-        empirical_weight = 1.0 - prior_weight
-
-        blended_confidence = (
-            prior_weight * prior_confidence + empirical_weight * pull_confidence
-        )
-
-        return min(0.99, blended_confidence)
+        return min(0.99, pulls / 1000.0) if pulls > 0 else 0.1
 
     def get_stats(self) -> dict[str, Any]:
         """Get routing statistics.

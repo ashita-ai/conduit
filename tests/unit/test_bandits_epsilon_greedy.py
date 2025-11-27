@@ -72,8 +72,7 @@ class TestEpsilonGreedyBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
 
         # With epsilon=0.5, should see mix of exploitation and exploration
@@ -101,8 +100,7 @@ class TestEpsilonGreedyBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
 
         # With epsilon=0, should always select best arm
@@ -121,8 +119,7 @@ class TestEpsilonGreedyBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=0.8,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
 
         # With epsilon=1, should always explore (random selection)
@@ -146,8 +143,7 @@ class TestEpsilonGreedyBandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
 
         await bandit.update(feedback, test_features)
 
@@ -169,8 +165,7 @@ class TestEpsilonGreedyBandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.8,
-            latency=1.0,
-        )
+            latency=1.0)
         await bandit.update(feedback1, test_features)
         # Composite: 0.8*0.7 + (1/(1+0.001))*0.2 + (1/(1+1.0))*0.1 = 0.8098...
         expected_reward1 = 0.8 * 0.7 + (1 / (1 + 0.001)) * 0.2 + (1 / (1 + 1.0)) * 0.1
@@ -181,8 +176,7 @@ class TestEpsilonGreedyBandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=1.0,
-            latency=1.0,
-        )
+            latency=1.0)
         await bandit.update(feedback2, test_features)
 
         # Mean should be average of two composite rewards
@@ -207,8 +201,7 @@ class TestEpsilonGreedyBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=0.8,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
 
         # Epsilon should have decayed
@@ -230,8 +223,7 @@ class TestEpsilonGreedyBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=0.8,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
 
         # Epsilon should remain constant
@@ -255,8 +247,7 @@ class TestEpsilonGreedyBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
 
             await bandit.update(feedback, test_features)
 
@@ -272,9 +263,7 @@ class TestEpsilonGreedyBandit:
         features = QueryFeatures(
             embedding=[0.1] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8,
+            complexity_score=0.5
         )
 
         # Do some updates (with decay)
@@ -285,8 +274,7 @@ class TestEpsilonGreedyBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=0.9,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, features)
 
         # Epsilon should have decayed

@@ -73,7 +73,7 @@ class DuelingBandit(BanditAlgorithm):
     def __init__(
         self,
         arms: list[ModelArm],
-        feature_dim: int = 387,
+        feature_dim: int = 386,
         exploration_weight: float = 0.1,
         learning_rate: float = 0.01,
         random_seed: int | None = None,
@@ -82,7 +82,7 @@ class DuelingBandit(BanditAlgorithm):
 
         Args:
             arms: List of available model arms
-            feature_dim: Dimensionality of context features (default: 387)
+            feature_dim: Dimensionality of context features (default: 386)
             exploration_weight: Thompson sampling exploration parameter (sigma)
             learning_rate: Gradient descent learning rate
             random_seed: Random seed for reproducibility

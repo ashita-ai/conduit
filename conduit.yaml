@@ -108,12 +108,48 @@ algorithms:
   thompson_sampling:
     lambda: 1.0                   # Regularization parameter (Bayesian prior strength)
 
+# Embedding Provider Configuration
+# Controls how query embeddings are generated for routing decisions
+# Priority: conduit.yaml settings > environment variables > auto-detection
+embeddings:
+  # Provider selection (auto, openai, cohere, fastembed, sentence-transformers, huggingface)
+  # - auto: Auto-detect in priority order (OpenAI → Cohere → FastEmbed → sentence-transformers)
+  # - openai: Requires OPENAI_API_KEY (recommended - reuses LLM key)
+  # - cohere: Requires COHERE_API_KEY
+  # - fastembed: Local ONNX models (~100MB, pip install fastembed)
+  # - sentence-transformers: Local PyTorch models (~2GB, pip install sentence-transformers)
+  # - huggingface: HuggingFace Inference API (requires HF_TOKEN)
+  provider: auto
+
+  # Model selection (provider-specific, null = use provider default)
+  # OpenAI: text-embedding-3-small (1536 dims), text-embedding-3-large (3072 dims)
+  # Cohere: embed-english-v3.0 (1024 dims), embed-multilingual-v3.0 (1024 dims)
+  # FastEmbed: BAAI/bge-small-en-v1.5 (384 dims)
+  # sentence-transformers: all-MiniLM-L6-v2 (384 dims)
+  model: null
+
+  # PCA dimensionality reduction (improves LinUCB convergence)
+  # PCA models are auto-generated per provider on first use (~5 seconds)
+  # and cached at ~/.cache/conduit/pca_{provider}.pkl
+  #
+  # Provider-specific recommendations (variance vs convergence trade-off):
+  #   FastEmbed/sentence-transformers (384-dim): 64 components → 95% variance, ~600 queries
+  #   OpenAI (1536-dim): 128 components → 73% variance, ~1300 queries
+  #                      192 components → 85% variance, ~1900 queries
+  #   Cohere (1024-dim): 96 components → 80% variance, ~1000 queries
+  pca:
+    enabled: true                 # Enable PCA compression
+    components: 128               # Number of principal components (provider-dependent, see above)
+    auto_retrain: true            # Retrain PCA on your workload during UCB1 phase
+    retrain_threshold: 150        # Minimum queries before auto-retraining
+
 # Feature Dimensions
 # Controls dimensionality of feature vectors for bandit algorithms
+# These are auto-calculated based on embedding provider and PCA settings
 features:
-  embedding_dim: 384              # Sentence transformer embedding dimension
-  full_dim: 387                   # Full feature dimension (384 embedding + 3 metadata)
-  pca_dim: 67                     # PCA feature dimension (64 components + 3 metadata)
+  embedding_dim: 384              # Base embedding dimension (provider-dependent)
+  full_dim: 386                   # Full feature dimension (embedding + 2 metadata)
+  pca_dim: 66                     # PCA feature dimension (64 components + 2 metadata)
   token_count_normalization: 1000.0  # Divisor for token count normalization
 
 # Quality Estimation Configuration
@@ -181,8 +217,13 @@ feedback:
 
 # Hybrid Routing Configuration
 # Controls UCB1 (fast warm-start) → LinUCB (contextual) transition
+#
+# Switch threshold should be 5-10x feature dimensionality for LinUCB convergence:
+#   64 PCA components (66 total dims): 500-1000 queries
+#   128 PCA components (130 total dims): 1000-2000 queries
+#   192 PCA components (194 total dims): 1500-3000 queries
 hybrid_routing:
-  switch_threshold: 2000          # Switch to LinUCB after N queries
+  switch_threshold: 2000          # Switch to LinUCB after N queries (adjust based on PCA dims)
   ucb1_c: 1.5                     # UCB1 exploration parameter
   linucb_alpha: 1.0               # LinUCB exploration parameter
 

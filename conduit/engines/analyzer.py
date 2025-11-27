@@ -20,15 +20,15 @@ logger = logging.getLogger(__name__)
 class QueryAnalyzer:
     """Extract semantic and structural features from queries.
 
-    Uses configurable embedding providers (HuggingFace API, OpenAI, Cohere, or
+    Uses configurable embedding providers (OpenAI, Cohere, FastEmbed, or
     sentence-transformers) for embeddings and heuristics for complexity scoring
     and domain classification.
 
     Features caching with Redis for performance optimization of the
     expensive embedding computation (200ms -> 5ms on cache hit).
 
-    Default: HuggingFace Inference API (free, no API key needed)
-    Recommended: OpenAI or Cohere (better quality, requires API keys)
+    Default: Auto-detection (OpenAI → Cohere → FastEmbed → sentence-transformers)
+    Recommended: OpenAI (reuses LLM key, no additional setup)
 
     Contract Guarantees:
         - Thread Safety: Safe for concurrent analyze() calls
@@ -58,19 +58,19 @@ class QueryAnalyzer:
     def __init__(
         self,
         embedding_provider: EmbeddingProvider | None = None,
-        embedding_provider_type: str = "huggingface",
+        embedding_provider_type: str = "auto",  # Default: auto-detect (OpenAI → Cohere → FastEmbed → sentence-transformers)
         embedding_model: str | None = None,
         embedding_api_key: str | None = None,
         cache_service: CacheService | None = None,
         use_pca: bool = False,
-        pca_dimensions: int = 64,
+        pca_dimensions: int = 64,  # Provider-dependent: 64 for 384-dim (95% var), 128+ for 1536-dim (73%+ var)
         pca_model_path: str = "models/pca.pkl",
     ):
         """Initialize analyzer with embedding provider and optional cache.
 
         Args:
             embedding_provider: Pre-configured embedding provider (optional)
-            embedding_provider_type: Provider type ("huggingface", "openai", "cohere", "sentence-transformers")
+            embedding_provider_type: Provider type ("auto", "openai", "cohere", "fastembed", "sentence-transformers")
             embedding_model: Model identifier (provider-specific, optional)
             embedding_api_key: API key for providers that require it (optional)
             cache_service: Optional cache service for feature caching
@@ -79,21 +79,18 @@ class QueryAnalyzer:
             pca_model_path: Path to fitted PCA model (default: models/pca.pkl)
 
         Example:
-            >>> # Free default (HuggingFace API, no API key needed)
+            >>> # Auto-detection (default, uses OpenAI if OPENAI_API_KEY present)
             >>> analyzer = QueryAnalyzer()
             >>>
-            >>> # OpenAI (recommended for production)
+            >>> # Explicit OpenAI (recommended for production)
             >>> analyzer = QueryAnalyzer(
             ...     embedding_provider_type="openai",
             ...     embedding_model="text-embedding-3-small",
             ...     embedding_api_key="sk-..."
             ... )
             >>>
-            >>> # Cohere (recommended for production)
-            >>> analyzer = QueryAnalyzer(
-            ...     embedding_provider_type="cohere",
-            ...     embedding_api_key="..."
-            ... )
+            >>> # Local embeddings (no API key needed)
+            >>> analyzer = QueryAnalyzer(embedding_provider_type="fastembed")
             >>>
             >>> # Reduced 64-dim embeddings with PCA
             >>> analyzer = QueryAnalyzer(use_pca=True, pca_dimensions=64)
@@ -109,7 +106,6 @@ class QueryAnalyzer:
                 api_key=embedding_api_key,
             )
 
-        self.domain_classifier = DomainClassifier()
         self.cache = cache_service
 
         # PCA configuration
@@ -123,6 +119,9 @@ class QueryAnalyzer:
             from sklearn.decomposition import PCA  # type: ignore[import-untyped]
 
             # Try to load pre-fitted PCA model
+            # Note: PCA models are provider-specific (different variance for different embedding dims)
+            # OpenAI (1536-dim): 64 comp = 57% var, 128 = 73%, 192 = 85%, 418 = 95%
+            # FastEmbed (384-dim): 64 comp = 95% var (excellent compression)
             self.pca = self._load_pca()
             if self.pca is None:
                 # Create new PCA (needs fitting before use)
@@ -203,15 +202,11 @@ class QueryAnalyzer:
         # Compute complexity score (0.0-1.0)
         complexity_score = self._compute_complexity(query, token_count)
 
-        # Classify domain
-        domain, domain_confidence = self.domain_classifier.classify(query)
-
         features = QueryFeatures(
             embedding=embedding_list,
             token_count=token_count,
             complexity_score=complexity_score,
-            domain=domain,
-            domain_confidence=domain_confidence,
+            query_text=query,
         )
 
         # Store in cache for future requests
@@ -370,145 +365,27 @@ class QueryAnalyzer:
         """Get total feature dimensionality (embedding + metadata).
 
         Returns:
-            Total feature dimensions (embedding_dim + 3 metadata)
+            Total feature dimensions (embedding_dim + 2 metadata)
 
         Example:
             >>> # Without PCA
             >>> analyzer = QueryAnalyzer()
             >>> analyzer.feature_dim
-            387  # 384 + 3 (HuggingFace default)
+            386  # 384 + 2 (HuggingFace default)
 
             >>> # With PCA
             >>> analyzer = QueryAnalyzer(use_pca=True, pca_dimensions=64)
             >>> analyzer.feature_dim
-            67  # 64 + 3
+            66  # 64 + 2
 
             >>> # OpenAI embeddings (1536 dims)
             >>> analyzer = QueryAnalyzer(embedding_provider_type="openai")
             >>> analyzer.feature_dim
-            1539  # 1536 + 3
+            1538  # 1536 + 2
         """
         if self.use_pca:
             embedding_dim = self.pca_dimensions
         else:
             embedding_dim = self.embedding_provider.dimension
-        metadata_dim = 3  # token_count, complexity_score, domain_confidence
+        metadata_dim = 2  # token_count, complexity_score
         return embedding_dim + metadata_dim
-
-
-class DomainClassifier:
-    """Classify query domain using keyword matching.
-
-    Simple keyword-based classifier for Phase 1.
-    Phase 2+ will use ML-based classification.
-    """
-
-    DOMAIN_KEYWORDS = {
-        "code": [
-            "function",
-            "class",
-            "algorithm",
-            "implementation",
-            "debug",
-            "refactor",
-            "code",
-            "programming",
-            "python",
-            "javascript",
-            "java",
-        ],
-        "analysis": [
-            "analyze",
-            "evaluation",
-            "compare",
-            "pros",
-            "cons",
-            "advantages",
-            "disadvantages",
-            "assessment",
-            "review",
-            "examine",
-        ],
-        "simple_qa": [
-            "what is",
-            "who is",
-            "when",
-            "where",
-            "capital",
-            "define",
-            "explain simply",
-            "quick question",
-        ],
-        "math": [
-            "equation",
-            "formula",
-            "theorem",
-            "proof",
-            "calculate",
-            "derivative",
-            "integral",
-        ],
-        "science": [
-            "photosynthesis",
-            "molecule",
-            "experiment",
-            "hypothesis",
-            "theory",
-            "evolution",
-        ],
-        "business": [
-            "revenue",
-            "strategy",
-            "market",
-            "customer",
-            "profit",
-            "growth",
-            "ROI",
-        ],
-        "creative": [
-            "story",
-            "poem",
-            "creative",
-            "imagine",
-            "describe",
-            "brainstorm",
-        ],
-        "general": [],  # Default fallback
-    }
-
-    def classify(self, query: str) -> tuple[str, float]:
-        """Classify query domain using keyword matching.
-
-        Args:
-            query: User query text
-
-        Returns:
-            Tuple of (domain, confidence)
-
-        Example:
-            >>> classifier = DomainClassifier()
-            >>> domain, confidence = classifier.classify("Write a function to sort numbers")
-            >>> domain
-            "code"
-            >>> confidence > 0.7
-            True
-        """
-        query_lower = query.lower()
-        domain_scores: dict[str, int] = dict.fromkeys(self.DOMAIN_KEYWORDS, 0)
-
-        # Count keyword matches per domain
-        for domain, keywords in self.DOMAIN_KEYWORDS.items():
-            for keyword in keywords:
-                if keyword in query_lower:
-                    domain_scores[domain] += 1
-
-        # Find domain with highest score
-        max_score = max(domain_scores.values())
-
-        if max_score == 0:
-            return ("general", 0.5)  # Default domain with medium confidence
-
-        best_domain = max(domain_scores, key=domain_scores.get)  # type: ignore
-        confidence = min(1.0, 0.6 + (max_score * 0.1))  # 0.6-1.0 range
-
-        return (best_domain, confidence)
