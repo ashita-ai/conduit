@@ -338,6 +338,27 @@ uv run python examples/01_quickstart/hello_world.py
 uv run python examples/02_routing/basic_routing.py
 ```
 
+### CI/CD Testing Strategy
+
+**GitHub Actions runs different tests based on context:**
+
+```yaml
+# Pull Requests: Fast feedback (~1-2min)
+- Fast tests only (no coverage overhead)
+- Skips slow concurrency tests
+- Command: pytest -m "not slow and not downloads_models and not requires_api_key"
+
+# Main branch & Release tags: Full quality assurance (~5min)
+- Complete test suite with coverage
+- Includes slow concurrency tests
+- Command: pytest --cov=conduit --cov-fail-under=80
+```
+
+**Why this matters:**
+- PRs get fast feedback for iterative development
+- Releases get comprehensive coverage validation
+- Balances speed and quality appropriately
+
 ---
 
 ## Model Reference (Current as of 2025-11-25)

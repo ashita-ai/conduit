@@ -46,15 +46,17 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/conduit_test
         run: uv run alembic upgrade head
 
-      - name: Run fast tests
+      - name: Run fast tests (PRs)
+        if: github.event_name == 'pull_request'
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/conduit_test
         run: uv run pytest tests/ -v --tb=short -m "not slow and not downloads_models and not requires_api_key"
 
-      - name: Check coverage (fast tests only)
+      - name: Run full test suite with coverage (main/releases)
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/conduit_test
-        run: uv run pytest --cov=conduit --cov-report=term-missing --cov-fail-under=80 -m "not slow and not downloads_models and not requires_api_key"
+        run: uv run pytest --cov=conduit --cov-report=term-missing --cov-fail-under=80
 
   lint:
     name: Lint & Format
