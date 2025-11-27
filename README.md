@@ -7,7 +7,16 @@
 
 **Cut your LLM costs 30-50% without sacrificing quality.**
 
-ML-powered routing system that learns which model to use for each type of query. Unlike static rule-based routers, Conduit continuously improves its decisions through feedback loops.
+Smart routing that learns which LLM to use for each type of query. Like a chess engine that improves with every game, Conduit gets better at picking the right model as it sees more queries. Unlike static routers with fixed rules, Conduit adapts to your workload automatically.
+
+## The Problem
+
+You have 5+ LLM options (GPT-4, Claude Opus, Gemini, etc.) with 100x price differences. Most teams either:
+- **Overspend**: Route everything to expensive models "to be safe"
+- **Underspend**: Route everything to cheap models and get poor quality
+- **Manual rules**: Write brittle if/else logic that breaks when models update
+
+There's a better way.
 
 ## Why Conduit?
 
@@ -39,25 +48,29 @@ asyncio.run(main())
 
 ## How It Works
 
+Think of Conduit as a recommendation system for LLMs. It learns from every query which models work best for which tasks.
+
 ```
-Query → Feature Analysis → ML Selection → LLM Provider → Response
-   ↓                                                         ↓
-   └──────────────── Continuous Learning ───────────────────┘
+Query → Analyze → Smart Selection → LLM Provider → Response
+   ↓                                                    ↓
+   └──────────── Learn & Improve ─────────────────────┘
 ```
 
-1. **Analyze**: Extract query features (complexity, domain, embeddings)
-2. **Select**: ML algorithm picks optimal model (balances cost, quality, speed)
+1. **Analyze**: Understand query complexity, domain, and context
+2. **Smart Selection**: Pick optimal model balancing cost, quality, and speed
 3. **Execute**: Route to selected model via PydanticAI or LiteLLM
-4. **Learn**: Collect feedback and improve future decisions
+4. **Learn**: Track what worked and improve future routing decisions
+
+**Under the hood**: Uses contextual bandits (LinUCB, Thompson Sampling) for multi-armed optimization. If you don't know what that means, don't worry - it just works.
 
 ## Key Features
 
-- **ML-Driven Selection**: Contextual bandits (LinUCB, Thompson Sampling) learn from usage patterns
-- **Multi-Objective Optimization**: Balance cost, quality, and latency based on your priorities
+- **Learning System**: Gets smarter with every query, learns your workload patterns automatically
+- **Multi-Objective**: Balance cost, quality, and speed based on what matters to you
 - **100+ LLM Providers**: Direct support for 8 providers, extended via LiteLLM integration
 - **Smart Caching**: 10-40x faster on repeated queries (optional Redis)
-- **User Preferences**: Control optimization per query (balanced, quality-first, cost-first, speed-first)
-- **Zero Configuration**: Auto-detects available models from API keys
+- **Per-Query Control**: Override optimization per query (quality-first, cost-first, speed-first)
+- **Zero Config**: Auto-detects available models from your API keys
 
 ## Installation
 
@@ -147,26 +160,39 @@ examples/
 - **Development**: `AGENTS.md` - Development guidelines and contribution guide
 - **Strategic Decisions**: `notes/2025-11-18_business_panel_analysis.md`
 
-## Comparison with Alternatives
+## Comparison with Routing Alternatives
 
 | Solution | Best For | Learning | Provider Support | Setup Complexity |
 |----------|----------|----------|------------------|------------------|
-| **Conduit** | Cost optimization with quality guarantees | ✅ Continuous ML | 100+ via LiteLLM | Low (5 lines) |
-| **Martian** | Simple routing rules | ❌ Static rules | Limited | Low |
-| **Portkey** | Enterprise features (observability) | ❌ Static rules | 100+ | Medium |
-| **LiteLLM** | Provider abstraction only | ❌ No routing | 100+ | Low |
-| **Manual** | Full control, low volume | ❌ No learning | Any | None |
+| **Conduit** | ML-based cost optimization | ✅ Continuous ML | 100+ via LiteLLM/PydanticAI | Low (5 lines) |
+| **RouteLLM** | Research/custom ML routing | ✅ Requires training data | Custom integration | High |
+| **Martian** | Simple static rules | ❌ Fixed rules | Limited | Low |
+| **Manual if/else** | Full control, low volume | ❌ No learning | Any | None |
 
-**When to choose Conduit**:
-- You want to reduce LLM costs without manual optimization
-- You have queries that vary in complexity
-- You want routing decisions to improve over time
-- You need quality guarantees (not just cheapest model)
+**Not Competitors, We Integrate**:
+- **LiteLLM**: Provider abstraction layer. Conduit uses LiteLLM to access 100+ providers, adds ML routing on top.
+- **Portkey**: Enterprise gateway (teams, SSO, observability). Could run Conduit behind Portkey for ML routing + enterprise features.
+- **LangChain**: LLM orchestration framework. Conduit integrates as a routing component (see `examples/06_integrations/`).
 
-**When to choose alternatives**:
-- You need enterprise features like teams, SSO, compliance (Portkey)
-- You just need provider abstraction without routing (LiteLLM)
-- You have fixed routing rules that don't need learning (Martian)
+Think of it this way: LiteLLM/Portkey are the roads, Conduit is the GPS that picks the best route.
+
+**When Conduit shines**:
+- You're spending $500+/month on LLM APIs (enough volume to benefit)
+- You have 1000+ queries/day with varying complexity
+- You use 3+ different models across your workload
+- You want automatic optimization without writing routing rules
+
+**When NOT to use Conduit** (be honest with yourself):
+- **Single model**: If you only use one model, you don't need routing
+- **Low volume**: <100 queries/day? Simple round-robin is fine
+- **Fixed patterns**: If 100% of queries need the same model, no router helps
+- **Need streaming**: Conduit doesn't support streaming responses yet (post-1.0)
+- **Enterprise compliance**: Need SOC2, teams, SSO? Use Portkey instead
+
+**When to choose routing alternatives**:
+- You have research/custom ML models and training data (→ RouteLLM)
+- You have simple static rules that never change (→ Martian)
+- You want to write all routing logic yourself (→ Manual if/else)
 
 ## Tech Stack
 
