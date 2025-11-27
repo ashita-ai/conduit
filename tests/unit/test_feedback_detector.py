@@ -27,8 +27,7 @@ def detector(mock_history_tracker):
     return ImplicitFeedbackDetector(
         history_tracker=mock_history_tracker,
         retry_similarity_threshold=0.85,
-        retry_time_window_seconds=300.0,
-    )
+        retry_time_window_seconds=300.0)
 
 
 @pytest.fixture
@@ -42,9 +41,7 @@ def sample_features():
     return QueryFeatures(
         embedding=normalized_embedding,
         token_count=50,
-        complexity_score=0.5,
-        domain="general",
-        domain_confidence=0.8,
+        complexity_score=0.5
     )
 
 
@@ -56,8 +53,7 @@ class TestImplicitFeedbackDetector:
         detector = ImplicitFeedbackDetector(
             history_tracker=mock_history_tracker,
             retry_similarity_threshold=0.85,
-            retry_time_window_seconds=300.0,
-        )
+            retry_time_window_seconds=300.0)
 
         assert detector.history == mock_history_tracker
         assert detector.retry_similarity_threshold == 0.85
@@ -81,8 +77,7 @@ class TestImplicitFeedbackDetector:
             execution_error=None,
             request_start_time=start_time,
             response_complete_time=end_time,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         # Verify feedback structure
         assert isinstance(feedback, ImplicitFeedback)
@@ -113,8 +108,7 @@ class TestImplicitFeedbackDetector:
             execution_error="API timeout",
             request_start_time=start_time,
             response_complete_time=end_time,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         assert feedback.error_occurred is True
         assert feedback.error_type is not None
@@ -137,8 +131,7 @@ class TestImplicitFeedbackDetector:
             execution_error=None,
             request_start_time=start_time,
             response_complete_time=end_time,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         assert feedback.latency_seconds == 35.0
         assert feedback.latency_tolerance == "low"
@@ -161,8 +154,7 @@ class TestImplicitFeedbackDetector:
             embedding=normalized_embedding,  # Normalized embedding for cosine similarity
             timestamp=previous_time,
             user_id="user_abc",
-            model_used="gpt-4o-mini",
-        )
+            model_used="gpt-4o-mini")
         mock_history_tracker.find_similar_query = AsyncMock(
             return_value=previous_query
         )
@@ -180,8 +172,7 @@ class TestImplicitFeedbackDetector:
             execution_error=None,
             request_start_time=start_time,
             response_complete_time=end_time,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         assert feedback.retry_detected is True
         assert feedback.retry_delay_seconds is not None
@@ -209,8 +200,7 @@ class TestImplicitFeedbackDetector:
             execution_error=None,
             request_start_time=start_time,
             response_complete_time=end_time,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         assert feedback.retry_detected is False
         assert feedback.retry_delay_seconds is None
@@ -234,8 +224,7 @@ class TestImplicitFeedbackDetector:
             execution_error="Rate limit exceeded",
             request_start_time=start_time,
             response_complete_time=end_time,
-            user_id="user_abc",
-        )
+            user_id="user_abc")
 
         # Both error and latency signals present
         assert feedback.error_occurred is True
@@ -265,8 +254,7 @@ class TestImplicitFeedbackDetector:
             latency_seconds=1.0,
             latency_accepted=True,
             latency_tolerance="high",
-            retry_detected=False,
-        )
+            retry_detected=False)
 
         # Should log without errors
         detector._log_signals(feedback)
@@ -284,8 +272,7 @@ class TestImplicitFeedbackDetector:
             retry_detected=True,
             retry_delay_seconds=60.0,
             similarity_score=0.95,
-            original_query_id="q_prev",
-        )
+            original_query_id="q_prev")
 
         # Should log without errors
         detector._log_signals(feedback)
@@ -300,8 +287,7 @@ class TestImplicitFeedbackDetector:
             latency_seconds=35.0,
             latency_accepted=True,
             latency_tolerance="low",
-            retry_detected=False,
-        )
+            retry_detected=False)
 
         # Should log without errors
         detector._log_signals(feedback)
@@ -316,8 +302,7 @@ class TestImplicitFeedbackDetector:
             latency_seconds=1.5,
             latency_accepted=True,
             latency_tolerance="high",
-            retry_detected=False,
-        )
+            retry_detected=False)
 
         # Should not log anything
         detector._log_signals(feedback)
@@ -327,8 +312,7 @@ class TestImplicitFeedbackDetector:
         detector = ImplicitFeedbackDetector(
             history_tracker=mock_history_tracker,
             retry_similarity_threshold=0.90,
-            retry_time_window_seconds=600.0,
-        )
+            retry_time_window_seconds=600.0)
 
         assert detector.retry_similarity_threshold == 0.90
         assert detector.retry_time_window == 600.0

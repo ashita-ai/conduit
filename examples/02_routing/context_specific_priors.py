@@ -65,7 +65,6 @@ async def main():
         print(f"\n{match_indicator} Query: {query_text[:50]}...")
         print(f"   Expected context: {expected_context}")
         print(f"   Detected context: {detected_context}")
-        print(f"   Domain (from analyzer): {decision.features.domain}")
         print(f"   Selected model: {decision.selected_model}")
         print(f"   Confidence: {decision.confidence:.0%}")
 

@@ -140,7 +140,7 @@ class UCB1Bandit(BanditAlgorithm):
             Selected model arm
 
         Example:
-            >>> features = QueryFeatures(embedding=[0.1]*384, token_count=10, complexity_score=0.5, domain="general", domain_confidence=0.8, query_text="What is 2+2?")
+            >>> features = QueryFeatures(embedding=[0.1]*384, token_count=10, complexity_score=0.5, query_text="What is 2+2?")
             >>> arm = await bandit.select_arm(context)
             >>> print(arm.model_id)
             "openai:gpt-4o-mini"

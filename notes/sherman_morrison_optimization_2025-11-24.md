@@ -7,7 +7,7 @@
 ## Problem
 
 LinUCB computed full matrix inversion (`A_inv = np.linalg.inv(A)`) on every query in `select_arm()`:
-- **Complexity**: O(d³) per query where d=387 (or 67 with PCA)
+- **Complexity**: O(d³) per query where d=386 (or 66 with PCA)
 - **Operations**: ~58 million operations per query for standard features
 - **Impact**: Performance bottleneck at high query volumes (>1000 QPS)
 
@@ -107,11 +107,11 @@ theta = self.A_inv[model_id] @ self.b[model_id]
 
 ### Benchmark (1000 queries)
 
-**Standard features (387 dimensions)**:
+**Standard features (386 dimensions)**:
 - Selection: 3,033 QPS (0.33ms latency)
 - Updates: 1,020 UPS (0.98ms latency)
 
-**PCA features (67 dimensions)**:
+**PCA features (66 dimensions)**:
 - Selection: 11,540 QPS (0.087ms latency)
 - Updates: 9,797 UPS (0.102ms latency)
 

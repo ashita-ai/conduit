@@ -65,8 +65,7 @@ class TestThompsonSamplingBandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.95,  # High quality
-            latency=1.0,
-        )
+            latency=1.0)
 
         await bandit.update(feedback, test_features)
 
@@ -90,8 +89,7 @@ class TestThompsonSamplingBandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.3,  # Low quality
-            latency=1.0,
-        )
+            latency=1.0)
 
         await bandit.update(feedback, test_features)
 
@@ -120,8 +118,7 @@ class TestThompsonSamplingBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
 
             await bandit.update(feedback, test_features)
 
@@ -149,9 +146,7 @@ class TestThompsonSamplingBandit:
         features = QueryFeatures(
             embedding=[0.1] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8,
+            complexity_score=0.5
         )
 
         for _ in range(5):
@@ -160,8 +155,7 @@ class TestThompsonSamplingBandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=0.9,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, features)
 
         assert bandit.total_queries == 5
@@ -191,8 +185,7 @@ class TestThompsonSamplingBandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
         await bandit.update(feedback1, test_features)
 
         alpha_after_1 = bandit.alpha[arm.model_id]
@@ -204,8 +197,7 @@ class TestThompsonSamplingBandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.8,
-            latency=1.0,
-        )
+            latency=1.0)
         await bandit.update(feedback2, test_features)
 
         # Parameters should continue updating

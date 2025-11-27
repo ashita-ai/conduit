@@ -13,8 +13,7 @@ from conduit.core.models import (
     QueryFeatures,
     Response,
     RoutingDecision,
-    RoutingResult,
-)
+    RoutingResult)
 
 
 class TestResult(BaseModel):
@@ -54,8 +53,7 @@ def mock_bandit():
             beta=1.0,
             total_requests=10,
             total_cost=0.05,
-            avg_quality=0.85,
-        )
+            avg_quality=0.85)
     )
     return bandit
 
@@ -84,8 +82,7 @@ def service(mock_database, mock_executor, mock_router):
     return RoutingService(
         database=mock_database,
         router=mock_router,
-        executor=mock_executor,
-    )
+        executor=mock_executor)
 
 
 class TestComplete:
@@ -103,12 +100,9 @@ class TestComplete:
                 features=QueryFeatures(
                     embedding=[0.1] * 384,
                     token_count=10,
-                    complexity_score=0.3,
-                    domain="general",
-                    domain_confidence=0.7,
+                    complexity_score=0.3
                 ),
-                reasoning="Selected gpt-4o-mini for low complexity query",
-            )
+                reasoning="Selected gpt-4o-mini for low complexity query")
         )
 
         mock_executor.execute = AsyncMock(
@@ -118,16 +112,14 @@ class TestComplete:
                 text='{"answer": "4", "confidence": 0.95}',
                 cost=0.001,
                 latency=0.5,
-                tokens=20,
-            )
+                tokens=20)
         )
 
         # Execute
         result = await service.complete(
             prompt="What is 2+2?",
             result_type=TestResult,
-            user_id="test-user",
-        )
+            user_id="test-user")
 
         # Verify
         assert isinstance(result, RoutingResult)
@@ -157,12 +149,9 @@ class TestComplete:
                 features=QueryFeatures(
                     embedding=[0.1] * 384,
                     token_count=5,
-                    complexity_score=0.2,
-                    domain="general",
-                    domain_confidence=0.8,
+                    complexity_score=0.2
                 ),
-                reasoning="Selected cheap model due to cost constraint",
-            )
+                reasoning="Selected cheap model due to cost constraint")
         )
 
         mock_executor.execute = AsyncMock(
@@ -172,16 +161,14 @@ class TestComplete:
                 text='{"answer": "Paris", "confidence": 0.99}',
                 cost=0.0005,
                 latency=0.3,
-                tokens=10,
-            )
+                tokens=10)
         )
 
         # Execute with constraints
         result = await service.complete(
             prompt="What is the capital of France?",
             result_type=TestResult,
-            constraints={"max_cost": 0.001, "min_quality": 0.7},
-        )
+            constraints={"max_cost": 0.001, "min_quality": 0.7})
 
         # Verify constraints were passed
         call_args = mock_database.save_query.call_args
@@ -203,12 +190,9 @@ class TestComplete:
                 features=QueryFeatures(
                     embedding=[0.1] * 384,
                     token_count=8,
-                    complexity_score=0.25,
-                    domain="general",
-                    domain_confidence=0.75,
+                    complexity_score=0.25
                 ),
-                reasoning="Default routing",
-            )
+                reasoning="Default routing")
         )
 
         mock_executor.execute = AsyncMock(
@@ -218,8 +202,7 @@ class TestComplete:
                 text='{"content": "Hello, world!"}',
                 cost=0.0008,
                 latency=0.4,
-                tokens=15,
-            )
+                tokens=15)
         )
 
         # Execute without result_type (should use DefaultResult)
@@ -241,12 +224,9 @@ class TestComplete:
                 features=QueryFeatures(
                     embedding=[0.1] * 384,
                     token_count=10,
-                    complexity_score=0.3,
-                    domain="general",
-                    domain_confidence=0.7,
+                    complexity_score=0.3
                 ),
-                reasoning="Test routing",
-            )
+                reasoning="Test routing")
         )
 
         # Simulate execution failure
@@ -274,8 +254,7 @@ class TestSubmitFeedback:
                 text='{"answer": "test"}',
                 cost=0.001,
                 latency=0.5,
-                tokens=20,
-            )
+                tokens=20)
         )
 
         # Setup mock query for feature regeneration
@@ -293,9 +272,7 @@ class TestSubmitFeedback:
             return_value=QueryFeatures(
                 embedding=[0.1] * 384,
                 token_count=2,
-                complexity_score=0.3,
-                domain="general",
-                domain_confidence=0.7
+                complexity_score=0.3
             )
         )
 
@@ -309,8 +286,7 @@ class TestSubmitFeedback:
             quality_score=0.9,
             met_expectations=True,
             user_rating=5,
-            comments="Great response!",
-        )
+            comments="Great response!")
 
         # Verify feedback object
         assert isinstance(feedback, Feedback)
@@ -337,8 +313,7 @@ class TestSubmitFeedback:
             await service.submit_feedback(
                 response_id="invalid-id",
                 quality_score=0.8,
-                met_expectations=True,
-            )
+                met_expectations=True)
 
     @pytest.mark.asyncio
     async def test_submit_feedback_minimal(self, service, mock_database):
@@ -351,15 +326,13 @@ class TestSubmitFeedback:
                 text='{"answer": "test"}',
                 cost=0.002,
                 latency=0.8,
-                tokens=30,
-            )
+                tokens=30)
         )
 
         feedback = await service.submit_feedback(
             response_id="response-456",
             quality_score=0.75,
-            met_expectations=False,
-        )
+            met_expectations=False)
 
         assert feedback.user_rating is None
         assert feedback.comments is None

@@ -21,7 +21,7 @@ class TestDuelingBanditInit:
 
         assert bandit.name == "dueling_bandit"
         assert len(bandit.arms) == 3
-        assert bandit.feature_dim == 387
+        assert bandit.feature_dim == 386
         assert bandit.exploration_weight == 0.1
         assert bandit.learning_rate == 0.01
         assert bandit.total_queries == 0
@@ -30,7 +30,7 @@ class TestDuelingBanditInit:
         for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert model_id in bandit.preference_weights
             weights = bandit.preference_weights[model_id]
-            assert weights.shape == (387, 1)
+            assert weights.shape == (386, 1)
             assert np.allclose(weights, 0.0)
 
     def test_initialization_custom_params(self, test_arms):
@@ -199,7 +199,7 @@ class TestDuelingBanditUpdate:
         arm_b = test_arms[1]  # gpt-4o
 
         # Give B some initial positive weight
-        bandit.preference_weights[arm_b.model_id] = np.ones((387, 1)) * 0.1
+        bandit.preference_weights[arm_b.model_id] = np.ones((386, 1)) * 0.1
 
         w_b_before = bandit.preference_weights[arm_b.model_id].copy()
 
@@ -253,8 +253,8 @@ class TestDuelingBanditUpdate:
         arm_b = test_arms[1]  # gpt-4o
 
         # Give both arms some initial positive weight
-        bandit.preference_weights[arm_a.model_id] = np.ones((387, 1)) * 0.1
-        bandit.preference_weights[arm_b.model_id] = np.ones((387, 1)) * 0.1
+        bandit.preference_weights[arm_a.model_id] = np.ones((386, 1)) * 0.1
+        bandit.preference_weights[arm_b.model_id] = np.ones((386, 1)) * 0.1
 
         w_a_before = bandit.preference_weights[arm_a.model_id].copy()
         w_b_before = bandit.preference_weights[arm_b.model_id].copy()

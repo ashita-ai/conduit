@@ -109,7 +109,7 @@ def test_features() -> QueryFeatures:
     - 384-dim embedding (all-MiniLM-L6-v2 compatible)
     - Moderate token count (50)
     - Medium complexity (0.5)
-    - General domain with reasonable confidence
+    - Query text for context detection
 
     Used by: All bandit algorithm test files
     """
@@ -117,6 +117,34 @@ def test_features() -> QueryFeatures:
         embedding=[0.1] * 384,
         token_count=50,
         complexity_score=0.5,
-        domain="general",
-        domain_confidence=0.8,
+        query_text="test query",
     )
+
+
+@pytest.fixture
+def mock_embedding_provider():
+    """Create a mock embedding provider that returns consistent 384-dim embeddings."""
+    from unittest.mock import Mock
+
+    async def mock_embed_batch(texts):
+        """Return one embedding per input text."""
+        return [[0.1] * 384 for _ in texts]
+
+    mock_provider = Mock()
+    mock_provider.embed = AsyncMock(return_value=[0.1] * 384)
+    mock_provider.embed_batch = mock_embed_batch
+    mock_provider.dimension = 384
+    return mock_provider
+
+
+@pytest.fixture
+def test_analyzer(mock_embedding_provider):
+    """Create query analyzer with consistent 384-dim embeddings.
+
+    This prevents auto-detection of OpenAI embeddings which would create
+    dimension mismatches (1536-dim vs 386-dim expected by bandits).
+
+    Used by: Tests that need to create routers/bandits with LinUCB
+    """
+    from conduit.engines.analyzer import QueryAnalyzer
+    return QueryAnalyzer(embedding_provider=mock_embedding_provider)

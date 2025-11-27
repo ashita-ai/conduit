@@ -29,9 +29,7 @@ def mock_router():
         return_value=QueryFeatures(
             embedding=[0.1] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8,
+            complexity_score=0.5
         )
     )
     router.analyzer = analyzer
@@ -65,9 +63,7 @@ def mock_hybrid_router():
         return_value=QueryFeatures(
             embedding=[0.1] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8,
+            complexity_score=0.5
         )
     )
     router.analyzer = analyzer
@@ -348,9 +344,7 @@ class TestConduitFeedbackLogger:
             return_value=QueryFeatures(
                 embedding=[0.1] * 384,
                 token_count=50,
-                complexity_score=0.5,
-                domain="general",
-                domain_confidence=0.8,
+                complexity_score=0.5
             )
         )
         router.hybrid_router = None

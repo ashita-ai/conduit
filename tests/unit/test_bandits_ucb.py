@@ -73,8 +73,7 @@ class TestUCB1Bandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
 
         await bandit.update(feedback, test_features)
 
@@ -96,8 +95,7 @@ class TestUCB1Bandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.9,
-            latency=1.0,
-        )
+            latency=1.0)
         await bandit.update(feedback1, test_features)
         # Composite: 0.9*0.7 + (1/(1+0.001))*0.2 + (1/(1+1.0))*0.1 = 0.8798...
         expected_reward1 = 0.9 * 0.7 + (1 / (1 + 0.001)) * 0.2 + (1 / (1 + 1.0)) * 0.1
@@ -108,8 +106,7 @@ class TestUCB1Bandit:
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.7,
-            latency=1.0,
-        )
+            latency=1.0)
         await bandit.update(feedback2, test_features)
 
         # Mean should be average of two composite rewards
@@ -132,8 +129,7 @@ class TestUCB1Bandit:
                 model_id=selected_arm.model_id,
                 cost=0.001,
                 quality_score=0.8,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
 
         # Now in exploitation phase, calculate expected UCB
@@ -169,8 +165,7 @@ class TestUCB1Bandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
 
             await bandit.update(feedback, test_features)
 
@@ -199,8 +194,7 @@ class TestUCB1Bandit:
                     model_id=arm.model_id,
                     cost=0.001,
                     quality_score=quality,
-                    latency=1.0,
-                )
+                    latency=1.0)
                 await bandit.update(feedback, test_features)
 
         # Both should recognize gpt-5.1 is best
@@ -219,9 +213,7 @@ class TestUCB1Bandit:
         features = QueryFeatures(
             embedding=[0.1] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8,
+            complexity_score=0.5
         )
 
         # Do some updates
@@ -231,8 +223,7 @@ class TestUCB1Bandit:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=0.9,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, features)
 
         assert bandit.total_queries == 5

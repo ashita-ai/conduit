@@ -9,8 +9,7 @@ from conduit.engines.bandits.baselines import (
     RandomBaseline,
     OracleBaseline,
     AlwaysBestBaseline,
-    AlwaysCheapestBaseline,
-)
+    AlwaysCheapestBaseline)
 from conduit.engines.bandits.base import BanditFeedback
 from conduit.core.models import QueryFeatures
 
@@ -73,8 +72,7 @@ class TestRandomBaseline:
                 model_id="gpt-5.1",  # Always say gpt-5.1 is best
                 cost=0.001,
                 quality_score=1.0,
-                latency=0.5,
-            )
+                latency=0.5)
             await bandit.update(feedback, test_features)
 
         # Selection should still be random (unaffected by feedback)
@@ -98,9 +96,7 @@ class TestRandomBaseline:
         features = QueryFeatures(
             embedding=[0.1] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8,
+            complexity_score=0.5
         )
 
         for _ in range(5):
@@ -153,10 +149,7 @@ class TestOracleBaseline:
             embedding=[0.1] * 384,
             token_count=50,
             complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8,
-            query_text="test query",
-        )
+            query_text="test query")
 
         # Note: Oracle's actual implementation may select randomly first time,
         # then learn from feedback. We test the learning behavior.
@@ -178,8 +171,7 @@ class TestOracleBaseline:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=quality,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
 
         # Oracle should have learned that gpt-5.1 is best
@@ -196,8 +188,7 @@ class TestOracleBaseline:
             model_id="gpt-5.1",
             cost=0.001,
             quality_score=0.95,
-            latency=1.0,
-        )
+            latency=1.0)
 
         await bandit.update(feedback, test_features)
 
@@ -213,9 +204,7 @@ class TestOracleBaseline:
         features = QueryFeatures(
             embedding=[0.1] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8,
+            complexity_score=0.5
         )
 
         # Build up history
@@ -225,8 +214,7 @@ class TestOracleBaseline:
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=0.9,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, features)
 
         assert bandit.total_queries == 3
@@ -269,8 +257,7 @@ class TestAlwaysBestBaseline:
             model_id="o4-mini",  # Try to make mini look best
             cost=0.0001,
             quality_score=0.99,  # Higher than gpt-5.1's expected 0.95
-            latency=0.5,
-        )
+            latency=0.5)
         await bandit.update(feedback, test_features)
 
         # Should still select gpt-5.1 (based on expected_quality, not feedback)
@@ -285,9 +272,7 @@ class TestAlwaysBestBaseline:
         features = QueryFeatures(
             embedding=[0.1] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8,
+            complexity_score=0.5
         )
 
         for _ in range(5):
@@ -335,8 +320,7 @@ class TestAlwaysCheapestBaseline:
             model_id="gpt-5.1",
             cost=0.0001,  # Claim gpt-5.1 was cheaper this time
             quality_score=0.95,
-            latency=0.5,
-        )
+            latency=0.5)
         await bandit.update(feedback, test_features)
 
         # Should still select cheapest arm (based on expected cost, ignores feedback)
@@ -351,9 +335,7 @@ class TestAlwaysCheapestBaseline:
         features = QueryFeatures(
             embedding=[0.1] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8,
+            complexity_score=0.5
         )
 
         for _ in range(5):

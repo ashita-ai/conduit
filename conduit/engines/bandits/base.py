@@ -188,9 +188,7 @@ class BanditAlgorithm(ABC):
             ...     embedding=[0.1] * 384,
             ...     token_count=10,
             ...     complexity_score=0.5,
-            ...     domain="general",
-            ...     domain_confidence=0.8
-            ... )
+            ...     domain="general",            ... )
             >>> arm = await algorithm.select_arm(features)
             >>> print(arm.model_id)
             "openai:gpt-4o-mini"
@@ -373,9 +371,7 @@ class BanditAlgorithm(ABC):
         - embedding (384 dims)
         - token_count (1 dim, normalized by config token_count_normalization)
         - complexity_score (1 dim)
-        - domain_confidence (1 dim)
-
-        Args:
+                Args:
             features: Query features object
 
         Returns:
@@ -386,12 +382,10 @@ class BanditAlgorithm(ABC):
             ...     embedding=[0.1] * 384,
             ...     token_count=50,
             ...     complexity_score=0.5,
-            ...     domain="general",
-            ...     domain_confidence=0.8
-            ... )
+            ...     domain="general",            ... )
             >>> x = bandit._extract_features(features)
             >>> x.shape
-            (387, 1)
+            (386, 1)
         """
         # Load feature config for normalization constant
         feature_config = load_feature_dimensions()
@@ -403,7 +397,6 @@ class BanditAlgorithm(ABC):
             + [
                 features.token_count / token_normalization,
                 features.complexity_score,
-                features.domain_confidence,
             ]
         )
 
