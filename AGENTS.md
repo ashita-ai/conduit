@@ -466,11 +466,18 @@ Sources:
 - **FastAPI**: 0.115+ (REST API endpoints)
 - **PostgreSQL**: Any provider (self-hosted, AWS RDS, Supabase, Neon, etc.) for routing history
 - **Redis**: Optional (caching and rate limiting with graceful degradation)
+- **Embedding Provider** (required - auto-detected in priority order):
+  1. **OpenAI API key** (recommended - reuses LLM key, no additional setup)
+  2. **Cohere API key** (alternative API option)
+  3. **FastEmbed** (local, ~100MB: `pip install fastembed`)
+  4. **sentence-transformers** (local, ~2GB: `pip install sentence-transformers`)
 
 ### ML Stack
 - **numpy**: 2.0+ (matrix operations for LinUCB)
-- **sentence-transformers**: Query embeddings (384-dim vectors)
-- **scikit-learn**: Not used (was planned, using custom implementations)
+- **scikit-learn**: PCA dimensionality reduction (optional, improves convergence speed)
+  - **PCA components:** Provider-dependent (64 for 384-dim, 128 for 1536-dim embeddings)
+  - **OpenAI (1536-dim):** 64 components = 57% variance, 128 = 73%, 192 = 85%
+  - **FastEmbed (384-dim):** 64 components = 95% variance (excellent)
 
 ### Development Tools
 - **pytest**: 9.0+ with pytest-asyncio for async tests
@@ -521,7 +528,7 @@ class LinUCBBandit(BanditAlgorithm):
 
 # Constants: UPPER_SNAKE_CASE
 DEFAULT_ALPHA = 1.0
-FEATURE_DIM = 387
+FEATURE_DIM = 386
 
 # Private attributes: leading underscore
 def _extract_features(self, features: QueryFeatures) -> np.ndarray:
@@ -598,7 +605,7 @@ Current implementations in `conduit/engines/bandits/`:
 - **State**: A matrix (d×d), b vector (d×1) per arm
 - **Selection**: `UCB = theta^T @ x + alpha * sqrt(x^T @ A_inv @ x)`
 - **Update**: `A += x @ x^T`, `b += reward * x`
-- **Features**: 387 dims (384 embedding + 3 metadata)
+- **Features**: 386 dims (384 embedding + 2 metadata)
 - **When to use**: Default choice, uses query context for better decisions
 
 ### UCB1 (Non-contextual)
@@ -787,18 +794,17 @@ grep -r "API_KEY\|SECRET\|PASSWORD" conduit/ tests/ examples/ && echo "🚨 CRED
 - **Goal**: Maximize reward (quality) while minimizing cost
 - **Approach**: Balance exploration (try new models) vs exploitation (use known-good models)
 
-### Feature Vector (387 dimensions)
+### Feature Vector (386 dimensions)
 ```python
 # 384 dimensions: Sentence embedding
 embedding = sentence_transformer.encode(query_text)  # [0.1, 0.2, ...]
 
-# 3 dimensions: Metadata
+# 2 dimensions: Metadata
 features = embedding + [
     token_count / 1000.0,      # Normalized token count
     complexity_score,          # 0.0-1.0 complexity
-    domain_confidence          # 0.0-1.0 confidence
 ]
-# Total: 387 dimensions
+# Total: 386 dimensions
 ```
 
 ### Feedback Loop
@@ -973,7 +979,7 @@ result = await agent.run("Your prompt", deps=dependencies)
 ### Bandit Usage Pattern
 ```python
 # Initialize
-bandit = LinUCBBandit(arms, alpha=1.0, feature_dim=387)
+bandit = LinUCBBandit(arms, alpha=1.0, feature_dim=386)
 
 # Select model
 features = QueryFeatures(embedding=..., token_count=..., ...)
@@ -995,14 +1001,13 @@ await bandit.update(feedback, features)
 ### Feature Extraction
 ```python
 def _extract_features(self, features: QueryFeatures) -> np.ndarray:
-    """Extract 387-dim feature vector."""
+    """Extract 386-dim feature vector."""
     feature_vector = np.array(
         features.embedding  # 384 dims
         + [
             features.token_count / 1000.0,  # Normalize
             features.complexity_score,
-            features.domain_confidence,
-        ]  # 3 dims
+        ]  # 2 dims
     )
-    return feature_vector.reshape(-1, 1)  # Column vector (387, 1)
+    return feature_vector.reshape(-1, 1)  # Column vector (386, 1)
 ```

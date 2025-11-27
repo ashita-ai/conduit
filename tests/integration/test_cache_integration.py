@@ -35,8 +35,7 @@ async def cache_service(redis_available):
         redis_url="redis://localhost:6379/15",  # Use DB 15 for testing
         ttl=60,  # Short TTL for tests
         circuit_breaker_threshold=3,
-        circuit_breaker_timeout=10,
-    )
+        circuit_breaker_timeout=10)
 
     service = CacheService(config)
 
@@ -58,9 +57,7 @@ def sample_features():
     return QueryFeatures(
         embedding=[0.1, 0.2, 0.3] * 128,  # 384 dimensions
         token_count=50,
-        complexity_score=0.5,
-        domain="code",
-        domain_confidence=0.8,
+        complexity_score=0.5
     )
 
 
@@ -83,7 +80,6 @@ class TestCacheIntegrationBasic:
         result = await cache_service.get(query)
         assert result is not None
         assert result.complexity_score == 0.5
-        assert result.domain == "code"
         assert len(result.embedding) == 384
         assert cache_service.stats.hits == 1
 
@@ -95,7 +91,6 @@ class TestCacheIntegrationBasic:
         # Retrieve with different case
         result = await cache_service.get("what is 2+2?")
         assert result is not None
-        assert result.domain == "code"
 
     async def test_whitespace_normalization(self, cache_service, sample_features):
         """Test cache keys normalize whitespace."""
@@ -182,9 +177,7 @@ class TestCacheIntegrationPerformance:
         large_features = QueryFeatures(
             embedding=[0.123456789] * 384,  # Realistic embedding
             token_count=1000,
-            complexity_score=0.85,
-            domain="science",
-            domain_confidence=0.95,
+            complexity_score=0.85
         )
 
         # Cache and retrieve
@@ -223,8 +216,7 @@ class TestCacheIntegrationFailure:
         config = CacheConfig(
             enabled=True,
             redis_url="redis://invalid-host:9999",
-            timeout=1,
-        )
+            timeout=1)
 
         service = CacheService(config)
 

@@ -6,19 +6,21 @@ from pathlib import Path
 
 from conduit.engines.analyzer import QueryAnalyzer
 
-
 class TestPCAIntegration:
     """Test PCA feature reduction functionality."""
 
     @pytest.mark.asyncio
-    async def test_analyzer_without_pca(self):
+    async def test_analyzer_without_pca(self, mock_embedding_provider):
         """Test analyzer produces 384-dim embeddings without PCA."""
-        analyzer = QueryAnalyzer(use_pca=False)
+        analyzer = QueryAnalyzer(
+            embedding_provider=mock_embedding_provider,
+            use_pca=False
+        )
 
         features = await analyzer.analyze("What is machine learning?")
 
         assert len(features.embedding) == 384
-        assert analyzer.feature_dim == 387  # 384 + 3 metadata
+        assert analyzer.feature_dim == 386  # 384 + 2 metadata
 
     @pytest.mark.asyncio
     async def test_analyzer_with_pca_not_fitted_raises(self):
@@ -44,9 +46,13 @@ class TestPCAIntegration:
             await analyzer.fit_pca(["query1", "query2", "query3"])
 
     @pytest.mark.asyncio
-    async def test_pca_fitting_success(self):
+    async def test_pca_fitting_success(self, mock_embedding_provider):
         """Test successful PCA fitting on sufficient queries."""
-        analyzer = QueryAnalyzer(use_pca=True, pca_dimensions=64)
+        analyzer = QueryAnalyzer(
+            embedding_provider=mock_embedding_provider,
+            use_pca=True,
+            pca_dimensions=64
+        )
 
         # Generate 100+ diverse queries
         training_queries = [
@@ -61,9 +67,13 @@ class TestPCAIntegration:
         assert analyzer.pca.n_components_ == 64
 
     @pytest.mark.asyncio
-    async def test_analyzer_with_fitted_pca(self):
+    async def test_analyzer_with_fitted_pca(self, mock_embedding_provider):
         """Test analyzer produces reduced dimensions after PCA fitting."""
-        analyzer = QueryAnalyzer(use_pca=True, pca_dimensions=64)
+        analyzer = QueryAnalyzer(
+            embedding_provider=mock_embedding_provider,
+            use_pca=True,
+            pca_dimensions=64
+        )
 
         # Fit PCA
         training_queries = [f"Training query {i}" for i in range(150)]
@@ -73,16 +83,17 @@ class TestPCAIntegration:
         features = await analyzer.analyze("What is deep learning?")
 
         assert len(features.embedding) == 64  # Reduced from 384
-        assert analyzer.feature_dim == 67  # 64 + 3 metadata
+        assert analyzer.feature_dim == 66  # 64 + 2 metadata
 
     @pytest.mark.asyncio
-    async def test_pca_persistence(self):
+    async def test_pca_persistence(self, mock_embedding_provider):
         """Test PCA model save/load functionality."""
         with tempfile.TemporaryDirectory() as tmpdir:
             pca_path = str(Path(tmpdir) / "test_pca.pkl")
 
             # Create and fit analyzer
             analyzer1 = QueryAnalyzer(
+                embedding_provider=mock_embedding_provider,
                 use_pca=True,
                 pca_dimensions=64,
                 pca_model_path=pca_path
@@ -92,6 +103,7 @@ class TestPCAIntegration:
 
             # Create new analyzer that loads the saved PCA
             analyzer2 = QueryAnalyzer(
+                embedding_provider=mock_embedding_provider,
                 use_pca=True,
                 pca_dimensions=64,
                 pca_model_path=pca_path
@@ -108,24 +120,39 @@ class TestPCAIntegration:
             assert len(features1.embedding) == len(features2.embedding) == 64
             assert features1.embedding == features2.embedding
 
-    def test_feature_dim_property(self):
+    def test_feature_dim_property(self, mock_embedding_provider):
         """Test feature_dim property returns correct dimensions."""
         # Without PCA
-        analyzer1 = QueryAnalyzer(use_pca=False)
-        assert analyzer1.feature_dim == 387  # 384 + 3
+        analyzer1 = QueryAnalyzer(
+            embedding_provider=mock_embedding_provider,
+            use_pca=False
+        )
+        assert analyzer1.feature_dim == 386  # 384 + 2
 
         # With PCA (64 dims)
-        analyzer2 = QueryAnalyzer(use_pca=True, pca_dimensions=64)
-        assert analyzer2.feature_dim == 67  # 64 + 3
+        analyzer2 = QueryAnalyzer(
+            embedding_provider=mock_embedding_provider,
+            use_pca=True,
+            pca_dimensions=64
+        )
+        assert analyzer2.feature_dim == 66  # 64 + 2
 
         # With PCA (128 dims)
-        analyzer3 = QueryAnalyzer(use_pca=True, pca_dimensions=128)
-        assert analyzer3.feature_dim == 131  # 128 + 3
+        analyzer3 = QueryAnalyzer(
+            embedding_provider=mock_embedding_provider,
+            use_pca=True,
+            pca_dimensions=128
+        )
+        assert analyzer3.feature_dim == 130  # 128 + 2
 
     @pytest.mark.asyncio
-    async def test_pca_preserves_metadata_features(self):
+    async def test_pca_preserves_metadata_features(self, mock_embedding_provider):
         """Test that PCA only reduces embedding, not metadata features."""
-        analyzer = QueryAnalyzer(use_pca=True, pca_dimensions=64)
+        analyzer = QueryAnalyzer(
+            embedding_provider=mock_embedding_provider,
+            use_pca=True,
+            pca_dimensions=64
+        )
 
         training_queries = [f"Query {i}" for i in range(150)]
         await analyzer.fit_pca(training_queries)
@@ -135,28 +162,32 @@ class TestPCAIntegration:
         # Should have all metadata fields
         assert features.token_count > 0
         assert 0.0 <= features.complexity_score <= 1.0
-        assert features.domain in ["code", "math", "science", "business", "creative", "general"]
-        assert 0.0 <= features.domain_confidence <= 1.0
 
         # Embedding should be reduced
         assert len(features.embedding) == 64
 
-    def test_pca_not_enabled_when_use_pca_false(self):
+    def test_pca_not_enabled_when_use_pca_false(self, mock_embedding_provider):
         """Test that PCA is None when use_pca=False."""
-        analyzer = QueryAnalyzer(use_pca=False)
+        analyzer = QueryAnalyzer(
+            embedding_provider=mock_embedding_provider,
+            use_pca=False
+        )
         assert analyzer.pca is None
         assert not analyzer.use_pca
 
     @pytest.mark.asyncio
-    async def test_pca_fit_requires_pca_enabled(self):
+    async def test_pca_fit_requires_pca_enabled(self, mock_embedding_provider):
         """Test that fit_pca raises error when PCA not enabled."""
-        analyzer = QueryAnalyzer(use_pca=False)
+        analyzer = QueryAnalyzer(
+            embedding_provider=mock_embedding_provider,
+            use_pca=False
+        )
 
         with pytest.raises(ValueError, match="PCA not enabled"):
             await analyzer.fit_pca(["query1", "query2"])
 
     @pytest.mark.asyncio
-    async def test_different_pca_dimensions(self):
+    async def test_different_pca_dimensions(self, mock_embedding_provider):
         """Test PCA with different target dimensions."""
         dimensions_to_test = [32, 64, 128]
 
@@ -166,6 +197,7 @@ class TestPCAIntegration:
             with tempfile.TemporaryDirectory() as tmpdir:
                 pca_path = str(Path(tmpdir) / f"pca_{target_dim}.pkl")
                 analyzer = QueryAnalyzer(
+                    embedding_provider=mock_embedding_provider,
                     use_pca=True,
                     pca_dimensions=target_dim,
                     pca_model_path=pca_path
@@ -176,4 +208,4 @@ class TestPCAIntegration:
                 features = await analyzer.analyze("Test query")
 
                 assert len(features.embedding) == target_dim
-                assert analyzer.feature_dim == target_dim + 3
+                assert analyzer.feature_dim == target_dim + 2

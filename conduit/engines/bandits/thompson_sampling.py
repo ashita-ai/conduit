@@ -133,9 +133,7 @@ class ThompsonSamplingBandit(BanditAlgorithm):
             ...     embedding=[0.1] * 384,
             ...     token_count=10,
             ...     complexity_score=0.5,
-            ...     domain="general",
-            ...     domain_confidence=0.8
-            ... )
+            ...     domain="general",            ... )
             >>> arm = await bandit.select_arm(features)
             >>> print(arm.model_id)
             "openai:gpt-4o-mini"

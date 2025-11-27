@@ -16,8 +16,7 @@ def cache_config():
         redis_url="redis://localhost:6379",
         ttl=86400,
         circuit_breaker_threshold=3,
-        circuit_breaker_timeout=300,
-    )
+        circuit_breaker_timeout=300)
 
 
 @pytest.fixture
@@ -26,9 +25,7 @@ def sample_features():
     return QueryFeatures(
         embedding=[0.1, 0.2, 0.3] * 128,  # 384 dimensions
         token_count=50,
-        complexity_score=0.5,
-        domain="code",
-        domain_confidence=0.8,
+        complexity_score=0.5
     )
 
 
@@ -73,7 +70,6 @@ class TestCacheService:
 
         assert result is not None
         assert result.complexity_score == 0.5
-        assert result.domain == "code"
         assert len(result.embedding) == 384
         assert cache_service.stats.hits == 1
         assert cache_service.stats.misses == 0
@@ -275,7 +271,6 @@ class TestCacheIntegration:
         cache_service.redis.get = AsyncMock(return_value=serialized)
         result = await cache_service.get("query1")
         assert result is not None
-        assert result.domain == "code"
 
         # Error doesn't break system
         cache_service.redis.get = AsyncMock(side_effect=ConnectionError())

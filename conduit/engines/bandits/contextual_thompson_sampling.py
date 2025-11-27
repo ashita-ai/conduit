@@ -76,7 +76,7 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
             arms: List of available model arms
             lambda_reg: Regularization parameter / noise precision (default: THOMPSON_LAMBDA_DEFAULT)
                 Higher = less uncertainty (tighter posterior), more regularization
-            feature_dim: Dimensionality of context features (default: 387)
+            feature_dim: Dimensionality of context features (default: 386)
             random_seed: Random seed for reproducibility
             reward_weights: Multi-objective reward weights. If None, uses defaults
                 (quality: 0.70, cost: 0.20, latency: 0.10)
@@ -163,9 +163,7 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
             ...     embedding=[0.1] * 384,
             ...     token_count=10,
             ...     complexity_score=0.5,
-            ...     domain="general",
-            ...     domain_confidence=0.8
-            ... )
+            ...     domain="general",            ... )
             >>> arm = await bandit.select_arm(features)
             >>> print(arm.model_id)
             "openai:gpt-4o"

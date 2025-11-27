@@ -52,9 +52,7 @@ def mock_router():
         return_value=QueryFeatures(
             embedding=[0.1] * 384,
             token_count=50,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.8,
+            complexity_score=0.5
         )
     )
 
@@ -93,8 +91,7 @@ class TestArbiterIntegration:
             kwargs=kwargs,
             response_obj=litellm_response,
             start_time=1.0,
-            end_time=2.5,
-        )
+            end_time=2.5)
 
         # Give async task time to start
         await asyncio.sleep(0.1)
@@ -138,8 +135,7 @@ class TestArbiterIntegration:
             kwargs=kwargs,
             response_obj=litellm_response,
             start_time=1.0,
-            end_time=2.5,
-        )
+            end_time=2.5)
 
         # Verify bandit update was still called
         assert mock_router.hybrid_router.update.called
@@ -152,8 +148,7 @@ class TestArbiterIntegration:
         # Create strategy with evaluator
         strategy = ConduitRoutingStrategy(
             # Hybrid routing always enabled
-            evaluator=mock_evaluator,
-        )
+            evaluator=mock_evaluator)
 
         # Verify evaluator was stored
         assert strategy.evaluator is mock_evaluator
@@ -187,8 +182,7 @@ class TestArbiterIntegration:
             kwargs=kwargs,
             response_obj=response,
             start_time=1.0,
-            end_time=3.0,
-        )
+            end_time=3.0)
 
         await asyncio.sleep(0.1)
 
@@ -224,8 +218,7 @@ class TestArbiterIntegration:
             kwargs=kwargs,
             response_obj=response,
             start_time=1.0,
-            end_time=2.0,
-        )
+            end_time=2.0)
 
         await asyncio.sleep(0.1)
 

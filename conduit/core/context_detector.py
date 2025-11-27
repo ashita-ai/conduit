@@ -34,26 +34,29 @@ class ContextDetector:
     }
 
     def detect_from_features(self, features: QueryFeatures) -> str:
-        """Detect context from query features.
+        """Detect context from query features using text-based detection.
 
         Args:
-            features: QueryFeatures with domain classification
+            features: QueryFeatures with query_text
 
         Returns:
             Context string: "code", "creative", "analysis", or "simple_qa"
 
         Example:
             >>> features = QueryFeatures(
-            ...     domain="code",
-            ...     domain_confidence=0.9,
-            ...     ...
+            ...     embedding=[0.1] * 384,
+            ...     token_count=10,
+            ...     complexity_score=0.5,
+            ...     query_text="Write a Python function"
             ... )
             >>> detector = ContextDetector()
             >>> context = detector.detect_from_features(features)
             >>> assert context == "code"
         """
-        domain = features.domain
-        return self.DOMAIN_TO_CONTEXT.get(domain, "simple_qa")
+        # Use text-based detection since domain classification was removed
+        if features.query_text:
+            return self.detect_from_text(features.query_text)
+        return "simple_qa"  # Default fallback
 
     def detect_from_text(self, query_text: str) -> str:
         """Detect context from query text using simple keyword matching.

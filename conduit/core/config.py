@@ -564,8 +564,8 @@ def load_feature_dimensions() -> dict[str, int | float]:
     # Hardcoded defaults (ultimate fallback, no imports from defaults.py)
     defaults = {
         "embedding_dim": 384,
-        "full_dim": 387,
-        "pca_dim": 67,
+        "full_dim": 386,
+        "pca_dim": 66,
         "token_count_normalization": 1000.0,
     }
 

@@ -37,8 +37,7 @@ async def test_concurrent_routing_and_feedback(test_arms, test_features):
             model_id=decision.selected_model,
             cost=0.001,
             quality_score=0.5 + (worker_id % 5) * 0.1,
-            latency=1.0,
-        )
+            latency=1.0)
 
         # Update bandit state
         await router.hybrid_router.update(feedback, decision.features)
@@ -75,7 +74,7 @@ async def test_concurrent_matrix_updates_consistency(test_arms, test_features):
     LinUCB updates A ← A + x @ x^T and b ← b + reward * x concurrently.
     Verify final state is consistent with serial execution.
     """
-    bandit = LinUCBBandit(test_arms, feature_dim=387)
+    bandit = LinUCBBandit(test_arms, feature_dim=386)
 
     # Perform 200 concurrent updates
     updates = []
@@ -85,8 +84,7 @@ async def test_concurrent_matrix_updates_consistency(test_arms, test_features):
             model_id=arm.model_id,
             cost=0.001,
             quality_score=0.7 + (i % 3) * 0.1,
-            latency=1.0,
-        )
+            latency=1.0)
         updates.append((feedback, test_features))
 
     # Execute updates concurrently
@@ -99,7 +97,7 @@ async def test_concurrent_matrix_updates_consistency(test_arms, test_features):
         b = bandit.b[arm.model_id]
 
         # Check A matrix properties
-        assert A.shape == (387, 387)
+        assert A.shape == (386, 386)
         assert np.allclose(A, A.T, rtol=1e-10)
 
         # Check for NaN or Inf (corruption indicators)
@@ -145,7 +143,7 @@ async def test_interleaved_selection_and_updates(test_arms, test_features):
     Simulates realistic production scenario where selection and updates
     happen concurrently from different workers.
     """
-    bandit = LinUCBBandit(test_arms, feature_dim=387)
+    bandit = LinUCBBandit(test_arms, feature_dim=386)
 
     async def select_arm_loop():
         """Worker that continuously selects arms."""
@@ -161,8 +159,7 @@ async def test_interleaved_selection_and_updates(test_arms, test_features):
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=0.7,
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
             await asyncio.sleep(0.001)  # Small delay
 
@@ -194,7 +191,7 @@ async def test_concurrent_updates_different_arms(test_arms, test_features):
     Each arm has independent A/b matrices. Concurrent updates to
     different arms should be completely independent.
     """
-    bandit = LinUCBBandit(test_arms, feature_dim=387)
+    bandit = LinUCBBandit(test_arms, feature_dim=386)
 
     async def update_arm_repeatedly(arm: ModelArm, arm_index: int, count: int):
         """Update single arm 'count' times with arm-specific rewards."""
@@ -204,8 +201,7 @@ async def test_concurrent_updates_different_arms(test_arms, test_features):
                 model_id=arm.model_id,
                 cost=0.001,
                 quality_score=0.6 + (arm_index * 0.1),  # Different per arm
-                latency=1.0,
-            )
+                latency=1.0)
             await bandit.update(feedback, test_features)
 
     # Update each arm 100 times concurrently with different rewards
@@ -239,24 +235,21 @@ def test_arms() -> list[ModelArm]:
             provider="openai",
             cost_per_input_token=0.00011,
             cost_per_output_token=0.00044,
-            expected_quality=0.7,
-        ),
+            expected_quality=0.7),
         ModelArm(
             model_id="gpt-5.1",
             model_name="gpt-5.1",
             provider="openai",
             cost_per_input_token=0.002,
             cost_per_output_token=0.008,
-            expected_quality=0.9,
-        ),
+            expected_quality=0.9),
         ModelArm(
             model_id="claude-haiku-4-5-20241124",
             model_name="claude-haiku-4-5",
             provider="anthropic",
             cost_per_input_token=0.0008,
             cost_per_output_token=0.004,
-            expected_quality=0.75,
-        ),
+            expected_quality=0.75),
     ]
 
 
@@ -266,7 +259,5 @@ def test_features() -> QueryFeatures:
     return QueryFeatures(
         embedding=[0.1] * 384,
         token_count=50,
-        complexity_score=0.5,
-        domain="general",
-        domain_confidence=0.8,
+        complexity_score=0.5
     )

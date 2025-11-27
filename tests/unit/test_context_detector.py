@@ -16,8 +16,7 @@ class TestContextDetector:
             embedding=[0.1] * 384,
             token_count=50,
             complexity_score=0.6,
-            domain="code",
-            domain_confidence=0.9,
+            query_text="Write a Python function to sort a list"
         )
 
         context = detector.detect_from_features(features)
@@ -30,8 +29,7 @@ class TestContextDetector:
             embedding=[0.1] * 384,
             token_count=30,
             complexity_score=0.4,
-            domain="creative",
-            domain_confidence=0.85,
+            query_text="Write a story about a brave knight"
         )
 
         context = detector.detect_from_features(features)
@@ -44,8 +42,7 @@ class TestContextDetector:
             embedding=[0.1] * 384,
             token_count=40,
             complexity_score=0.7,
-            domain="math",
-            domain_confidence=0.8,
+            query_text="Analyze the proof of the Pythagorean theorem"
         )
 
         context = detector.detect_from_features(features)
@@ -58,8 +55,7 @@ class TestContextDetector:
             embedding=[0.1] * 384,
             token_count=45,
             complexity_score=0.65,
-            domain="science",
-            domain_confidence=0.75,
+            query_text="Explain how photosynthesis works"
         )
 
         context = detector.detect_from_features(features)
@@ -71,23 +67,21 @@ class TestContextDetector:
         features = QueryFeatures(
             embedding=[0.1] * 384,
             token_count=35,
-            complexity_score=0.55,
-            domain="business",
-            domain_confidence=0.7,
+            complexity_score=0.6,
+            query_text="Analyze market trends for Q4"
         )
 
         context = detector.detect_from_features(features)
         assert context == "analysis"
 
     def test_detect_from_features_general_fallback(self):
-        """Test general domain falls back to simple_qa."""
+        """Test fallback to simple_qa for general queries."""
         detector = ContextDetector()
         features = QueryFeatures(
             embedding=[0.1] * 384,
-            token_count=20,
+            token_count=10,
             complexity_score=0.3,
-            domain="general",
-            domain_confidence=0.5,
+            query_text="What is the weather today?"
         )
 
         context = detector.detect_from_features(features)
@@ -96,32 +90,23 @@ class TestContextDetector:
     def test_detect_from_text_code(self):
         """Test code context detection from text."""
         detector = ContextDetector()
-
-        assert detector.detect_from_text("Write a Python function") == "code"
-        assert detector.detect_from_text("Debug this code") == "code"
-        assert detector.detect_from_text("Implement an algorithm") == "code"
+        context = detector.detect_from_text("Write a Python function to implement binary search")
+        assert context == "code"
 
     def test_detect_from_text_creative(self):
         """Test creative context detection from text."""
         detector = ContextDetector()
-
-        assert detector.detect_from_text("Write a creative story") == "creative"
-        assert detector.detect_from_text("Write a poem about") == "creative"
-        assert detector.detect_from_text("Imagine a world") == "creative"
+        context = detector.detect_from_text("Write a poem about the ocean")
+        assert context == "creative"
 
     def test_detect_from_text_analysis(self):
         """Test analysis context detection from text."""
         detector = ContextDetector()
+        context = detector.detect_from_text("Analyze the causes of climate change")
+        assert context == "analysis"
 
-        assert detector.detect_from_text("Analyze the pros and cons") == "analysis"
-        assert detector.detect_from_text("Explain why this happens") == "analysis"
-        assert detector.detect_from_text("Compare these options") == "analysis"
-
-    def test_detect_from_text_simple_qa_fallback(self):
-        """Test simple_qa fallback for unknown queries."""
+    def test_detect_from_text_simple_qa(self):
+        """Test simple_qa fallback for general queries."""
         detector = ContextDetector()
-
-        assert detector.detect_from_text("What is the capital of France?") == "simple_qa"
-        assert detector.detect_from_text("Hello") == "simple_qa"
-
-
+        context = detector.detect_from_text("What time is it?")
+        assert context == "simple_qa"

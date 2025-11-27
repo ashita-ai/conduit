@@ -14,12 +14,13 @@ def test_models():
 
 
 @pytest.fixture
-def hybrid_router(test_models):
+def hybrid_router(test_models, test_analyzer):
     """Create hybrid router with test configuration."""
     return HybridRouter(
         models=test_models,
         switch_threshold=10,  # Low threshold for testing
-        feature_dim=387,
+        analyzer=test_analyzer,
+        feature_dim=386,
         ucb1_c=1.5,
         linucb_alpha=1.0,
     )
@@ -300,11 +301,13 @@ async def test_provider_inference():
 
 
 @pytest.mark.asyncio
-async def test_custom_switch_threshold():
+async def test_custom_switch_threshold(test_analyzer):
     """Test custom switch threshold configuration."""
     router = HybridRouter(
         models=["gpt-4o-mini", "gpt-4o"],
         switch_threshold=100,
+        analyzer=test_analyzer,
+        feature_dim=386,
     )
 
     assert router.switch_threshold == 100
@@ -322,11 +325,13 @@ async def test_custom_switch_threshold():
 
 
 @pytest.mark.asyncio
-async def test_custom_exploration_parameters():
+async def test_custom_exploration_parameters(test_analyzer):
     """Test custom UCB1 and LinUCB exploration parameters."""
     router = HybridRouter(
         models=["gpt-4o-mini", "gpt-4o"],
         switch_threshold=10,
+        analyzer=test_analyzer,
+        feature_dim=386,
         ucb1_c=2.0,
         linucb_alpha=0.5,
     )
