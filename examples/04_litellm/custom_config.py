@@ -62,9 +62,9 @@ async def main() -> None:
 
     strategy = ConduitRoutingStrategy(
         cache_enabled=bool(os.getenv("REDIS_URL")),  # Enable Redis caching if URL present
-        redis_url=os.getenv("REDIS_URL", "redis://localhost:6379"),
     )
     # Note: Hybrid routing (UCB1→LinUCB) is always enabled by default
+    # Redis URL configured via REDIS_URL environment variable
 
     ConduitRoutingStrategy.setup_strategy(router, strategy)
 
