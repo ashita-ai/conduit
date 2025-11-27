@@ -15,6 +15,7 @@ from conduit.engines.bandits import LinUCBBandit
 from conduit.engines.bandits.base import BanditFeedback, ModelArm
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_concurrent_routing_and_feedback(test_arms, test_features):
     """Test concurrent routing + feedback loop simulating production load.
@@ -66,6 +67,7 @@ async def test_concurrent_routing_and_feedback(test_arms, test_features):
             assert np.all(eigenvalues > 0), f"A matrix not positive definite for {arm.model_id}"
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_concurrent_matrix_updates_consistency(test_arms, test_features):
     """Test that concurrent A matrix updates don't cause corruption.
@@ -111,6 +113,7 @@ async def test_concurrent_matrix_updates_consistency(test_arms, test_features):
         assert np.all(eigenvalues > 0)
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_high_concurrency_routing(test_arms):
     """Test routing under high concurrency (1000 concurrent requests)."""
@@ -134,6 +137,7 @@ async def test_high_concurrency_routing(test_arms):
     assert 950 <= router.hybrid_router.query_count <= 1050
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_interleaved_selection_and_updates(test_arms, test_features):
     """Test interleaved arm selection and state updates.
@@ -182,6 +186,7 @@ async def test_interleaved_selection_and_updates(test_arms, test_features):
         assert np.all(eigenvalues > 0)
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_concurrent_updates_different_arms(test_arms, test_features):
     """Test concurrent updates to different arms don't interfere.
