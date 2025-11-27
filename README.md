@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Cut your LLM costs 30-50% without sacrificing quality.**
+**Smart LLM routing that learns to cut costs without sacrificing quality.**
 
 Smart routing that learns which LLM to use for each type of query. Like a chess engine that improves with every game, Conduit gets better at picking the right model as it sees more queries. Unlike static routers with fixed rules, Conduit adapts to your workload automatically.
 
@@ -23,10 +23,10 @@ There's a better way.
 | Feature | Conduit | Static Routers | Manual Selection |
 |---------|---------|----------------|------------------|
 | **Cost Optimization** | ✅ Learns cheapest model per query type | ❌ Fixed rules, no learning | ❌ Expensive models everywhere |
-| **Quality Maintained** | ✅ 95%+ quality threshold | ⚠️ Depends on rules | ✅ High but wasteful |
+| **Quality** | ✅ Balances cost vs quality via feedback | ⚠️ Depends on rules | ✅ High but wasteful |
 | **Adapts to Changes** | ✅ Learns when models improve/degrade | ❌ Manual rule updates needed | ❌ Manual switching |
 | **Setup Time** | ✅ 5 lines of code | ⚠️ Complex rule configuration | ✅ Simple but inefficient |
-| **Typical Savings** | ✅ 30-50% cost reduction | ⚠️ 10-20% (if well-configured) | ❌ Baseline (most expensive) |
+| **Learning** | ✅ Continuous adaptation | ❌ No learning | ❌ No learning |
 
 ## Quick Start
 
@@ -44,7 +44,7 @@ async def main():
 asyncio.run(main())
 ```
 
-**See results immediately**: Conduit starts optimizing from query 1, with full adaptive routing by query 50.
+**Starts learning immediately**: Conduit begins routing from query 1, with full contextual learning after 2,000 queries.
 
 ## How It Works
 
@@ -68,7 +68,7 @@ Query → Analyze → Smart Selection → LLM Provider → Response
 - **Learning System**: Gets smarter with every query, learns your workload patterns automatically
 - **Multi-Objective**: Balance cost, quality, and speed based on what matters to you
 - **100+ LLM Providers**: Direct support for 8 providers, extended via LiteLLM integration
-- **Smart Caching**: 10-40x faster on repeated queries (optional Redis)
+- **Smart Caching**: Faster embedding lookups on repeated queries (optional Redis)
 - **Per-Query Control**: Override optimization per query (quality-first, cost-first, speed-first)
 - **Zero Config**: Auto-detects available models from your API keys
 
@@ -220,33 +220,34 @@ Think of it this way: LiteLLM/Portkey are the roads, Conduit is the GPS that pic
 
 ### How much can I actually save?
 
-**Typical savings: 30-50%** based on routing expensive queries (GPT-4, Claude Opus) to cheaper models (GPT-4o-mini, Claude Haiku) when appropriate. Actual savings depend on your query distribution.
+**Savings depend on your query mix**. If you route expensive queries (GPT-4, Claude Opus) to cheaper models (GPT-4o-mini, Claude Haiku) when quality allows, you can reduce costs significantly. Actual savings depend on your query distribution and quality requirements.
 
-**Example**: If 60% of your queries are simple (routed to cheap models) and 40% are complex (routed to expensive models), you save ~45% compared to using expensive models everywhere.
+**Example**: If 60% of your queries can use cheap models without quality loss and 40% require expensive models, you'll save compared to using expensive models everywhere. Exact percentages require benchmarking on your workload.
 
-### How does Conduit maintain quality?
+### How does Conduit balance cost and quality?
 
-Conduit learns a **quality threshold per query type** through continuous feedback. It won't route to cheaper models if quality drops below your threshold (default: 95% of expensive model quality).
+Conduit learns which models work best for different query types through continuous feedback. The system optimizes a multi-objective reward balancing quality, cost, and latency.
 
-The system uses:
+**Feedback system**:
 - Explicit feedback (user ratings, task success)
 - Implicit feedback (errors, retries, latency) weighted at 30%
-- Composite rewards balancing quality (70%), cost (20%), latency (10%)
+- Composite rewards balancing quality (70%), cost (20%), latency (10%) by default
+
+You can adjust these weights per query using UserPreferences to prioritize quality over cost or vice versa.
 
 ### How long until I see savings?
 
-- **Immediate**: Conduit starts routing from query 1 using UCB1 (simple, fast)
-- **50 queries**: Switches to LinUCB (contextual, better decisions)
-- **200 queries**: Fully adapted to your query distribution
-- **Continuous**: Adapts to model updates, pricing changes, new models
+- **Immediate**: Conduit starts routing from query 1 using UCB1 (non-contextual, fast exploration)
+- **2,000 queries**: Switches to LinUCB (contextual, query-aware decisions)
+- **Continuous**: Adapts to model updates, pricing changes, new models as they're added
 
 ### What if I don't have Redis or PostgreSQL?
 
 Conduit works without them - they're optional optimizations:
-- **No Redis**: Slower embeddings (200ms vs 5ms), but routing still works
+- **No Redis**: Repeated queries require re-computing embeddings (slower), but routing still works
 - **No PostgreSQL**: No history persistence, but in-memory routing works fine
 
-For production, Redis highly recommended (10-40x faster).
+For production, Redis recommended for embedding caching.
 
 ### Can I use my own quality evaluation?
 
