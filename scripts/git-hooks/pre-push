@@ -6,14 +6,50 @@
 
 set -e
 
-echo "🔍 Running pre-push checks (matches CI workflow)..."
-echo ""
-
 # Check if we're in the right directory
 if [ ! -f "pyproject.toml" ]; then
     echo "❌ Not in project root directory"
     exit 1
 fi
+
+# Detect if changes are documentation-only
+# Compare against the remote branch we're pushing to
+REMOTE_BRANCH=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "origin/main")
+CHANGED_FILES=$(git diff --name-only "$REMOTE_BRANCH"...HEAD 2>/dev/null || git diff --name-only --cached)
+
+# Documentation patterns (docs/, *.md files, specific doc files)
+DOC_PATTERN="^(docs/|.*\.md$|README|CONTRIBUTING|LICENSE|CHANGELOG|AUTHORS)"
+
+# Check if ALL changes are docs-only
+if echo "$CHANGED_FILES" | grep -qvE "$DOC_PATTERN"; then
+    DOCS_ONLY=false
+else
+    DOCS_ONLY=true
+fi
+
+if [ "$DOCS_ONLY" = true ]; then
+    echo "📝 Documentation-only changes detected"
+    echo "   Skipping tests and type checking for faster push"
+    echo ""
+
+    # Still run basic linting on docs
+    echo "📝 Running ruff..."
+    if ! uv run ruff check conduit/ --quiet; then
+        echo "❌ Ruff linting failed"
+        echo "   Fix with: uv run ruff check conduit/ --fix"
+        exit 1
+    fi
+    echo "✅ Ruff passed"
+
+    echo ""
+    echo "✅ Documentation checks passed!"
+    echo "   Pushing to remote..."
+    exit 0
+fi
+
+# Full checks for code changes
+echo "🔍 Running pre-push checks (matches CI workflow)..."
+echo ""
 
 # 1. Linting
 echo "📝 Running ruff..."
@@ -43,7 +79,7 @@ else
     echo "✅ Mypy passed"
 fi
 
-# 4. Tests (quick - only fast unit tests, no API keys or downloads)
+# 4. Tests (quick - only fast unit tests, skip slow/downloads)
 echo ""
 echo "🧪 Running fast unit tests..."
 if ! uv run pytest tests/unit/ -q --tb=no -m "not slow and not downloads_models and not requires_api_key"; then
