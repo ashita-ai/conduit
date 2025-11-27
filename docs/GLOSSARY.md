@@ -72,8 +72,7 @@ QueryFeatures(
     embedding=[...],       # 384-dim semantic vector
     token_count=150,       # Estimated tokens
     complexity_score=0.7,  # 0.0-1.0 complexity
-    domain="code",         # Detected domain
-    domain_confidence=0.85 # Classification confidence
+    query_text="..."       # Original query for context detection
 )
 ```
 

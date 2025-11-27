@@ -20,7 +20,7 @@ Imagine a casino with multiple slot machines (arms). Each machine has an unknown
 
 **In Conduit's context**:
 - **Arms**: LLM models (GPT-4o, Claude Sonnet, Gemini Pro, etc.)
-- **Context**: Query features (embedding, complexity, domain, token count)
+- **Context**: Query features (embedding, complexity, token count)
 - **Reward**: Multi-objective composite (quality + cost + latency)
 - **Goal**: Learn which model works best for which type of query
 
@@ -270,7 +270,7 @@ b = sum(r_i * x_i for all (x_i, r_i) in window)
 
 **For production LLM routing**: Use **LinUCB** or **Contextual Thompson Sampling** (contextual bandits)
 
-**Why**: Contextual algorithms use query features (embedding, complexity, domain) to make smarter routing decisions. A simple query like "What is 2+2?" should route to gpt-4o-mini, while a complex research query should route to GPT-4o or Claude Opus.
+**Why**: Contextual algorithms use query features (embedding, complexity) to make smarter routing decisions. A simple query like "What is 2+2?" should route to gpt-4o-mini, while a complex research query should route to GPT-4o or Claude Opus.
 
 **LinUCB vs Contextual Thompson**:
 - **LinUCB**: Deterministic UCB, faster convergence, proven for LLM routing
@@ -343,10 +343,9 @@ A_inv_new = A_inv - (a_inv_x @ a_inv_x.T) / denominator
     # 384 dimensions: Sentence embedding (semantic meaning)
     embedding[0], embedding[1], ..., embedding[383],
 
-    # 3 dimensions: Metadata
+    # 2 dimensions: Metadata
     token_count / 1000.0,    # Normalized token count
-    complexity_score,         # 0.0-1.0 query complexity
-    domain_confidence         # 0.0-1.0 domain classification confidence
+    complexity_score         # 0.0-1.0 query complexity
 ]
 ```
 
@@ -354,7 +353,7 @@ A_inv_new = A_inv - (a_inv_x @ a_inv_x.T) / denominator
 
 ✅ **Use LinUCB when**:
 - You have diverse query types (code, math, general Q&A, research)
-- Query features are informative (embeddings, complexity, domain)
+- Query features are informative (embeddings, complexity)
 - You want the best cost/quality trade-off
 - Production routing (default choice)
 
@@ -390,9 +389,7 @@ bandit = LinUCBBandit(arms, alpha=1.0)
 features = QueryFeatures(
     embedding=[0.1] * 384,  # From sentence-transformers
     token_count=150,
-    complexity_score=0.7,
-    domain="technical",
-    domain_confidence=0.85
+    complexity_score=0.7
 )
 
 # Select model
@@ -486,10 +483,9 @@ Same as LinUCB:
     # 384 dimensions: Sentence embedding (semantic meaning)
     embedding[0], embedding[1], ..., embedding[383],
 
-    # 3 dimensions: Metadata
+    # 2 dimensions: Metadata
     token_count / 1000.0,     # Normalized token count
-    complexity_score,          # 0.0-1.0
-    domain_confidence          # 0.0-1.0
+    complexity_score          # 0.0-1.0
 ]
 ```
 
@@ -525,9 +521,7 @@ bandit = ContextualThompsonSamplingBandit(
 features = QueryFeatures(
     embedding=embed_query(query),
     token_count=len(query.split()),
-    complexity_score=0.7,
-    domain="technical",
-    domain_confidence=0.85
+    complexity_score=0.7
 )
 
 # Select model (samples from posterior)
@@ -939,9 +933,7 @@ embedding = await embedding_provider.embed(query)  # 384 dims (HuggingFace defau
 features = QueryFeatures(
     embedding=embedding,
     token_count=len(query.split()) * 1.3,  # Rough estimate
-    complexity_score=0.6,  # Calculate based on vocab, length, etc.
-    domain="science",
-    domain_confidence=0.8
+    complexity_score=0.6  # Calculate based on vocab, length, etc.
 )
 ```
 
@@ -1016,9 +1008,7 @@ async def test_bandit_learns(test_arms):
     features = QueryFeatures(
         embedding=[0.1] * 384,
         token_count=50,
-        complexity_score=0.5,
-        domain="test",
-        domain_confidence=0.8
+        complexity_score=0.5
     )
 
     # Simulate model-a being better for this context

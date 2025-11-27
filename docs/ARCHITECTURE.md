@@ -27,7 +27,7 @@ This section explains how Conduit's key components interact.
 │   │  │  384-1536d  │    │  64d        │    │  66-386d    │                  │   │
 │   │  └─────────────┘    └─────────────┘    └─────────────┘                  │   │
 │   │                                              │                           │   │
-│   │  + token_count, complexity_score, domain     │                           │   │
+│   │  + token_count, complexity_score                │                           │   │
 │   └──────────────────────────────────────────────┼──────────────────────────┘   │
 │                                                  │                               │
 │                                                  ▼                               │
@@ -223,26 +223,22 @@ class QueryAnalyzer:
             model=embedding_model,
             api_key=embedding_api_key,
         )
-        self.domain_classifier = DomainClassifier()
 
     async def analyze(self, query: str) -> QueryFeatures:
         """
         Extract features from query.
 
         Returns:
-            QueryFeatures with embedding, complexity, domain
+            QueryFeatures with embedding, complexity
         """
         # Generate embedding using provider (HuggingFace/OpenAI/Cohere/sentence-transformers)
         embedding = await self.embedding_provider.embed(query)
         complexity = self.compute_complexity(query)
-        domain = await self.classify_domain(query)
 
         return QueryFeatures(
             embedding=embedding,
             token_count=len(query.split()),
-            complexity_score=complexity,
-            domain=domain.name,
-            domain_confidence=domain.confidence
+            complexity_score=complexity
         )
 ```
 
@@ -353,8 +349,7 @@ class RoutingEngine:
 conduit/engines/
 ├── analyzer.py       # QueryAnalyzer - feature extraction
 ├── router.py         # RoutingEngine - model selection
-├── bandit.py         # ContextualBandit - Thompson Sampling
-└── domain.py         # DomainClassifier - query categorization
+└── bandit.py         # ContextualBandit - Thompson Sampling
 ```
 
 ---
@@ -843,7 +838,6 @@ conduit/core/
    QueryAnalyzer.analyze()
    - Compute embedding (384-dim)
    - Calculate complexity score
-   - Classify domain → "science"
 
 4. Routing Decision
    RoutingEngine.select_model()
