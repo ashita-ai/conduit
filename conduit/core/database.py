@@ -4,6 +4,7 @@ Supports any PostgreSQL database (self-hosted, AWS RDS, Supabase, etc.)
 via standard connection string: postgresql://user:pass@host:port/database
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -92,11 +93,25 @@ class Database:
             raise DatabaseError(f"Failed to connect to database: {e}") from e
 
     async def disconnect(self) -> None:
-        """Close PostgreSQL connection pool and all connections."""
+        """Close PostgreSQL connection pool and all connections.
+
+        Uses a 10-second timeout to prevent hanging on unclosed connections.
+        If timeout occurs, terminates the pool immediately.
+        """
         if self.pool:
-            await self.pool.close()
-            self.pool = None
-            logger.info("PostgreSQL connection pool closed")
+            try:
+                # Wait up to 10 seconds for graceful close
+                await asyncio.wait_for(self.pool.close(), timeout=10.0)
+                logger.info("PostgreSQL connection pool closed gracefully")
+            except asyncio.TimeoutError:
+                # Force terminate if graceful close times out
+                logger.warning(
+                    "Pool close timed out after 10s, terminating connections"
+                )
+                self.pool.terminate()
+                logger.info("PostgreSQL connection pool terminated")
+            finally:
+                self.pool = None
 
     async def save_query(self, query: Query) -> str:
         """Save query and return ID.
