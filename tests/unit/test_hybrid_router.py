@@ -309,6 +309,7 @@ async def test_custom_switch_threshold(test_analyzer):
         switch_threshold=100,
         analyzer=test_analyzer,
         feature_dim=386,
+        phase1_algorithm="ucb1",  # Test UCB1 → LinUCB transition
     )
 
     assert router.switch_threshold == 100
@@ -333,6 +334,7 @@ async def test_custom_exploration_parameters(test_analyzer):
         switch_threshold=10,
         analyzer=test_analyzer,
         feature_dim=386,
+        phase1_algorithm="ucb1",  # Test UCB1-specific parameters
         ucb1_c=2.0,
         linucb_alpha=0.5,
     )

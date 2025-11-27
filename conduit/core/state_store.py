@@ -92,6 +92,21 @@ class BanditState(BaseModel):
         default=None, description="Sliding window for non-stationarity"
     )
 
+    # Embedding configuration (Phase 1 & 2: dimension safety)
+    embedding_provider: str | None = Field(
+        default=None,
+        description="Embedding provider used (openai, cohere, fastembed, etc.)",
+    )
+    embedding_dimensions: int | None = Field(
+        default=None, description="Raw embedding dimensions (384, 1024, 1536, etc.)"
+    )
+    pca_enabled: bool | None = Field(
+        default=None, description="Whether PCA dimensionality reduction was used"
+    )
+    pca_dimensions: int | None = Field(
+        default=None, description="PCA output dimensions if PCA enabled"
+    )
+
     # Metadata
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

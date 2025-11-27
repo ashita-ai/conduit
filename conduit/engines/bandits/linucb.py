@@ -466,10 +466,28 @@ class LinUCBBandit(BanditAlgorithm):
                 f"State arms {state_arms} don't match current arms {current_arms}"
             )
 
-        # Verify feature dimension matches
+        # Verify feature dimension matches (Phase 1: dimension safety)
         if state.feature_dim is not None and state.feature_dim != self.feature_dim:
+            # Build helpful error message with embedding provider context
+            provider_info = ""
+            if state.embedding_provider:
+                provider_info = f"\n  Saved with: {state.embedding_provider}"
+                if state.embedding_dimensions:
+                    provider_info += f" ({state.embedding_dimensions} dims"
+                    if state.pca_enabled:
+                        provider_info += f" → PCA {state.pca_dimensions} dims"
+                    provider_info += ")"
+
             raise ValueError(
-                f"State feature_dim {state.feature_dim} != {self.feature_dim}"
+                f"Cannot load state: dimension mismatch.\n"
+                f"  Saved state: {state.feature_dim} total dims{provider_info}\n"
+                f"  Current config: {self.feature_dim} total dims\n"
+                f"\n"
+                f"  This usually happens when switching embedding providers or PCA settings.\n"
+                f"  Solutions:\n"
+                f"  1. Revert to the original embedding configuration (preserve learning)\n"
+                f"  2. Delete saved state to start fresh (lose learning but use new config)\n"
+                f"  3. Use explicit feature_dim parameter matching saved state"
             )
 
         # Restore counters

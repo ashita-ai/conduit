@@ -332,6 +332,7 @@ class TestHybridRouterStatePersistence:
         router1 = HybridRouter(
             models=["gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet"],
             switch_threshold=2000,
+            phase1_algorithm="ucb1",  # Test UCB1 state persistence
         )
         router1.query_count = 1000
         router1.ucb1.total_queries = 1000
@@ -349,6 +350,7 @@ class TestHybridRouterStatePersistence:
         router2 = HybridRouter(
             models=["gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet"],
             switch_threshold=2000,
+            phase1_algorithm="ucb1",  # Test UCB1 state persistence
         )
         router2.from_state(state)
 

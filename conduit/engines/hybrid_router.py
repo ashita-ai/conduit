@@ -27,6 +27,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Algorithm display names for user-facing messages
+ALGORITHM_DISPLAY_NAMES = {
+    "ucb1": "UCB1",
+    "thompson_sampling": "Thompson Sampling",
+    "linucb": "LinUCB",
+    "contextual_thompson_sampling": "Contextual Thompson Sampling",
+}
+
 
 class HybridRouter:
     """Hybrid routing with Thompson Sampling → LinUCB for quality-first cold start.
@@ -71,7 +79,7 @@ class HybridRouter:
         models: list[str],
         switch_threshold: int = 2000,
         analyzer: QueryAnalyzer | None = None,
-        feature_dim: int = 386,
+        feature_dim: int | None = None,
         phase1_algorithm: str = "thompson_sampling",
         phase2_algorithm: str = "linucb",
         ucb1_c: float = 1.5,
@@ -86,7 +94,13 @@ class HybridRouter:
             models: List of model IDs to route between
             switch_threshold: Query count to switch from phase1 to phase2 (default: 2000)
             analyzer: Query analyzer for feature extraction (created if None)
-            feature_dim: Feature dimensionality for contextual algorithms (default: 386, or 66 with PCA)
+            feature_dim: Feature dimensionality for contextual algorithms.
+                If None (default), auto-detected from analyzer (recommended).
+                Auto-detection handles different embedding providers and PCA settings:
+                - FastEmbed: 386 dims (384 embedding + 2 metadata)
+                - FastEmbed + PCA: 66 dims (64 PCA + 2 metadata)
+                - OpenAI: 1538 dims (1536 embedding + 2 metadata)
+                - Cohere: 1026 dims (1024 embedding + 2 metadata)
             phase1_algorithm: Algorithm for cold start phase. Options:
                 - "thompson_sampling" (default): Bayesian exploration with superior quality
                 - "ucb1": Faster but lower quality non-contextual exploration
@@ -162,6 +176,21 @@ class HybridRouter:
             for model_id in models
         ]
 
+        # Create query analyzer first (needed for feature_dim auto-detection)
+        self.analyzer = analyzer if analyzer is not None else QueryAnalyzer()
+
+        # Auto-detect feature_dim from analyzer if not specified
+        if feature_dim is None:
+            feature_dim = self.analyzer.feature_dim
+            logger.info(
+                f"Auto-detected feature_dim={feature_dim} from analyzer "
+                f"(embedding provider: {self.analyzer.embedding_provider.provider_name}, "
+                f"PCA: {self.analyzer.use_pca})"
+            )
+
+        # Store for state persistence
+        self.feature_dim = feature_dim
+
         # Import bandit classes
         from conduit.engines.bandits import (
             ContextualThompsonSamplingBandit,
@@ -201,9 +230,6 @@ class HybridRouter:
                 reward_weights=reward_weights,
                 window_size=window_size,
             )
-
-        # Query analyzer (for phase2 contextual algorithms)
-        self.analyzer = analyzer if analyzer is not None else QueryAnalyzer()
 
         logger.info(
             f"HybridRouter initialized: {len(models)} models, "
@@ -333,9 +359,10 @@ class HybridRouter:
         else:
             # Phase 2 (contextual) requires features
             if features is None:
-                raise ValueError(
-                    f"Features required for {self.phase2_algorithm} update"
+                algorithm_display = ALGORITHM_DISPLAY_NAMES.get(
+                    self.phase2_algorithm, self.phase2_algorithm
                 )
+                raise ValueError(f"Features required for {algorithm_display} update")
             await self.phase2_bandit.update(feedback, features)
 
     async def _transition_to_phase2(self) -> None:
@@ -505,6 +532,31 @@ class HybridRouter:
         # Get bandit states
         phase1_bandit_state = self.phase1_bandit.to_state()
         phase2_bandit_state = self.phase2_bandit.to_state()
+
+        # Phase 2: Add embedding provider metadata for dimension safety
+        # This allows detection of dimension mismatches when loading state
+        # Handle mocked analyzers in tests gracefully
+        try:
+            if hasattr(self.analyzer, "embedding_provider") and hasattr(
+                self.analyzer.embedding_provider, "provider_name"
+            ):
+                embedding_provider_name = self.analyzer.embedding_provider.provider_name
+                # Skip if provider_name is a Mock object (tests)
+                if isinstance(embedding_provider_name, str):
+                    embedding_dimensions = self.analyzer.embedding_provider.dimension
+                    pca_enabled = self.analyzer.use_pca
+                    pca_dimensions = (
+                        self.analyzer.pca_dimensions if pca_enabled else None
+                    )
+
+                    # Inject embedding metadata into phase2 state (contextual algorithms use features)
+                    phase2_bandit_state.embedding_provider = embedding_provider_name
+                    phase2_bandit_state.embedding_dimensions = embedding_dimensions
+                    phase2_bandit_state.pca_enabled = pca_enabled
+                    phase2_bandit_state.pca_dimensions = pca_dimensions
+        except (AttributeError, TypeError):
+            # Mocked analyzer in tests - skip embedding metadata
+            pass
 
         return HybridRouterState(
             query_count=self.query_count,
