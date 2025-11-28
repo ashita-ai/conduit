@@ -31,7 +31,7 @@
 
 1. **Check exploration rate**:
 ```python
-from conduit.engines.router import Router
+from conduit import Router
 
 router = Router()
 stats = router.bandit.get_stats()
@@ -91,7 +91,7 @@ bandit = EpsilonGreedyBandit(
 router.bandit.reset()
 
 # Or create new router (default is Thompson Sampling)
-from conduit.engines.router import Router
+from conduit import Router
 
 router = Router()  # Default: Thompson Sampling
 # Thompson Sampling explores more naturally via Bayesian sampling
@@ -119,7 +119,7 @@ bandit = LinUCBBandit(
 
 **Solution 4: Use Contextual Thompson Sampling**
 ```python
-from conduit.engines.router import Router
+from conduit import Router
 
 # Better exploration via Bayesian sampling
 router = Router(algorithm="contextual_thompson_sampling")
@@ -192,7 +192,7 @@ else:
 
 **Solution 2: Use Hybrid Routing for Contextual Learning (Optional)**
 ```python
-from conduit.engines.router import Router
+from conduit import Router
 
 # If you need contextual routing after exploration, use hybrid
 router = Router(algorithm="hybrid_thompson_linucb")
@@ -340,7 +340,7 @@ features.metadata["latency_sensitive"] = "fast" in query.lower()
 
 **Solution 3: Switch to LinUCB for Contextual Learning**
 ```python
-from conduit.engines.router import Router
+from conduit import Router
 
 # LinUCB learns query-specific patterns
 router = Router(algorithm="linucb")
@@ -412,7 +412,7 @@ arms = available_models(
 **Solution 4: Use Informed Priors (Thompson Sampling)**
 ```python
 from conduit.engines.bandits import ThompsonSamplingBandit
-from conduit.engines.bandits.base import ModelArm
+from conduit.engines.bandits import ModelArm
 
 # Set informed priors based on general knowledge
 arms = [
@@ -478,7 +478,7 @@ print(f"Models you can't use: {deprecated}")
 Don't immediately remove deprecated models. Use a transition period to migrate traffic:
 
 ```python
-from conduit.engines.router import Router
+from conduit import Router
 from conduit.core.models import Query, QueryConstraints
 
 # Week 1-2: Route existing queries normally
@@ -512,7 +512,7 @@ query_with_constraint = Query(
 ### Step 3: Remove Deprecated Model
 
 ```python
-from conduit.engines.router import Router
+from conduit import Router
 
 # Recreate router with updated model list
 from conduit.models import available_models
@@ -595,7 +595,7 @@ router = create_router()
 
 **Approach 2: Add Model Validation**
 ```python
-from conduit.engines.router import Router
+from conduit import Router
 from conduit.core.models import Query
 
 async def route_with_validation(router: Router, query: Query):
@@ -674,7 +674,7 @@ for m in models:
 # Create script: debug_bandit.py
 cat > debug_bandit.py << 'EOF'
 import asyncio
-from conduit.engines.router import Router
+from conduit import Router
 
 async def main():
     router = Router()
@@ -702,7 +702,7 @@ python debug_bandit.py
 # Create script: test_route.py
 cat > test_route.py << 'EOF'
 import asyncio
-from conduit.engines.router import Router
+from conduit import Router
 from conduit.core.models import Query
 
 async def main():
@@ -735,7 +735,7 @@ python test_route.py
 **Interactive Exploration**:
 ```python
 import asyncio
-from conduit.engines.router import Router
+from conduit import Router
 from conduit.core.models import Query
 
 # Create router
@@ -762,7 +762,7 @@ print(f"Confidence: {decision.confidence:.0%}")
 **Compare Algorithms**:
 ```python
 import asyncio
-from conduit.engines.router import Router
+from conduit import Router
 from conduit.core.models import Query
 
 algorithms = ["ucb1", "epsilon_greedy", "thompson_sampling", "linucb"]

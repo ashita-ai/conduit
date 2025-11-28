@@ -379,8 +379,7 @@ A_inv_new = A_inv - (a_inv_x @ a_inv_x.T) / denominator
 ### Example Usage
 
 ```python
-from conduit.engines.bandits import LinUCBBandit
-from conduit.engines.bandits.base import ModelArm, BanditFeedback
+from conduit.engines.bandits import LinUCBBandit, ModelArm, BanditFeedback
 from conduit.core.models import QueryFeatures
 
 # Initialize with available models
@@ -519,9 +518,8 @@ Same as LinUCB:
 ### Example Usage
 
 ```python
-from conduit.engines.bandits import ContextualThompsonSamplingBandit
+from conduit.engines.bandits import ContextualThompsonSamplingBandit, BanditFeedback
 from conduit.core.models import QueryFeatures
-from conduit.engines.bandits.base import BanditFeedback
 
 # Initialize
 bandit = ContextualThompsonSamplingBandit(
@@ -908,8 +906,7 @@ Start: Which bandit algorithm should I use?
 ### Initialize Bandit with Custom Arms
 
 ```python
-from conduit.engines.bandits import LinUCBBandit
-from conduit.engines.bandits.base import ModelArm
+from conduit.engines.bandits import LinUCBBandit, ModelArm
 
 # Define your available models
 arms = [
@@ -1004,8 +1001,7 @@ All bandit algorithms follow the same interface:
 
 ```python
 import pytest
-from conduit.engines.bandits import LinUCBBandit
-from conduit.engines.bandits.base import ModelArm, BanditFeedback
+from conduit.engines.bandits import LinUCBBandit, ModelArm, BanditFeedback
 from conduit.core.models import QueryFeatures
 
 @pytest.fixture

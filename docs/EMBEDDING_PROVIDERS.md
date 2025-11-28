@@ -16,7 +16,7 @@ Conduit supports multiple embedding providers for query feature extraction. Choo
 **Conduit uses HuggingFace Inference API by default** - no API key or additional dependencies required. This provides a lightweight, free option that works out of the box.
 
 ```python
-from conduit.engines.router import Router
+from conduit import Router
 
 # Uses HuggingFace API automatically (free, no setup needed)
 router = Router()
@@ -43,7 +43,7 @@ COHERE_API_KEY=...     # For Cohere embeddings (separate key required)
 Configure embedding provider when creating the router:
 
 ```python
-from conduit.engines.router import Router
+from conduit import Router
 
 # HuggingFace (default, free)
 router = Router()

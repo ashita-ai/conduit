@@ -351,7 +351,7 @@ For production, Redis recommended for embedding caching.
 Yes. Provide explicit feedback:
 
 ```python
-from conduit.engines.bandits.base import BanditFeedback
+from conduit.engines.bandits import BanditFeedback
 
 feedback = BanditFeedback(
     model_id="gpt-4o-mini",
