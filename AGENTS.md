@@ -420,10 +420,12 @@ uv run python examples/02_routing/basic_routing.py
 models:
   # Default routing pool (balanced across providers)
   default:
-    - o4-mini               # OpenAI fast reasoning
+    - o4-mini               # OpenAI budget
+    - gpt-5                 # OpenAI mid-tier
     - gpt-5.1               # OpenAI flagship
-    - claude-sonnet-4-5-20241124  # Anthropic balanced
-    - gemini-2.5-flash      # Google fast
+    - claude-sonnet-4.5     # Anthropic balanced
+    - claude-opus-4.5       # Anthropic premium
+    - gemini-2.5-pro        # Google flagship
 
   # Arbiter evaluation (cheap, fast)
   arbiter: o4-mini

@@ -82,6 +82,7 @@ class Settings(BaseSettings):
     default_models: list[str] = Field(
         default=[
             "o4-mini",  # OpenAI - cheap, fast reasoning
+            "gpt-5",  # OpenAI - mid-tier, strong reasoning
             "gpt-5.1",  # OpenAI - latest flagship
             "claude-sonnet-4.5",  # Anthropic - balanced quality
             "claude-opus-4.5",  # Anthropic - premium quality
