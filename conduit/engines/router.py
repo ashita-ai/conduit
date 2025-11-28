@@ -211,6 +211,22 @@ class Router:
                 "phase2_algorithm": "linucb",  # Unused (never reaches phase2)
                 "switch_threshold": float("inf"),
             },
+            # Baseline algorithms (non-learning, for benchmarking)
+            "always_best": {
+                "phase1_algorithm": "always_best",
+                "phase2_algorithm": "linucb",  # Unused (never reaches phase2)
+                "switch_threshold": float("inf"),
+            },
+            "always_cheapest": {
+                "phase1_algorithm": "always_cheapest",
+                "phase2_algorithm": "linucb",  # Unused (never reaches phase2)
+                "switch_threshold": float("inf"),
+            },
+            "oracle": {
+                "phase1_algorithm": "oracle",
+                "phase2_algorithm": "linucb",  # Unused (never reaches phase2)
+                "switch_threshold": float("inf"),
+            },
             # Contextual single algorithms (phase2 only, start immediately)
             "linucb": {
                 "phase1_algorithm": "thompson_sampling",  # Unused (starts in phase2)

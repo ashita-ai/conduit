@@ -19,7 +19,13 @@ from conduit.core.config import load_context_priors
 from conduit.core.models import Query, QueryFeatures, RoutingDecision
 from conduit.core.state_store import HybridRouterState, RouterPhase
 from conduit.engines.analyzer import QueryAnalyzer
-from conduit.engines.bandits import LinUCBBandit, UCB1Bandit
+from conduit.engines.bandits import (
+    AlwaysBestBaseline,
+    AlwaysCheapestBaseline,
+    LinUCBBandit,
+    OracleBaseline,
+    UCB1Bandit,
+)
 from conduit.engines.bandits.base import BanditFeedback, ModelArm
 
 if TYPE_CHECKING:
@@ -33,6 +39,9 @@ ALGORITHM_DISPLAY_NAMES = {
     "thompson_sampling": "Thompson Sampling",
     "linucb": "LinUCB",
     "contextual_thompson_sampling": "Contextual Thompson Sampling",
+    "always_best": "Always Best",
+    "always_cheapest": "Always Cheapest",
+    "oracle": "Oracle",
 }
 
 
@@ -145,7 +154,15 @@ class HybridRouter:
         self.phase2_algorithm = phase2_algorithm
 
         # Validate algorithm choices
-        valid_phase1 = ["ucb1", "thompson_sampling", "epsilon_greedy", "random"]
+        valid_phase1 = [
+            "ucb1",
+            "thompson_sampling",
+            "epsilon_greedy",
+            "random",
+            "always_best",
+            "always_cheapest",
+            "oracle",
+        ]
         valid_phase2 = ["linucb", "contextual_thompson_sampling", "dueling"]
 
         if phase1_algorithm not in valid_phase1:
@@ -225,6 +242,18 @@ class HybridRouter:
             )
         elif phase1_algorithm == "random":
             self.phase1_bandit = RandomBaseline(
+                arms=self.arms,
+            )
+        elif phase1_algorithm == "always_best":
+            self.phase1_bandit = AlwaysBestBaseline(
+                arms=self.arms,
+            )
+        elif phase1_algorithm == "always_cheapest":
+            self.phase1_bandit = AlwaysCheapestBaseline(
+                arms=self.arms,
+            )
+        elif phase1_algorithm == "oracle":
+            self.phase1_bandit = OracleBaseline(
                 arms=self.arms,
             )
 
