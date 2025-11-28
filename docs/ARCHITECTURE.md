@@ -147,6 +147,275 @@ Query → Embedding (384d) → PCA (64d) → Feature Vector (66d) → LinUCB
 
 ---
 
+## Feedback Loop Closure: How Learning Works
+
+**This is the CORE VALUE PROPOSITION of Conduit.** The system learns from feedback to make better routing decisions over time.
+
+### Complete Feedback Loop Data Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       FEEDBACK LOOP CLOSURE                                  │
+│                                                                              │
+│  1. ROUTE QUERY                                                              │
+│     ┌────────────────────────────────────────────────────────────────┐      │
+│     │ Query → Router.route() → HybridRouter.route()                 │      │
+│     │                                                                 │      │
+│     │ Phase 1 (queries < 2000): Thompson Sampling                    │      │
+│     │   → UCB1.select_arm() [no features, fast exploration]          │      │
+│     │                                                                 │      │
+│     │ Phase 2 (queries ≥ 2000): LinUCB                               │      │
+│     │   → LinUCB.select_arm(features)                                │      │
+│     │   → Compute UCB scores for each arm:                           │      │
+│     │      UCB = theta^T @ x + alpha * sqrt(x^T @ A_inv @ x)         │      │
+│     │      where theta = A_inv @ b (ridge regression coefficients)   │      │
+│     │   → Return arm with highest UCB                                │      │
+│     └────────────────────────────────────────────────────────────────┘      │
+│                             │                                                │
+│                             ▼                                                │
+│  2. EXECUTE                                                                  │
+│     ┌────────────────────────────────────────────────────────────────┐      │
+│     │ Execute LLM call with selected model                           │      │
+│     │ Track: cost, quality, latency                                  │      │
+│     └────────────────────────────────────────────────────────────────┘      │
+│                             │                                                │
+│                             ▼                                                │
+│  3. COLLECT FEEDBACK                                                         │
+│     ┌────────────────────────────────────────────────────────────────┐      │
+│     │ Router.update(                                                 │      │
+│     │   model_id=selected_model,                                     │      │
+│     │   cost=0.001,              # Actual execution cost             │      │
+│     │   quality_score=0.95,      # User rating or arbiter eval       │      │
+│     │   latency=0.5,             # Response time                     │      │
+│     │   features=decision.features  # CRITICAL: real query features  │      │
+│     │ )                                                               │      │
+│     └────────────────────────────────────────────────────────────────┘      │
+│                             │                                                │
+│                             ▼                                                │
+│  4. CALCULATE REWARD                                                         │
+│     ┌────────────────────────────────────────────────────────────────┐      │
+│     │ BanditFeedback.calculate_reward():                             │      │
+│     │                                                                 │      │
+│     │ reward = quality_weight * quality                              │      │
+│     │        + cost_weight * (1 / (1 + cost))                        │      │
+│     │        + latency_weight * (1 / (1 + latency))                  │      │
+│     │                                                                 │      │
+│     │ Default weights:                                                │      │
+│     │   - quality: 70%   (normalize_quality: clamp to [0,1])         │      │
+│     │   - cost: 20%      (normalize_cost: 1/(1+cost), asymptotic)    │      │
+│     │   - latency: 10%   (normalize_latency: 1/(1+latency))          │      │
+│     │                                                                 │      │
+│     │ Example:                                                        │      │
+│     │   quality=0.95, cost=0.001, latency=0.5                        │      │
+│     │   → reward = 0.7*0.95 + 0.2*0.999 + 0.1*0.667 = 0.932          │      │
+│     └────────────────────────────────────────────────────────────────┘      │
+│                             │                                                │
+│                             ▼                                                │
+│  5. UPDATE WEIGHTS (LinUCB with Sherman-Morrison)                            │
+│     ┌────────────────────────────────────────────────────────────────┐      │
+│     │ HybridRouter.update(feedback, features)                        │      │
+│     │   → LinUCB.update(feedback, features)                          │      │
+│     │                                                                 │      │
+│     │ Extract feature vector:                                         │      │
+│     │   x = [embedding(384d), token_count, complexity]  # 386×1       │      │
+│     │                                                                 │      │
+│     │ Incremental ridge regression update:                           │      │
+│     │   A[model] += x @ x^T     # Add outer product (386×386)        │      │
+│     │   b[model] += reward * x  # Add weighted features (386×1)      │      │
+│     │                                                                 │      │
+│     │ Sherman-Morrison formula (O(d²) instead of O(d³)):              │      │
+│     │   A_inv_new = A_inv - (A_inv @ x @ x^T @ A_inv) /              │      │
+│     │                       (1 + x^T @ A_inv @ x)                     │      │
+│     │                                                                 │      │
+│     │ This keeps A_inv updated without expensive inversion!          │      │
+│     └────────────────────────────────────────────────────────────────┘      │
+│                             │                                                │
+│                             ▼                                                │
+│  6. IMPROVED ROUTING (next query)                                            │
+│     ┌────────────────────────────────────────────────────────────────┐      │
+│     │ LinUCB now has updated A_inv and b for this model              │      │
+│     │                                                                 │      │
+│     │ Next select_arm() call computes:                               │      │
+│     │   theta_new = A_inv_new @ b_new  # Better estimate!            │      │
+│     │   UCB = theta_new^T @ x + alpha * uncertainty                  │      │
+│     │                                                                 │      │
+│     │ Models with better reward history (higher theta) get           │      │
+│     │ selected more often → LEARNING COMPLETE                        │      │
+│     └────────────────────────────────────────────────────────────────┘      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Mathematical Details: LinUCB Learning
+
+**Ridge Regression Formulation:**
+
+For each model arm, LinUCB maintains:
+- **A**: d×d matrix (sum of outer products: `Σ x_i @ x_i^T`)
+- **b**: d×1 vector (sum of reward-weighted features: `Σ r_i * x_i`)
+- **A_inv**: d×d inverse matrix (computed via Sherman-Morrison)
+
+Where d = feature dimension (386 by default: 384 embedding + 2 metadata)
+
+**Coefficients (theta):**
+```
+theta = A_inv @ b
+```
+This represents the learned reward prediction for this model.
+
+**Upper Confidence Bound (UCB):**
+```
+UCB = theta^T @ x + alpha * sqrt(x^T @ A_inv @ x)
+       ︸───────────︸   ︸──────────────────────────︸
+       exploitation          exploration
+       (learned reward)      (uncertainty bonus)
+```
+
+**Update Rule (after receiving feedback):**
+```python
+# Incremental update (O(d²) using Sherman-Morrison)
+A += x @ x^T              # Add information from this query
+b += reward * x           # Add reward signal
+
+# Sherman-Morrison: Update A_inv without full inversion
+a_inv_x = A_inv @ x
+denominator = 1.0 + (x^T @ a_inv_x)
+A_inv -= (a_inv_x @ a_inv_x^T) / denominator
+```
+
+**Why Sherman-Morrison Matters:**
+- Full matrix inversion: O(d³) = O(386³) ≈ 57M operations
+- Sherman-Morrison update: O(d²) = O(386²) ≈ 149K operations
+- **~380x speedup** for each update!
+
+### Learning Convergence Example
+
+From integration test `test_feedback_loop_improves_routing`:
+
+```
+Training Phase (40 queries with immediate feedback):
+┌──────────────┬──────────┬──────────┬────────────────┐
+│ Model        │ Cost     │ Quality  │ Reward         │
+├──────────────┼──────────┼──────────┼────────────────┤
+│ gpt-4o-mini  │ $0.001   │ 0.95     │ 0.932 (HIGH)   │
+│ gpt-4o       │ $0.10    │ 0.95     │ 0.903 (LOWER)  │
+└──────────────┴──────────┴──────────┴────────────────┘
+
+After Learning (50 test queries):
+┌──────────────┬────────────────────┬─────────────────┐
+│ Model        │ Selection Rate     │ Learning Status │
+├──────────────┼────────────────────┼─────────────────┤
+│ gpt-4o-mini  │ >70% (verified ✅) │ Learned cheaper │
+│ gpt-4o       │ <30%               │ Deprioritized   │
+└──────────────┴────────────────────┴─────────────────┘
+
+Result: System learned to prefer cheaper model with same quality
+```
+
+### Exploration vs Exploitation (alpha parameter)
+
+**Default alpha = 1.0** (balanced exploration):
+- Good for: Production environments, diverse queries
+- Behavior: Continues exploring even after learning
+- Trade-off: Slower convergence, better long-term adaptation
+
+**Low alpha = 0.1** (exploitation-focused):
+- Good for: Testing, stable workloads
+- Behavior: Quickly exploit learned knowledge
+- Trade-off: Faster convergence, less exploration of alternatives
+
+**Formula impact:**
+```
+UCB = mean_reward + alpha * uncertainty
+
+alpha = 1.0:  UCB = 0.9 + 1.0 * 0.2 = 1.1  (explore more)
+alpha = 0.1:  UCB = 0.9 + 0.1 * 0.2 = 0.92 (exploit learned reward)
+```
+
+### Hybrid Routing: Thompson Sampling → LinUCB Transition
+
+**Why Hybrid?**
+- Thompson Sampling (phase 1): Fast cold start, no embedding needed
+- LinUCB (phase 2): Contextual learning, uses query features
+
+**Transition at 2000 queries:**
+```
+Queries 0-1999:
+  ┌────────────────────────────────────────┐
+  │ Thompson Sampling (UCB1)               │
+  │ - No embedding computation             │
+  │ - Fast exploration (30% faster)        │
+  │ - Builds quality priors for each model │
+  └────────────────────────────────────────┘
+
+Query 2000: Knowledge Transfer
+  ┌────────────────────────────────────────┐
+  │ Convert Thompson Sampling quality      │
+  │ estimates to LinUCB initial state:     │
+  │                                        │
+  │ For each model:                        │
+  │   quality_estimate = alpha / (alpha + beta)
+  │   Initialize LinUCB b vector with      │
+  │   quality_estimate weighted features   │
+  └────────────────────────────────────────┘
+
+Queries 2000+:
+  ┌────────────────────────────────────────┐
+  │ LinUCB (Contextual)                    │
+  │ - Uses query embeddings                │
+  │ - Context-aware routing                │
+  │ - Builds on Thompson priors            │
+  └────────────────────────────────────────┘
+```
+
+**Test verification:** `test_hybrid_routing_feedback_loop` proves learning works across phase transition.
+
+### Code Paths (for debugging)
+
+**Route → Update → Learn:**
+```python
+# 1. Route query
+decision = await router.route(query)
+# → Router.route() [conduit/engines/router.py:226]
+#   → HybridRouter.route() [conduit/engines/hybrid_router.py:83]
+#     → LinUCB.select_arm(features) [conduit/engines/bandits/linucb.py:146]
+#       → Compute UCB scores using A_inv and b
+#       → Return arm with highest UCB
+
+# 2. Execute LLM call
+response = await execute_llm(decision.selected_model, query)
+
+# 3. Provide feedback
+await router.update(
+    model_id=decision.selected_model,
+    cost=response.cost,
+    quality_score=0.95,
+    latency=response.latency,
+    features=decision.features  # CRITICAL: pass real features
+)
+# → Router.update() [conduit/engines/router.py:320]
+#   → HybridRouter.update() [conduit/engines/hybrid_router.py:134]
+#     → LinUCB.update(feedback, features) [conduit/engines/bandits/linucb.py:195]
+#       → Calculate composite reward
+#       → Update A += x @ x^T
+#       → Update b += reward * x
+#       → Sherman-Morrison update A_inv
+```
+
+**Key files for feedback loop:**
+- `conduit/engines/router.py:226-286` - Router.route() and Router.update()
+- `conduit/engines/hybrid_router.py:83-134` - Phase management and delegation
+- `conduit/engines/bandits/linucb.py:146-193` - LinUCB selection (UCB formula)
+- `conduit/engines/bandits/linucb.py:195-324` - LinUCB update (Sherman-Morrison)
+- `conduit/core/reward_calculation.py` - Composite reward calculation
+
+**Integration tests:**
+- `tests/integration/test_feedback_loop.py` - Proves feedback loop closure works
+  - `test_feedback_loop_improves_routing` - Cost-based learning
+  - `test_hybrid_routing_feedback_loop` - Learning across phase transition
+
+---
+
 ## Overview
 
 This document provides detailed technical architecture for Conduit's ML-powered LLM routing system.
