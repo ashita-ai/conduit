@@ -81,8 +81,7 @@ class Router:
         embedding_model: str | None = None,
         embedding_api_key: str | None = None,
         cache_enabled: bool | None = None,
-        use_hybrid_routing: bool = True,
-        algorithm: str | None = None,
+        algorithm: str = "thompson_sampling",
         state_store: "StateStore | None" = None,
         router_id: str | None = None,
         auto_persist: bool = True,
@@ -97,10 +96,17 @@ class Router:
             embedding_model: Embedding model identifier (provider-specific, optional).
             embedding_api_key: API key for embedding provider (if required, optional).
             cache_enabled: Override cache enabled setting. If None, uses config default.
-            use_hybrid_routing: If True, use hybrid routing (UCB1 → LinUCB). If False, use single algorithm.
-                Default: True (recommended for faster cold start).
-            algorithm: Algorithm to use when use_hybrid_routing=False. Options: "linucb", "thompson_sampling",
-                "ucb1", "epsilon_greedy". Default: "linucb". Ignored if use_hybrid_routing=True.
+            algorithm: Routing algorithm to use. Default: "thompson_sampling" (non-contextual, no PCA needed).
+                Options:
+                - "thompson_sampling": Pure Thompson Sampling (non-contextual, recommended default)
+                - "linucb": Pure LinUCB (contextual, uses query features)
+                - "contextual_thompson_sampling": Contextual Thompson Sampling (uses query features)
+                - "ucb1": Pure UCB1 (non-contextual)
+                - "hybrid_thompson_linucb": Hybrid Thompson → LinUCB (legacy, switch at 2000 queries)
+                - "hybrid_ucb1_linucb": Hybrid UCB1 → LinUCB (legacy)
+
+                Note: PCA is controlled by config (use_pca setting), not by algorithm choice.
+                Contextual algorithms (linucb, contextual_thompson_sampling) can work with or without PCA.
             state_store: StateStore for automatic persistence (PostgresStateStore recommended).
                 If None, persistence is disabled.
             router_id: Unique identifier for this router (used as persistence key).
@@ -177,16 +183,59 @@ class Router:
             "latency": settings.reward_weight_latency,
         }
 
-        # Determine switch threshold based on routing mode
-        if use_hybrid_routing:
-            switch_threshold = settings.hybrid_switch_threshold
-        else:
-            # Start directly with LinUCB (effectively disable hybrid routing)
-            switch_threshold = 0
+        # Map algorithm to HybridRouter configuration
+        # Single algorithms use switch_threshold=infinity (never switch phases)
+        # Hybrid algorithms use default switch_threshold=2000
+        algorithm_config = {
+            # Non-contextual single algorithms (phase1 only, never switch)
+            "thompson_sampling": {
+                "phase1_algorithm": "thompson_sampling",
+                "phase2_algorithm": "linucb",  # Unused (never reaches phase2)
+                "switch_threshold": float("inf"),
+            },
+            "ucb1": {
+                "phase1_algorithm": "ucb1",
+                "phase2_algorithm": "linucb",  # Unused (never reaches phase2)
+                "switch_threshold": float("inf"),
+            },
+            # Contextual single algorithms (phase2 only, start immediately)
+            "linucb": {
+                "phase1_algorithm": "thompson_sampling",  # Unused (starts in phase2)
+                "phase2_algorithm": "linucb",
+                "switch_threshold": 0,
+            },
+            "contextual_thompson_sampling": {
+                "phase1_algorithm": "thompson_sampling",  # Unused (starts in phase2)
+                "phase2_algorithm": "contextual_thompson_sampling",
+                "switch_threshold": 0,
+            },
+            # Hybrid algorithms (transition from phase1 to phase2)
+            "hybrid_thompson_linucb": {
+                "phase1_algorithm": "thompson_sampling",
+                "phase2_algorithm": "linucb",
+                "switch_threshold": settings.hybrid_switch_threshold,
+            },
+            "hybrid_ucb1_linucb": {
+                "phase1_algorithm": "ucb1",
+                "phase2_algorithm": "linucb",
+                "switch_threshold": settings.hybrid_switch_threshold,
+            },
+        }
+
+        # Validate algorithm choice
+        if algorithm not in algorithm_config:
+            raise ValueError(
+                f"Unknown algorithm: {algorithm}. "
+                f"Valid options: {list(algorithm_config.keys())}"
+            )
+
+        config = algorithm_config[algorithm]
 
         self.hybrid_router = HybridRouter(
             models=models,
-            switch_threshold=switch_threshold,
+            switch_threshold=config["switch_threshold"],
+            phase1_algorithm=config["phase1_algorithm"],
+            phase2_algorithm=config["phase2_algorithm"],
             analyzer=self.analyzer,
             feature_dim=feature_dim,
             ucb1_c=settings.hybrid_ucb1_c,
@@ -194,7 +243,7 @@ class Router:
             reward_weights=reward_weights,
             window_size=settings.bandit_window_size,
         )
-        self.use_hybrid_routing = use_hybrid_routing
+        self.algorithm = algorithm
 
         # State persistence configuration
         self.state_store = state_store
@@ -218,8 +267,8 @@ class Router:
 
         self.cache = cache_service
         logger.info(
-            f"Router initialized with hybrid routing "
-            f"(switch at {settings.hybrid_switch_threshold} queries, "
+            f"Router initialized with algorithm='{algorithm}' "
+            f"(switch_threshold={config['switch_threshold']}, "
             f"feature_dim={feature_dim})"
         )
 

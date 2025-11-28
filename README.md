@@ -44,7 +44,7 @@ async def main():
 asyncio.run(main())
 ```
 
-**Starts learning immediately**: Conduit begins routing from query 1, with full contextual learning after 2,000 queries.
+**Starts learning immediately**: Conduit begins routing from query 1 using Thompson Sampling (Bayesian exploration). Optional contextual algorithms (LinUCB) available via `algorithm` parameter.
 
 ## How It Works
 
@@ -61,7 +61,7 @@ Query → Analyze → Smart Selection → LLM Provider → Response
 3. **Execute**: Route to selected model via PydanticAI or LiteLLM
 4. **Learn**: Track what worked and improve future routing decisions
 
-**Under the hood**: Uses contextual bandits (Thompson Sampling → LinUCB) for multi-armed optimization. Thompson Sampling provides superior cold-start quality through Bayesian exploration, automatically transitioning to contextual LinUCB after 2,000 queries.
+**Under the hood**: Uses Thompson Sampling bandit algorithm for multi-armed optimization. Thompson Sampling provides superior cold-start quality through Bayesian exploration ([arXiv 2510.02850](https://arxiv.org/abs/2510.02850)). Contextual algorithms (LinUCB, Contextual Thompson) available via `algorithm` parameter.
 
 ## How Learning Works
 
@@ -291,10 +291,11 @@ Think of it this way: LiteLLM/Portkey are the roads, Conduit is the GPS that pic
 **CI/CD**: GitHub Actions with automated testing
 
 ### Recent Additions
+- ✅ Thompson Sampling default (superior cold-start quality)
 - ✅ Lightweight API-based embeddings (HuggingFace default, no heavy dependencies)
 - ✅ Arbiter LLM-as-Judge (automatic quality evaluation)
 - ✅ LiteLLM feedback loop (zero-config learning)
-- ✅ Hybrid routing (30% faster convergence)
+- ✅ Configurable algorithms (Thompson, LinUCB, UCB1, Hybrid)
 - ✅ Multi-objective rewards (quality + cost + latency)
 - ✅ User preferences (per-query optimization control)
 - ✅ Dynamic pricing (71+ models auto-updated)

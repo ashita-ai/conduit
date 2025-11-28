@@ -27,8 +27,7 @@ async def test_feedback_loop_improves_routing():
     # Setup: Two models with different costs
     router = Router(
         models=["gpt-4o-mini", "gpt-4o"],  # mini is cheaper
-        use_hybrid_routing=False,  # Use LinUCB directly
-        algorithm="linucb",
+        algorithm="linucb",  # Use LinUCB directly
     )
 
     # Override alpha to reduce exploration (prioritize learned knowledge)
@@ -109,7 +108,7 @@ async def test_hybrid_routing_feedback_loop():
     )
 
     # Create router wrapper
-    router = Router(models=["gpt-4o-mini", "gpt-4o"], use_hybrid_routing=False)
+    router = Router(models=["gpt-4o-mini", "gpt-4o"], algorithm="linucb")
     router.hybrid_router = hybrid_router  # Replace with our custom hybrid router
     router.analyzer = analyzer
 

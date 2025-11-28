@@ -129,7 +129,10 @@ class HybridRouterState(BaseModel):
 
     query_count: int = 0
     current_phase: RouterPhase = RouterPhase.UCB1
-    transition_threshold: int = 2000
+    transition_threshold: int | float | None = Field(
+        default=2000,
+        description="Query threshold for phase transition (can be infinity)",
+    )
 
     # Algorithm identifiers (new fields)
     phase1_algorithm: str | None = None  # "ucb1" or "thompson_sampling"

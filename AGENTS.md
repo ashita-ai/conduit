@@ -13,8 +13,8 @@ last_updated: 2025-11-27
 **Design Philosophy**: Simplicity wins, use good defaults, YAML config where needed, no hardcoded assumptions.
 
 **Current Phase**: Pre-1.0 preparation (version 0.1.0, CI/CD complete, state persistence done)
-**Test Health**: 643 passing, 26 skipped (100% pass rate), 83% coverage
-**Latest**: Router.update() real features fix (PR #168), automatic state persistence, database timeout fix, hybrid routing tests
+**Test Health**: 100% passing (684 tests), 81% coverage
+**Latest**: Thompson Sampling default algorithm (PR #169 - BREAKING), state persistence infinity fix, all examples passing (16/16)
 
 ---
 
@@ -38,6 +38,41 @@ grep -r "TODO\|FIXME\|NotImplementedError" conduit/ || echo "✅ No placeholders
 # 5. Verify type checking works
 uv run mypy conduit/ --no-error-summary || echo "⚠️ Fix type errors before starting"
 ```
+
+---
+
+## Breaking Changes (Pre-1.0)
+
+### PR #169: Default Algorithm Changed to Thompson Sampling (2025-11-27)
+
+**Breaking API Change**: `Router.__init__()` parameter modification
+
+**OLD (Removed)**:
+```python
+router = Router(use_hybrid_routing=False)  # REMOVED parameter
+```
+
+**NEW (Required)**:
+```python
+router = Router(algorithm="thompson_sampling")  # Default: thompson_sampling
+```
+
+**Migration Guide**:
+- **If you used default (no params)**: No change needed, new default is Thompson Sampling
+- **If you used `use_hybrid_routing=True`**: Use `algorithm="hybrid_thompson_linucb"` (maintains old behavior)
+- **If you used `use_hybrid_routing=False`**: Use `algorithm="linucb"` (contextual algorithm)
+
+**Available Algorithms**:
+- `thompson_sampling` (default): Non-contextual Bayesian bandit (best cold-start quality, research-backed arXiv 2510.02850)
+- `linucb`: Contextual linear bandit (uses query features)
+- `contextual_thompson_sampling`: Contextual Bayesian bandit
+- `ucb1`: Non-contextual upper confidence bound
+- `hybrid_thompson_linucb`: Thompson → LinUCB transition (old default, legacy)
+- `hybrid_ucb1_linucb`: UCB1 → LinUCB transition (legacy)
+
+**Rationale**: Thompson Sampling provides superior cold-start quality through Bayesian exploration (research paper arXiv 2510.02850). Simpler default, no complex hybrid logic needed for most users.
+
+**Tests**: All 684 tests passing, all 16 examples verified, no functional regressions.
 
 ---
 
