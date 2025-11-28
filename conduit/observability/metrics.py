@@ -135,7 +135,7 @@ def record_routing_decision(
 
     attributes = {
         "model": decision.selected_model,
-        "domain": decision.features.domain,
+        "domain": getattr(decision.features, "domain", "unknown"),
     }
 
     # Record decision count
