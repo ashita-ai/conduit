@@ -10,16 +10,13 @@ Tests cover:
 - Reasoning generation
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from conduit.core.models import (
-    Query,
-    QueryConstraints,
-    QueryFeatures,
-    RoutingDecision)
-from conduit.engines.router import Router
+import pytest
+
+from conduit.core.models import Query, QueryConstraints, QueryFeatures, RoutingDecision
 from conduit.engines import Router as RouterFromEngines
+from conduit.engines.router import Router
 
 
 @pytest.fixture
@@ -27,9 +24,7 @@ def mock_analyzer():
     """Create mock QueryAnalyzer."""
     analyzer = AsyncMock()
     analyzer.analyze.return_value = QueryFeatures(
-        embedding=[0.1] * 384,
-        token_count=10,
-        complexity_score=0.5
+        embedding=[0.1] * 384, token_count=10, complexity_score=0.5
     )
     analyzer.feature_dim = 386
     return analyzer
@@ -45,12 +40,11 @@ def mock_hybrid_router():
             selected_model="gpt-4o-mini",
             confidence=0.85,
             features=QueryFeatures(
-                embedding=[0.1] * 384,
-                token_count=10,
-                complexity_score=0.5
+                embedding=[0.1] * 384, token_count=10, complexity_score=0.5
             ),
             reasoning="Simple query routed to gpt-4o-mini",
-            metadata={"constraints_relaxed": False})
+            metadata={"constraints_relaxed": False},
+        )
     )
     hybrid_router.models = ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4", "claude-opus-4"]
     return hybrid_router
@@ -82,7 +76,10 @@ class TestRouterBasic:
         assert decision.query_id == "test-1"
         assert decision.features is not None
         assert decision.reasoning is not None
-        assert "simple" in decision.reasoning.lower() or "moderate" in decision.reasoning.lower()
+        assert (
+            "simple" in decision.reasoning.lower()
+            or "moderate" in decision.reasoning.lower()
+        )
         assert decision.metadata.get("constraints_relaxed") is False
 
     @pytest.mark.asyncio
@@ -95,9 +92,7 @@ class TestRouterBasic:
 
         query = Query(id="test-2", text="Complex query")
         features = QueryFeatures(
-            embedding=[0.2] * 384,
-            token_count=100,
-            complexity_score=0.8
+            embedding=[0.2] * 384, token_count=100, complexity_score=0.8
         )
 
         # Router.route() doesn't accept features parameter - it always calls analyzer
@@ -112,9 +107,7 @@ class TestConstraintFiltering:
     """Tests for constraint filtering logic."""
 
     @pytest.mark.asyncio
-    async def test_max_cost_constraint(
-        self, mock_hybrid_router, default_models
-    ):
+    async def test_max_cost_constraint(self, mock_hybrid_router, default_models):
         """Test filtering by maximum cost."""
         router = Router(models=default_models)
         router.hybrid_router = mock_hybrid_router
@@ -132,9 +125,7 @@ class TestConstraintFiltering:
         assert decision.selected_model == "gpt-4o-mini"
 
     @pytest.mark.asyncio
-    async def test_max_latency_constraint(
-        self, mock_hybrid_router, default_models
-    ):
+    async def test_max_latency_constraint(self, mock_hybrid_router, default_models):
         """Test filtering by maximum latency."""
         router = Router(models=default_models)
         router.hybrid_router = mock_hybrid_router
@@ -150,9 +141,7 @@ class TestConstraintFiltering:
         assert decision.selected_model == "gpt-4o-mini"
 
     @pytest.mark.asyncio
-    async def test_min_quality_constraint(
-        self, mock_hybrid_router, default_models
-    ):
+    async def test_min_quality_constraint(self, mock_hybrid_router, default_models):
         """Test filtering by minimum quality."""
         router = Router(models=default_models)
         router.hybrid_router = mock_hybrid_router
@@ -186,18 +175,13 @@ class TestConstraintFiltering:
         assert decision.selected_model == "gpt-4o-mini"
 
     @pytest.mark.asyncio
-    async def test_combined_constraints(
-        self, mock_hybrid_router, default_models
-    ):
+    async def test_combined_constraints(self, mock_hybrid_router, default_models):
         """Test multiple constraints together."""
         router = Router(models=default_models)
         router.hybrid_router = mock_hybrid_router
 
         # Only claude-sonnet-4 satisfies all: cost <= 0.001, latency <= 2.0, quality >= 0.8
-        constraints = QueryConstraints(
-            max_cost=0.001,
-            max_latency=2.0,
-            min_quality=0.8)
+        constraints = QueryConstraints(max_cost=0.001, max_latency=2.0, min_quality=0.8)
         query = Query(id="test-7", text="Complex constraints", constraints=constraints)
 
         decision = await router.route(query)
@@ -223,12 +207,11 @@ class TestConstraintRelaxation:
                 selected_model="gpt-4o-mini",
                 confidence=0.85,
                 features=QueryFeatures(
-                    embedding=[0.1] * 384,
-                    token_count=10,
-                    complexity_score=0.5
+                    embedding=[0.1] * 384, token_count=10, complexity_score=0.5
                 ),
                 reasoning="Constraints relaxed",
-                metadata={"constraints_relaxed": True})
+                metadata={"constraints_relaxed": True},
+            )
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -242,9 +225,7 @@ class TestConstraintRelaxation:
         assert decision.metadata["constraints_relaxed"] is True
 
     @pytest.mark.asyncio
-    async def test_relaxation_factor_calculation(
-        self, default_models
-    ):
+    async def test_relaxation_factor_calculation(self, default_models):
         """Test constraint relaxation increases by 20%."""
         # Note: Constraint relaxation is handled internally by HybridRouter
         # when no models satisfy constraints. This test verifies that constraints
@@ -257,12 +238,11 @@ class TestConstraintRelaxation:
                 selected_model="gpt-4o-mini",
                 confidence=0.85,
                 features=QueryFeatures(
-                    embedding=[0.1] * 384,
-                    token_count=10,
-                    complexity_score=0.5
+                    embedding=[0.1] * 384, token_count=10, complexity_score=0.5
                 ),
                 reasoning="Constraints relaxed",
-                metadata={"constraints_relaxed": True})
+                metadata={"constraints_relaxed": True},
+            )
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -280,9 +260,7 @@ class TestCircuitBreaker:
     """Tests for circuit breaker retry logic."""
 
     @pytest.mark.asyncio
-    async def test_circuit_breaker_retry(
-        self, mock_hybrid_router, default_models
-    ):
+    async def test_circuit_breaker_retry(self, mock_hybrid_router, default_models):
         """Test retry when circuit breaker is open."""
         router = Router(models=default_models)
         # Mock hybrid router to simulate retry behavior - Router calls hybrid_router.route once
@@ -294,12 +272,11 @@ class TestCircuitBreaker:
                 selected_model="gpt-4o",
                 confidence=0.9,
                 features=QueryFeatures(
-                    embedding=[0.1] * 384,
-                    token_count=10,
-                    complexity_score=0.5
+                    embedding=[0.1] * 384, token_count=10, complexity_score=0.5
                 ),
                 reasoning="Success after retry",
-                metadata={"attempt": 1})
+                metadata={"attempt": 1},
+            )
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -323,12 +300,11 @@ class TestCircuitBreaker:
                 selected_model="gpt-4o-mini",
                 confidence=0.0,
                 features=QueryFeatures(
-                    embedding=[0.1] * 384,
-                    token_count=10,
-                    complexity_score=0.5
+                    embedding=[0.1] * 384, token_count=10, complexity_score=0.5
                 ),
                 reasoning="All circuit breakers open, using default fallback",
-                metadata={"fallback": "circuit_breaker"})
+                metadata={"fallback": "circuit_breaker"},
+            )
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -357,12 +333,11 @@ class TestFallbackStrategies:
                 selected_model="gpt-4o-mini",
                 confidence=0.0,
                 features=QueryFeatures(
-                    embedding=[0.1] * 384,
-                    token_count=10,
-                    complexity_score=0.5
+                    embedding=[0.1] * 384, token_count=10, complexity_score=0.5
                 ),
                 reasoning="No models satisfied constraints after relaxation, using default",
-                metadata={"constraints_relaxed": True, "fallback": "default"})
+                metadata={"constraints_relaxed": True, "fallback": "default"},
+            )
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -390,12 +365,11 @@ class TestFallbackStrategies:
                 selected_model="gpt-4o-mini",
                 confidence=0.0,
                 features=QueryFeatures(
-                    embedding=[0.1] * 384,
-                    token_count=10,
-                    complexity_score=0.5
+                    embedding=[0.1] * 384, token_count=10, complexity_score=0.5
                 ),
                 reasoning="All circuit breakers open, using default fallback",
-                metadata={"fallback": "circuit_breaker"})
+                metadata={"fallback": "circuit_breaker"},
+            )
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -411,9 +385,7 @@ class TestReasoningGeneration:
     """Tests for selection reasoning explanation."""
 
     @pytest.mark.asyncio
-    async def test_reasoning_simple_query(
-        self, mock_hybrid_router, default_models
-    ):
+    async def test_reasoning_simple_query(self, mock_hybrid_router, default_models):
         """Test reasoning for simple query."""
         router = Router(models=default_models)
         mock_hybrid_router.route = AsyncMock(
@@ -422,12 +394,11 @@ class TestReasoningGeneration:
                 selected_model="gpt-4o-mini",
                 confidence=0.85,
                 features=QueryFeatures(
-                    embedding=[0.1] * 384,
-                    token_count=5,
-                    complexity_score=0.2
+                    embedding=[0.1] * 384, token_count=5, complexity_score=0.2
                 ),
                 reasoning="Simple query in general domain, selected gpt-4o-mini for efficiency",
-                metadata={})
+                metadata={},
+            )
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -439,9 +410,7 @@ class TestReasoningGeneration:
         assert "gpt-4o-mini" in decision.reasoning
 
     @pytest.mark.asyncio
-    async def test_reasoning_complex_query(
-        self, mock_hybrid_router, default_models
-    ):
+    async def test_reasoning_complex_query(self, mock_hybrid_router, default_models):
         """Test reasoning for complex query."""
         router = Router(models=default_models)
         mock_hybrid_router.route = AsyncMock(
@@ -450,12 +419,11 @@ class TestReasoningGeneration:
                 selected_model="gpt-4o",
                 confidence=0.9,
                 features=QueryFeatures(
-                    embedding=[0.1] * 384,
-                    token_count=200,
-                    complexity_score=0.85
+                    embedding=[0.1] * 384, token_count=200, complexity_score=0.85
                 ),
                 reasoning="Complex code query, selected gpt-4o with high success rate (α=10.0, β=3.0)",
-                metadata={})
+                metadata={},
+            )
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -464,12 +432,14 @@ class TestReasoningGeneration:
 
         assert "complex" in decision.reasoning.lower()
         assert "code" in decision.reasoning.lower()
-        assert "success rate" in decision.reasoning.lower() or "α=" in decision.reasoning or "alpha" in decision.reasoning.lower()
+        assert (
+            "success rate" in decision.reasoning.lower()
+            or "α=" in decision.reasoning
+            or "alpha" in decision.reasoning.lower()
+        )
 
     @pytest.mark.asyncio
-    async def test_reasoning_moderate_query(
-        self, mock_hybrid_router, default_models
-    ):
+    async def test_reasoning_moderate_query(self, mock_hybrid_router, default_models):
         """Test reasoning for moderate complexity query."""
         router = Router(models=default_models)
         mock_hybrid_router.route = AsyncMock(
@@ -478,12 +448,11 @@ class TestReasoningGeneration:
                 selected_model="gpt-4o-mini",
                 confidence=0.85,
                 features=QueryFeatures(
-                    embedding=[0.1] * 384,
-                    token_count=50,
-                    complexity_score=0.5
+                    embedding=[0.1] * 384, token_count=50, complexity_score=0.5
                 ),
                 reasoning="Moderate complexity science query, selected gpt-4o-mini",
-                metadata={})
+                metadata={},
+            )
         )
         router.hybrid_router = mock_hybrid_router
 
@@ -557,6 +526,7 @@ class TestRouterIdConfiguration:
     def test_explicit_router_id_takes_priority(self):
         """Test that explicit router_id parameter overrides env var."""
         import os
+
         # Set env var
         os.environ["CONDUIT_ROUTER_ID"] = "env-router-id"
         try:
@@ -568,6 +538,7 @@ class TestRouterIdConfiguration:
     def test_env_var_used_when_no_explicit_id(self):
         """Test that CONDUIT_ROUTER_ID env var is used when router_id not provided."""
         import os
+
         os.environ["CONDUIT_ROUTER_ID"] = "kubernetes-cluster"
         try:
             router = Router()
@@ -578,6 +549,7 @@ class TestRouterIdConfiguration:
     def test_timestamp_fallback_when_no_id_provided(self):
         """Test that timestamp-based ID is generated when no ID provided."""
         import os
+
         # Ensure env var is not set
         os.environ.pop("CONDUIT_ROUTER_ID", None)
 
@@ -589,6 +561,7 @@ class TestRouterIdConfiguration:
     def test_env_var_enables_multi_replica_state_sharing(self):
         """Test that multiple routers with same env var share the same router_id."""
         import os
+
         os.environ["CONDUIT_ROUTER_ID"] = "production-cluster"
         try:
             router1 = Router()
@@ -597,3 +570,177 @@ class TestRouterIdConfiguration:
             assert router1.router_id == router2.router_id == "production-cluster"
         finally:
             del os.environ["CONDUIT_ROUTER_ID"]
+
+
+class TestRouterUpdate:
+    """Tests for Router.update() method."""
+
+    @pytest.fixture
+    def sample_features(self):
+        """Create sample query features."""
+        return QueryFeatures(
+            embedding=[0.1] * 384,
+            token_count=50,
+            complexity_score=0.5,
+        )
+
+    @pytest.mark.asyncio
+    async def test_update_calls_hybrid_router(self, sample_features):
+        """Test that update delegates to hybrid_router."""
+        router = Router()
+        # Mock the hybrid router update method
+        router.hybrid_router.update = AsyncMock()
+
+        await router.update(
+            model_id="gpt-4o-mini",
+            cost=0.001,
+            quality_score=0.95,
+            latency=0.5,
+            features=sample_features,
+        )
+
+        router.hybrid_router.update.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_update_with_auto_persist_saves_state(self, sample_features):
+        """Test that update saves state when auto_persist is enabled."""
+        mock_state_store = MagicMock()
+        router = Router(state_store=mock_state_store)
+        router.hybrid_router.update = AsyncMock()
+        router._save_state = AsyncMock()
+
+        await router.update(
+            model_id="gpt-4o-mini",
+            cost=0.001,
+            quality_score=0.95,
+            latency=0.5,
+            features=sample_features,
+        )
+
+        router._save_state.assert_called_once()
+
+
+class TestRouterStatePersistence:
+    """Tests for Router state persistence methods."""
+
+    @pytest.mark.asyncio
+    async def test_load_initial_state_success(self):
+        """Test successful state loading on initialization."""
+        mock_state_store = MagicMock()
+        router = Router(state_store=mock_state_store)
+        router.hybrid_router.load_state = AsyncMock(return_value=True)
+
+        await router._load_initial_state()
+
+        router.hybrid_router.load_state.assert_called_once()
+        assert router._state_loaded is True
+
+    @pytest.mark.asyncio
+    async def test_load_initial_state_no_saved_state(self):
+        """Test loading when no saved state exists."""
+        mock_state_store = MagicMock()
+        router = Router(state_store=mock_state_store)
+        router.hybrid_router.load_state = AsyncMock(return_value=False)
+
+        await router._load_initial_state()
+
+        assert router._state_loaded is True
+
+    @pytest.mark.asyncio
+    async def test_load_initial_state_handles_error(self):
+        """Test that state loading errors don't break router."""
+        mock_state_store = MagicMock()
+        router = Router(state_store=mock_state_store)
+        router.hybrid_router.load_state = AsyncMock(side_effect=Exception("DB error"))
+
+        # Should not raise
+        await router._load_initial_state()
+
+        assert router._state_loaded is True
+
+    @pytest.mark.asyncio
+    async def test_load_initial_state_skips_if_no_store(self):
+        """Test that load skips when no state store configured."""
+        router = Router()  # No state_store
+        await router._load_initial_state()
+        assert router._state_loaded is False  # Never set because no store
+
+    @pytest.mark.asyncio
+    async def test_load_initial_state_skips_if_already_loaded(self):
+        """Test that load skips when state already loaded."""
+        mock_state_store = MagicMock()
+        router = Router(state_store=mock_state_store)
+        router._state_loaded = True
+        router.hybrid_router.load_state = AsyncMock()
+
+        await router._load_initial_state()
+
+        router.hybrid_router.load_state.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_save_state_success(self):
+        """Test successful state saving."""
+        mock_state_store = MagicMock()
+        router = Router(state_store=mock_state_store)
+        router.hybrid_router.save_state = AsyncMock()
+
+        await router._save_state()
+
+        router.hybrid_router.save_state.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_save_state_handles_error(self):
+        """Test that save errors don't break router."""
+        mock_state_store = MagicMock()
+        router = Router(state_store=mock_state_store)
+        router.hybrid_router.save_state = AsyncMock(side_effect=Exception("DB error"))
+
+        # Should not raise
+        await router._save_state()
+
+    @pytest.mark.asyncio
+    async def test_save_state_skips_if_no_store(self):
+        """Test that save skips when no state store configured."""
+        router = Router()  # No state_store
+        router.hybrid_router.save_state = AsyncMock()
+
+        await router._save_state()
+
+        router.hybrid_router.save_state.assert_not_called()
+
+
+class TestRouterClose:
+    """Tests for Router.close() method."""
+
+    @pytest.mark.asyncio
+    async def test_close_saves_final_state(self):
+        """Test that close saves final state when auto_persist enabled."""
+        mock_state_store = MagicMock()
+        router = Router(state_store=mock_state_store)
+        router._save_state = AsyncMock()
+
+        await router.close()
+
+        router._save_state.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_close_without_auto_persist(self):
+        """Test that close skips save when auto_persist disabled."""
+        router = Router()  # No state_store means auto_persist is False
+        router._save_state = AsyncMock()
+
+        await router.close()
+
+        router._save_state.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_close_closes_cache(self):
+        """Test that close closes cache connection."""
+        mock_cache = MagicMock()
+        mock_cache.close = AsyncMock()
+        router = Router()
+        router.cache = mock_cache
+
+        await router.close()
+
+        mock_cache.close.assert_called_once()

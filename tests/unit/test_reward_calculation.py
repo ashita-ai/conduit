@@ -116,16 +116,20 @@ class TestCalculateCompositeReward:
     """Tests for calculate_composite_reward function."""
 
     def test_default_weights(self):
-        """Test with default weights (70% quality, 20% cost, 10% latency)."""
+        """Test with default weights (60% quality, 30% latency, 10% cost - user_facing preset)."""
         # High quality, low cost, moderate latency
         reward = calculate_composite_reward(
             quality=0.95,
             cost=0.001,
             latency=1.5,
         )
-        # Expected: 0.7 * 0.95 + 0.2 * (1/1.001) + 0.1 * (1/2.5)
-        # = 0.665 + 0.1998 + 0.04 = ~0.905
-        assert 0.85 < reward < 0.95
+        # With user_facing preset (0.6 quality, 0.3 latency, 0.1 cost):
+        # quality_norm = 0.95
+        # latency_norm = 1 / (1 + 1.5) = 0.4
+        # cost_norm = 1 / (1 + 0.001) ~= 0.999
+        # reward = 0.6 * 0.95 + 0.3 * 0.4 + 0.1 * 0.999
+        # = 0.57 + 0.12 + 0.0999 = ~0.79
+        assert 0.75 < reward < 0.85
 
     def test_perfect_scores_near_one(self):
         """Perfect quality, zero cost, zero latency should give ~1.0."""
@@ -205,7 +209,9 @@ class TestApplyUserPreferences:
     def test_default_multipliers_unchanged(self):
         """Default multipliers (1.0) should return original weights."""
         q, c, l = apply_user_preferences(
-            0.7, 0.2, 0.1,
+            0.7,
+            0.2,
+            0.1,
             quality_preference=1.0,
             cost_preference=1.0,
             latency_preference=1.0,
@@ -217,7 +223,9 @@ class TestApplyUserPreferences:
     def test_double_cost_preference(self):
         """Doubling cost preference should increase cost weight."""
         q, c, l = apply_user_preferences(
-            0.7, 0.2, 0.1,
+            0.7,
+            0.2,
+            0.1,
             cost_preference=2.0,
         )
         # Original: 0.7, 0.4, 0.1 = 1.2 total
@@ -228,7 +236,9 @@ class TestApplyUserPreferences:
     def test_zero_quality_preference(self):
         """Zero quality preference should remove quality weight."""
         q, c, l = apply_user_preferences(
-            0.7, 0.2, 0.1,
+            0.7,
+            0.2,
+            0.1,
             quality_preference=0.0,
         )
         # Original: 0.0, 0.2, 0.1 = 0.3 total
@@ -240,7 +250,9 @@ class TestApplyUserPreferences:
     def test_all_zero_returns_equal(self):
         """All zero preferences should return equal weights."""
         q, c, l = apply_user_preferences(
-            0.7, 0.2, 0.1,
+            0.7,
+            0.2,
+            0.1,
             quality_preference=0.0,
             cost_preference=0.0,
             latency_preference=0.0,
@@ -260,7 +272,9 @@ class TestApplyUserPreferences:
         ]
         for qp, cp, lp in test_cases:
             q, c, l = apply_user_preferences(
-                0.7, 0.2, 0.1,
+                0.7,
+                0.2,
+                0.1,
                 quality_preference=qp,
                 cost_preference=cp,
                 latency_preference=lp,
@@ -271,18 +285,24 @@ class TestApplyUserPreferences:
         """Multipliers outside [0, 2] should be clamped."""
         # Very high multiplier should be treated as 2.0
         q1, c1, l1 = apply_user_preferences(
-            0.7, 0.2, 0.1,
+            0.7,
+            0.2,
+            0.1,
             cost_preference=10.0,  # Will be clamped to 2.0
         )
         q2, c2, l2 = apply_user_preferences(
-            0.7, 0.2, 0.1,
+            0.7,
+            0.2,
+            0.1,
             cost_preference=2.0,  # Max allowed
         )
         assert c1 == pytest.approx(c2)
 
         # Negative multiplier should be treated as 0.0
         q3, c3, l3 = apply_user_preferences(
-            0.7, 0.2, 0.1,
+            0.7,
+            0.2,
+            0.1,
             quality_preference=-5.0,  # Will be clamped to 0.0
         )
         assert q3 == 0.0
@@ -318,7 +338,9 @@ class TestIntegration:
         """Test applying user preferences then calculating reward."""
         # User wants to prioritize cost
         q_weight, c_weight, l_weight = apply_user_preferences(
-            0.7, 0.2, 0.1,
+            0.7,
+            0.2,
+            0.1,
             cost_preference=2.0,
         )
 
