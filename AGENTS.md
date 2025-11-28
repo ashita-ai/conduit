@@ -13,8 +13,8 @@ last_updated: 2025-11-27
 **Design Philosophy**: Simplicity wins, use good defaults, YAML config where needed, no hardcoded assumptions.
 
 **Current Phase**: Pre-1.0 preparation (version 0.1.0, CI/CD complete, state persistence done)
-**Test Health**: 100% passing (684 tests), 81% coverage
-**Latest**: Thompson Sampling default algorithm (PR #169 - BREAKING), state persistence infinity fix, all examples passing (16/16)
+**Test Health**: 100% passing (701 tests), 81% coverage
+**Latest**: Fallback chains for model failures (#163), 12 algorithms exposed via Router, Thompson Sampling default
 
 ---
 
@@ -895,9 +895,29 @@ features = embedding + [
 
 ---
 
-## Current Status (2025-11-27)
+## Current Status (2025-11-28)
 
-### Latest: Router.update() Real Features Fix (PR #168) ✅
+### Latest: Fallback Chains for Model Failures (#163) ✅
+
+**Production Resilience Feature** (commit e75bf7c, 2025-11-28):
+- **Problem**: When selected model fails, user got an error instead of automatic retry
+- **Solution**: Automatic fallback to next-best models in chain
+- **New APIs**:
+  - `RoutingDecision.fallback_chain` - Ordered list of fallback models
+  - `ModelExecutor.execute_with_fallback()` - Tries models until success
+  - `Router.update_with_fallback_attribution()` - Penalizes failed models, rewards success
+  - `AllModelsFailedError` - Exception when all models fail
+  - `ExecutionResult` - Tracks which model succeeded and which failed
+- **Tests**: 17 new tests covering single/multiple/all failures
+- **Docs**: `docs/FALLBACK.md` with complete usage guide
+
+### Previous: 12 Algorithms Exposed via Router ✅
+
+- All 12 bandit algorithms now available via `Router(algorithm="...")`
+- Added baseline algorithms: `always_best`, `always_cheapest`, `oracle`
+- Updated all documentation to reflect 12 algorithms
+
+### Previous: Router.update() Real Features Fix (PR #168) ✅
 
 **Critical Bug Fix** (PR #168, merged 2025-11-27):
 - **Problem**: Router.update() was using dummy features (all zeros) instead of real query features
@@ -936,9 +956,9 @@ features = embedding + [
 - **Markers**: `@pytest.mark.slow`, `@pytest.mark.downloads_models`, `@pytest.mark.requires_api_key`
 - **Pre-push hook**: Fast tests only for quick feedback
 
-### Test Health (Updated 2025-11-27)
-- **Overall**: 643 passing, 26 skipped (100% pass rate), 83% coverage
-- **Unit Tests**: ~620 passing
+### Test Health (Updated 2025-11-28)
+- **Overall**: 701 passing, 26 skipped (100% pass rate), 81% coverage
+- **Unit Tests**: ~660 passing (including 17 new fallback tests)
 - **Integration Tests**: 20 passing (API + database + hybrid routing + auto-persistence)
 - **Skipped**: 26 (optional deps: litellm, Redis, sentence-transformers, API keys)
 - **All Bandit Algorithms**: 100% passing
