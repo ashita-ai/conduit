@@ -145,8 +145,8 @@ class HybridRouter:
         self.phase2_algorithm = phase2_algorithm
 
         # Validate algorithm choices
-        valid_phase1 = ["ucb1", "thompson_sampling"]
-        valid_phase2 = ["linucb", "contextual_thompson_sampling"]
+        valid_phase1 = ["ucb1", "thompson_sampling", "epsilon_greedy", "random"]
+        valid_phase2 = ["linucb", "contextual_thompson_sampling", "dueling"]
 
         if phase1_algorithm not in valid_phase1:
             raise ValueError(
@@ -194,6 +194,9 @@ class HybridRouter:
         # Import bandit classes
         from conduit.engines.bandits import (
             ContextualThompsonSamplingBandit,
+            DuelingBandit,
+            EpsilonGreedyBandit,
+            RandomBaseline,
             ThompsonSamplingBandit,
         )
 
@@ -212,6 +215,18 @@ class HybridRouter:
                 reward_weights=reward_weights,
                 window_size=window_size,
             )
+        elif phase1_algorithm == "epsilon_greedy":
+            self.phase1_bandit = EpsilonGreedyBandit(
+                arms=self.arms,
+                epsilon=0.1,  # 10% exploration
+                decay=0.99,  # Decay epsilon over time
+                reward_weights=reward_weights,
+                window_size=window_size,
+            )
+        elif phase1_algorithm == "random":
+            self.phase1_bandit = RandomBaseline(
+                arms=self.arms,
+            )
 
         # Phase 2: Initialize based on phase2_algorithm
         if phase2_algorithm == "linucb":
@@ -229,6 +244,13 @@ class HybridRouter:
                 feature_dim=feature_dim,
                 reward_weights=reward_weights,
                 window_size=window_size,
+            )
+        elif phase2_algorithm == "dueling":
+            self.phase2_bandit = DuelingBandit(
+                arms=self.arms,
+                feature_dim=feature_dim,
+                exploration_weight=1.0,  # Exploration parameter
+                learning_rate=0.1,  # Gradient descent step size
             )
 
         logger.info(

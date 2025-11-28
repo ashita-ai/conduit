@@ -102,11 +102,14 @@ class Router:
                 - "linucb": Pure LinUCB (contextual, uses query features)
                 - "contextual_thompson_sampling": Contextual Thompson Sampling (uses query features)
                 - "ucb1": Pure UCB1 (non-contextual)
+                - "epsilon_greedy": Epsilon-Greedy with decaying exploration (non-contextual)
+                - "random": Pure random selection baseline (non-contextual, no learning)
+                - "dueling": Contextual Dueling Bandit (pairwise comparisons with features)
                 - "hybrid_thompson_linucb": Hybrid Thompson → LinUCB (legacy, switch at 2000 queries)
                 - "hybrid_ucb1_linucb": Hybrid UCB1 → LinUCB (legacy)
 
                 Note: PCA is controlled by config (use_pca setting), not by algorithm choice.
-                Contextual algorithms (linucb, contextual_thompson_sampling) can work with or without PCA.
+                Contextual algorithms (linucb, contextual_thompson_sampling, dueling) can work with or without PCA.
             state_store: StateStore for automatic persistence (PostgresStateStore recommended).
                 If None, persistence is disabled.
             router_id: Unique identifier for this router (used as persistence key).
@@ -198,6 +201,16 @@ class Router:
                 "phase2_algorithm": "linucb",  # Unused (never reaches phase2)
                 "switch_threshold": float("inf"),
             },
+            "epsilon_greedy": {
+                "phase1_algorithm": "epsilon_greedy",
+                "phase2_algorithm": "linucb",  # Unused (never reaches phase2)
+                "switch_threshold": float("inf"),
+            },
+            "random": {
+                "phase1_algorithm": "random",
+                "phase2_algorithm": "linucb",  # Unused (never reaches phase2)
+                "switch_threshold": float("inf"),
+            },
             # Contextual single algorithms (phase2 only, start immediately)
             "linucb": {
                 "phase1_algorithm": "thompson_sampling",  # Unused (starts in phase2)
@@ -207,6 +220,11 @@ class Router:
             "contextual_thompson_sampling": {
                 "phase1_algorithm": "thompson_sampling",  # Unused (starts in phase2)
                 "phase2_algorithm": "contextual_thompson_sampling",
+                "switch_threshold": 0,
+            },
+            "dueling": {
+                "phase1_algorithm": "thompson_sampling",  # Unused (starts in phase2)
+                "phase2_algorithm": "dueling",
                 "switch_threshold": 0,
             },
             # Hybrid algorithms (transition from phase1 to phase2)

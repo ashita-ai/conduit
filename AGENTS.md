@@ -67,6 +67,9 @@ router = Router(algorithm="thompson_sampling")  # Default: thompson_sampling
 - `linucb`: Contextual linear bandit (uses query features)
 - `contextual_thompson_sampling`: Contextual Bayesian bandit
 - `ucb1`: Non-contextual upper confidence bound
+- `epsilon_greedy`: Epsilon-greedy with decaying exploration (non-contextual baseline)
+- `random`: Pure random selection baseline (non-contextual, no learning)
+- `dueling`: Contextual dueling bandit (pairwise comparisons with features)
 - `hybrid_thompson_linucb`: Thompson → LinUCB transition (old default, legacy)
 - `hybrid_ucb1_linucb`: UCB1 → LinUCB transition (legacy)
 
