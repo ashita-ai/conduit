@@ -217,11 +217,13 @@ Query → Embedding (384d) → PCA (64d) → Feature Vector (66d) → LinUCB
 │     │   → LinUCB.update(feedback, features)                          │      │
 │     │                                                                 │      │
 │     │ Extract feature vector:                                         │      │
-│     │   x = [embedding(384d), token_count, complexity]  # 386×1       │      │
+│     │   x = [embedding, token_count, complexity]                     │      │
+│     │   Dims: 386 (FastEmbed 384d) or 1538 (OpenAI 1536d)           │      │
+│     │   With PCA: 66 (FastEmbed) or 130 (OpenAI)                    │      │
 │     │                                                                 │      │
 │     │ Incremental ridge regression update:                           │      │
-│     │   A[model] += x @ x^T     # Add outer product (386×386)        │      │
-│     │   b[model] += reward * x  # Add weighted features (386×1)      │      │
+│     │   A[model] += x @ x^T     # Add outer product (d×d)            │      │
+│     │   b[model] += reward * x  # Add weighted features (d×1)        │      │
 │     │                                                                 │      │
 │     │ Sherman-Morrison formula (O(d²) instead of O(d³)):              │      │
 │     │   A_inv_new = A_inv - (A_inv @ x @ x^T @ A_inv) /              │      │
@@ -255,7 +257,9 @@ For each model arm, LinUCB maintains:
 - **b**: d×1 vector (sum of reward-weighted features: `Σ r_i * x_i`)
 - **A_inv**: d×d inverse matrix (computed via Sherman-Morrison)
 
-Where d = feature dimension (386 by default: 384 embedding + 2 metadata)
+Where d = feature dimension (provider-dependent):
+- **Without PCA**: 386 dims (384 embedding + 2 metadata) for FastEmbed, 1538 dims for OpenAI
+- **With PCA**: 66 dims (64 PCA + 2 metadata) for FastEmbed, 130 dims (128 PCA + 2 metadata) for OpenAI
 
 **Coefficients (theta):**
 ```
@@ -284,9 +288,20 @@ A_inv -= (a_inv_x @ a_inv_x^T) / denominator
 ```
 
 **Why Sherman-Morrison Matters:**
+
+FastEmbed (384d embeddings, default):
 - Full matrix inversion: O(d³) = O(386³) ≈ 57M operations
 - Sherman-Morrison update: O(d²) = O(386²) ≈ 149K operations
 - **~380x speedup** for each update!
+
+OpenAI (1536d embeddings):
+- Full matrix inversion: O(d³) = O(1538³) ≈ 3.6B operations
+- Sherman-Morrison update: O(d²) = O(1538²) ≈ 2.4M operations
+- **~1500x speedup** for each update!
+
+With PCA (64 dims for FastEmbed, 128 for OpenAI):
+- FastEmbed: O(66³) vs O(66²) = 287K vs 4.4K ops (**~65x speedup**)
+- OpenAI: O(130³) vs O(130²) = 2.2M vs 17K ops (**~130x speedup**)
 
 ### Learning Convergence Example
 

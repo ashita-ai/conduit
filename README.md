@@ -63,6 +63,88 @@ Query → Analyze → Smart Selection → LLM Provider → Response
 
 **Under the hood**: Uses contextual bandits (Thompson Sampling → LinUCB) for multi-armed optimization. Thompson Sampling provides superior cold-start quality through Bayesian exploration, automatically transitioning to contextual LinUCB after 2,000 queries.
 
+## How Learning Works
+
+**This is Conduit's superpower**: It actually learns from every query to make better routing decisions over time. Not just AB testing, not just static rules - real online learning that adapts to your workload.
+
+### The Feedback Loop (Concrete Example)
+
+Imagine you're routing math questions. Here's what happens:
+
+**Week 1: Initial Exploration**
+```python
+router = Router(models=["gpt-4o-mini", "gpt-4o"])
+
+# Route 100 math questions
+for _ in range(100):
+    decision = await router.route(Query(text="What is 2+2?"))
+    # Execute and provide feedback
+    await router.update(
+        model_id=decision.selected_model,
+        cost=response.cost,        # Actual cost
+        quality_score=0.95,        # How good was the answer?
+        latency=response.latency,  # How fast?
+        features=decision.features # Query characteristics
+    )
+```
+
+**What Conduit learns:**
+- gpt-4o-mini: $0.001/query, quality 0.95, latency 0.5s → **Reward: 0.93**
+- gpt-4o: $0.10/query, quality 0.95, latency 0.8s → **Reward: 0.90**
+
+**Week 2: Smarter Routing**
+```python
+# Route 100 more math questions
+# Conduit now prefers gpt-4o-mini (>70% selection rate)
+# Same quality, 100x cheaper - learned automatically!
+```
+
+### Why This Matters
+
+Traditional routers would need manual rules like "if query contains 'math', use cheap model". Conduit learns this automatically from feedback:
+
+| Approach | Setup | Adapts to Changes | Example |
+|----------|-------|-------------------|---------|
+| **Conduit** | Zero config | ✅ Automatic | Learns "gpt-4o-mini good for math" from feedback |
+| **Static Rules** | Write if/else rules | ❌ Manual updates | `if "math" in query: use_mini` breaks when models update |
+| **Manual** | Pick per query | ❌ No learning | Waste time deciding, forget cheap options |
+
+### The Math (for the curious)
+
+Conduit uses **LinUCB** (Linear Upper Confidence Bound), a contextual bandit algorithm that:
+
+1. **Extracts features** from your query (embedding + complexity)
+2. **Computes reward prediction** for each model based on past performance
+3. **Balances exploration vs exploitation**: Try new options vs use what works
+4. **Updates weights** after every query using ridge regression
+
+**Reward formula**: `0.7 × quality + 0.2 × cost_efficiency + 0.1 × speed`
+
+This means:
+- Cheap models with same quality get higher rewards (cost-efficient)
+- Fast models get bonus points (latency matters)
+- Quality always dominates (70% weight)
+
+**Learning update** (Sherman-Morrison formula, O(d²) efficient):
+```python
+# After each query with feedback:
+A += outer_product(features)      # Update knowledge matrix
+b += reward * features            # Update reward vector
+theta = A_inv @ b                 # New predictions (instant)
+```
+
+### Verified Behavior
+
+Our integration tests prove the feedback loop works:
+
+```python
+# test_feedback_loop_improves_routing
+# Result: After 40 training queries, cheap model selected >70% of time
+# Proves: System learned cost-efficiency automatically
+```
+
+See `tests/integration/test_feedback_loop.py` and `docs/ARCHITECTURE.md` for technical details.
+
 ## Key Features
 
 - **Learning System**: Gets smarter with every query, learns your workload patterns automatically
