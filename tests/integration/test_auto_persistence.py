@@ -65,6 +65,7 @@ async def test_auto_load_on_first_route(state_store):
             cost=0.001,
             quality_score=0.8,
             latency=1.0,
+            features=decision.features,
         )
 
     initial_query_count = router1.hybrid_router.query_count
@@ -116,6 +117,7 @@ async def test_save_after_every_update(state_store):
         cost=0.001,
         quality_score=0.9,
         latency=1.0,
+        features=decision.features,
     )
 
     # State should be saved immediately after update
@@ -267,6 +269,7 @@ async def test_crash_recovery_simulation(state_store):
             cost=0.001,
             quality_score=0.75,
             latency=1.0,
+            features=decision.features,
         )
 
     assert router1.hybrid_router.query_count == 10

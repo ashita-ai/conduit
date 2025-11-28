@@ -9,6 +9,7 @@ from conduit.cache import CacheConfig, CacheService
 from conduit.core.config import load_preference_weights, settings
 from conduit.core.models import (
     Query,
+    QueryFeatures,
     RoutingDecision,
 )
 from conduit.engines.analyzer import QueryAnalyzer
@@ -317,7 +318,12 @@ class Router:
             await self.cache.clear()
 
     async def update(
-        self, model_id: str, cost: float, quality_score: float, latency: float
+        self,
+        model_id: str,
+        cost: float,
+        quality_score: float,
+        latency: float,
+        features: QueryFeatures,
     ) -> None:
         """Update bandit weights with feedback from model execution.
 
@@ -335,6 +341,7 @@ class Router:
             cost: Total cost of the query execution
             quality_score: Quality assessment (0.0-1.0)
             latency: Response time in seconds
+            features: Query features from the routing decision (required for contextual learning)
 
         Example:
             >>> decision = await router.route(query)
@@ -344,6 +351,7 @@ class Router:
             ...     cost=response.cost,
             ...     quality_score=0.95,  # From arbiter evaluation
             ...     latency=response.latency,
+            ...     features=decision.features,  # Use real features from routing decision
             ... )
             >>> # State automatically saved to database
         """
@@ -357,22 +365,8 @@ class Router:
             latency=latency,
         )
 
-        # Get features from last routing decision
-        # Note: In production, features should be passed from the routing decision
-        # For now, we'll need to extract them from the query
-        # This is a simplification - production should pass features explicitly
-        from conduit.core.models import QueryFeatures
-
-        dummy_features = QueryFeatures(
-            embedding=[0.0] * 384,
-            token_count=0,
-            complexity_score=0.5,
-            domain="general",
-            domain_confidence=0.5,
-        )
-
-        # Update hybrid router with feedback
-        await self.hybrid_router.update(feedback, dummy_features)
+        # Update hybrid router with real features (critical for contextual learning)
+        await self.hybrid_router.update(feedback, features)
 
         # Auto-save state after update (when weights change)
         if self.auto_persist:
