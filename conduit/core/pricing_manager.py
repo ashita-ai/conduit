@@ -184,9 +184,8 @@ class PricingManager:
         # Check staleness (find oldest snapshot_at)
         oldest_snapshot = None
         for model_pricing in pricing.values():
-            if model_pricing.snapshot_at:
-                if oldest_snapshot is None or model_pricing.snapshot_at < oldest_snapshot:
-                    oldest_snapshot = model_pricing.snapshot_at
+            if model_pricing.snapshot_at and (oldest_snapshot is None or model_pricing.snapshot_at < oldest_snapshot):
+                oldest_snapshot = model_pricing.snapshot_at
 
         if oldest_snapshot:
             age_days = (datetime.now(timezone.utc) - oldest_snapshot).days
@@ -216,9 +215,9 @@ class PricingManager:
         logger.info(f"Loading pricing from cache: {CACHE_FILE}")
 
         try:
-            with open(CACHE_FILE, "r") as f:
+            with open(CACHE_FILE) as f:
                 cache_data = json.load(f)
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.warning(f"Failed to read cache file: {e}")
             return None
 
