@@ -263,9 +263,12 @@ class DuelingBandit(BanditAlgorithm):
             for model_id, w in self.preference_weights.items()
         }
 
+        # Serialize preference counts (tuple keys to string keys for JSONB compatibility)
+        pref_counts = {f"{k[0]}:{k[1]}": v for k, v in self.preference_counts.items()}
+
         return {
             **base_stats,
-            "preference_counts": self.preference_counts,
+            "preference_counts": pref_counts,
             "weight_norms": weight_norms,
             "exploration_weight": self.exploration_weight,
             "learning_rate": self.learning_rate,
