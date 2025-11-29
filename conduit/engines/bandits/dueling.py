@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from pydantic import BaseModel, Field
 
+from conduit.core.config import load_feature_dimensions
 from conduit.core.models import QueryFeatures
 
 from .base import BanditAlgorithm, ModelArm
@@ -73,7 +74,7 @@ class DuelingBandit(BanditAlgorithm):
     def __init__(
         self,
         arms: list[ModelArm],
-        feature_dim: int = 386,
+        feature_dim: int | None = None,
         exploration_weight: float = 0.1,
         learning_rate: float = 0.01,
         random_seed: int | None = None,
@@ -82,7 +83,7 @@ class DuelingBandit(BanditAlgorithm):
 
         Args:
             arms: List of available model arms
-            feature_dim: Dimensionality of context features (default: 386)
+            feature_dim: Dimensionality of context features (auto-detected from config if None)
             exploration_weight: Thompson sampling exploration parameter (sigma)
             learning_rate: Gradient descent learning rate
             random_seed: Random seed for reproducibility
@@ -95,6 +96,11 @@ class DuelingBandit(BanditAlgorithm):
             >>> bandit = DuelingBandit(arms, exploration_weight=0.1)
         """
         super().__init__(name="dueling_bandit", arms=arms)
+
+        # Auto-detect feature dimension from config if not provided
+        if feature_dim is None:
+            feature_config = load_feature_dimensions()
+            feature_dim = feature_config["full_dim"]
 
         self.feature_dim = feature_dim
         self.exploration_weight = exploration_weight
