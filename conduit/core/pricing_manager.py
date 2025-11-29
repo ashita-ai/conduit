@@ -184,7 +184,9 @@ class PricingManager:
         # Check staleness (find oldest snapshot_at)
         oldest_snapshot = None
         for model_pricing in pricing.values():
-            if model_pricing.snapshot_at and (oldest_snapshot is None or model_pricing.snapshot_at < oldest_snapshot):
+            if model_pricing.snapshot_at and (
+                oldest_snapshot is None or model_pricing.snapshot_at < oldest_snapshot
+            ):
                 oldest_snapshot = model_pricing.snapshot_at
 
         if oldest_snapshot:
@@ -245,14 +247,22 @@ class PricingManager:
                 model_id=model_id,
                 input_cost_per_million=price_data["input_cost_per_million"],
                 output_cost_per_million=price_data["output_cost_per_million"],
-                cached_input_cost_per_million=price_data.get("cached_input_cost_per_million"),
+                cached_input_cost_per_million=price_data.get(
+                    "cached_input_cost_per_million"
+                ),
                 source=price_data.get("source", "cache"),
-                snapshot_at=datetime.fromisoformat(
-                    price_data["snapshot_at"].replace("Z", "+00:00")
-                ) if price_data.get("snapshot_at") else None,
+                snapshot_at=(
+                    datetime.fromisoformat(
+                        price_data["snapshot_at"].replace("Z", "+00:00")
+                    )
+                    if price_data.get("snapshot_at")
+                    else None
+                ),
             )
 
-        logger.info(f"Loaded pricing for {len(pricing)} models from cache (age: {age_hours:.1f}h)")
+        logger.info(
+            f"Loaded pricing for {len(pricing)} models from cache (age: {age_hours:.1f}h)"
+        )
         return pricing
 
     async def _fetch_and_cache(self) -> dict[str, ModelPricing]:
@@ -324,7 +334,7 @@ class PricingManager:
                     "snapshot_at": p.snapshot_at.isoformat() if p.snapshot_at else None,
                 }
                 for model_id, p in pricing.items()
-            }
+            },
         }
 
         with open(CACHE_FILE, "w") as f:

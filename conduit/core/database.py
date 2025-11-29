@@ -413,9 +413,7 @@ class Database:
                 )
                 prices[pricing.model_id] = pricing
 
-            logger.info(
-                f"Loaded latest pricing for {len(prices)} models"
-            )
+            logger.info(f"Loaded latest pricing for {len(prices)} models")
             return prices
 
         except Exception as e:
