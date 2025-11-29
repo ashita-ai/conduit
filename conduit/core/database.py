@@ -317,13 +317,17 @@ class Database:
             raise DatabaseError(f"Failed to load model states: {e}") from e
 
     async def get_model_prices(self) -> dict[str, ModelPricing]:
-        """Load per-model pricing information.
+        """Load per-model pricing information (ALL historical snapshots).
+
+        DEPRECATED: Use get_latest_pricing() for current pricing.
+        This method returns all historical pricing snapshots and will become
+        inefficient as pricing history grows.
 
         Pricing is stored in the model_prices table with costs expressed
         per one million tokens.
 
         Returns:
-            Dictionary mapping model_id to ModelPricing
+            Dictionary mapping model_id to ModelPricing (last seen wins if duplicates)
 
         Raises:
             DatabaseError: If load fails
@@ -357,6 +361,66 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to load model prices: {e}")
             raise DatabaseError(f"Failed to load model prices: {e}") from e
+
+    async def get_latest_pricing(self) -> dict[str, ModelPricing]:
+        """Load latest pricing snapshot for each model.
+
+        Uses PostgreSQL's DISTINCT ON to efficiently get the most recent
+        pricing snapshot for each model, avoiding the inefficiency of
+        loading all historical data.
+
+        This is the preferred method for getting current model pricing.
+
+        Returns:
+            Dictionary mapping model_id to latest ModelPricing
+
+        Raises:
+            DatabaseError: If load fails
+        """
+        if not self.pool:
+            raise DatabaseError("Database not connected")
+
+        try:
+            async with self.pool.acquire() as conn:
+                # Get latest snapshot for each model using DISTINCT ON
+                rows = await conn.fetch(
+                    """
+                    SELECT DISTINCT ON (model_id)
+                        model_id,
+                        input_cost_per_million,
+                        output_cost_per_million,
+                        cached_input_cost_per_million,
+                        source,
+                        snapshot_at
+                    FROM model_prices
+                    ORDER BY model_id, snapshot_at DESC
+                    """
+                )
+
+            prices: dict[str, ModelPricing] = {}
+            for row in rows:
+                pricing = ModelPricing(
+                    model_id=row["model_id"],
+                    input_cost_per_million=float(row["input_cost_per_million"]),
+                    output_cost_per_million=float(row["output_cost_per_million"]),
+                    cached_input_cost_per_million=(
+                        float(row["cached_input_cost_per_million"])
+                        if row["cached_input_cost_per_million"] is not None
+                        else None
+                    ),
+                    source=row.get("source"),
+                    snapshot_at=row.get("snapshot_at"),
+                )
+                prices[pricing.model_id] = pricing
+
+            logger.info(
+                f"Loaded latest pricing for {len(prices)} models"
+            )
+            return prices
+
+        except Exception as e:
+            logger.error(f"Failed to load latest pricing: {e}")
+            raise DatabaseError(f"Failed to load latest pricing: {e}") from e
 
     async def get_response_by_id(self, response_id: str) -> Response | None:
         """Get response by ID.

@@ -52,6 +52,7 @@ priors:
     gpt-5: 0.85                # Good balance
     o4-mini: 0.78              # Fast and decent
     gemini-2.5-pro: 0.82       # Strong alternative
+    gemini-2.5-flash: 0.75     # Fast, cost-effective
     gemini-2.0-flash: 0.72     # Quick responses
 
   creative:
@@ -61,6 +62,7 @@ priors:
     gpt-5: 0.82                # Solid creative tasks
     o4-mini: 0.74              # Acceptable for simple creative
     gemini-2.5-pro: 0.80       # Good creative alternative
+    gemini-2.5-flash: 0.73     # Fast creative responses
     gemini-2.0-flash: 0.68     # Basic creative tasks
 
   analysis:
@@ -70,11 +72,13 @@ priors:
     gpt-5: 0.84                # Good for most analysis
     gemini-2.5-pro: 0.83       # Strong reasoning
     o4-mini: 0.76              # Lighter analysis
+    gemini-2.5-flash: 0.73     # Fast analytical responses
     gemini-2.0-flash: 0.70     # Quick analytical tasks
 
   simple_qa:
     o4-mini: 0.90              # Excellent for simple questions
     gemini-2.0-flash: 0.88     # Fast and accurate
+    gemini-2.5-flash: 0.85     # Great for simple QA
     gpt-5: 0.85                # Reliable for QA
     claude-sonnet-4.5: 0.82    # Solid choice
     gemini-2.5-pro: 0.80       # Good but overkill
@@ -88,6 +92,7 @@ priors:
     gpt-5: 0.83                # Reliable
     gemini-2.5-pro: 0.82       # Strong alternative
     o4-mini: 0.78              # Cost-effective
+    gemini-2.5-flash: 0.75     # Fast and affordable
     gemini-2.0-flash: 0.72     # Budget option
 
 # Algorithm Hyperparameters
@@ -236,6 +241,25 @@ arbiter:
   evaluators:                     # Active evaluator types
     - semantic
     - factuality
+
+# Pricing Configuration
+# Intelligent pricing management with database, cache, and live fetch fallbacks
+pricing:
+  # Cache freshness threshold (hours)
+  # When using cache-only mode (no database), pricing is auto-refreshed if older than this
+  # Default: 24 hours (conservative - pricing changes infrequently)
+  cache_ttl_hours: 24
+
+  # Database staleness warning threshold (days)
+  # When using database mode, warn if latest pricing snapshot is older than this
+  # Default: 7 days (pricing changes monthly/quarterly, but warn weekly)
+  database_stale_days: 7
+
+  # Fail-fast on stale cache errors
+  # If true, fail immediately when cache is stale and llm-prices.com fetch fails
+  # If false, use stale cache with warning (graceful degradation)
+  # Default: true (prefer reliability over availability)
+  fail_on_stale_cache: true
 
 # Cache Configuration
 # Redis caching for query features and routing decisions

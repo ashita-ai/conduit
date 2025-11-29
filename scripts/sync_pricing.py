@@ -100,17 +100,53 @@ def deduplicate_models(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(seen.values())
 
 
+async def check_if_pricing_current(snapshot_date: str) -> bool:
+    """Check if we already have pricing for the given snapshot date.
+
+    Args:
+        snapshot_date: ISO 8601 date string (e.g., "2025-11-29")
+
+    Returns:
+        True if pricing exists for this date, False otherwise
+
+    Raises:
+        ValueError: If SUPABASE_URL or SUPABASE_ANON_KEY not set
+    """
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_ANON_KEY")
+
+    if not supabase_url or not supabase_key:
+        raise ValueError(
+            "SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment"
+        )
+
+    client = await acreate_client(supabase_url, supabase_key)
+
+    # Check if any pricing exists for this snapshot date
+    result = await client.table("model_prices").select("id").gte(
+        "snapshot_at", snapshot_date
+    ).lt("snapshot_at", f"{snapshot_date}T23:59:59Z").limit(1).execute()
+
+    return len(result.data) > 0
+
+
 async def sync_pricing_to_database(
-    pricing_data: dict[str, Any], dry_run: bool = False
+    pricing_data: dict[str, Any], dry_run: bool = False, force: bool = False
 ) -> tuple[int, int]:
     """Sync pricing data to Supabase model_prices table.
+
+    This function intelligently manages pricing snapshots:
+    - Checks if current pricing already exists before inserting
+    - Inserts new snapshots (preserving historical data)
+    - Never overwrites existing pricing records
 
     Args:
         pricing_data: Data from llm-prices.com API
         dry_run: If True, don't actually update database
+        force: If True, insert even if current pricing exists
 
     Returns:
-        Tuple of (models_updated, models_inserted)
+        Tuple of (models_inserted, 0)
 
     Raises:
         ValueError: If SUPABASE_URL or SUPABASE_ANON_KEY not set
@@ -127,6 +163,18 @@ async def sync_pricing_to_database(
     client = await acreate_client(supabase_url, supabase_key)
 
     snapshot_at = pricing_data["updated_at"]
+    snapshot_date = snapshot_at.split("T")[0]  # Extract YYYY-MM-DD
+
+    # Check if we already have pricing for this date
+    if not force:
+        has_current = await check_if_pricing_current(snapshot_date)
+        if has_current:
+            logger.info(
+                f"Pricing for {snapshot_date} already exists in database. Skipping sync."
+            )
+            logger.info("Use --force to insert anyway.")
+            return (0, 0)
+
     models_raw = [
         map_model_to_pricing_record(model, snapshot_at)
         for model in pricing_data["prices"]
@@ -139,10 +187,10 @@ async def sync_pricing_to_database(
             f"Deduplicated {len(models_raw) - len(models_to_sync)} duplicate models"
         )
 
-    logger.info(f"Syncing {len(models_to_sync)} models to database")
+    logger.info(f"Inserting {len(models_to_sync)} pricing snapshots for {snapshot_date}")
 
     if dry_run:
-        logger.info("DRY RUN - Would update/insert the following models:")
+        logger.info("DRY RUN - Would insert the following models:")
         for model in models_to_sync[:10]:  # Show first 10
             logger.info(
                 f"  {model['model_id']}: ${model['input_cost_per_million']}/M in, "
@@ -152,20 +200,38 @@ async def sync_pricing_to_database(
             logger.info(f"  ... and {len(models_to_sync) - 10} more")
         return (0, 0)
 
-    # Use upsert to handle both inserts and updates in one operation
-    # This is more efficient and handles conflicts automatically
-    logger.info(f"Upserting {len(models_to_sync)} models (insert or update)")
+    # Insert new pricing snapshots (preserves historical data)
+    # The UNIQUE(model_id, snapshot_at) constraint prevents duplicates
+    logger.info(f"Inserting {len(models_to_sync)} new pricing snapshots")
 
-    await client.table("model_prices").upsert(
-        models_to_sync, on_conflict="model_id"
-    ).execute()
+    await client.table("model_prices").insert(models_to_sync).execute()
 
-    logger.info(f"Sync complete: {len(models_to_sync)} models synchronized")
-    return (len(models_to_sync), 0)  # Can't distinguish inserts vs updates with upsert
+    logger.info(
+        f"Sync complete: {len(models_to_sync)} pricing snapshots inserted for {snapshot_date}"
+    )
+    return (len(models_to_sync), 0)
 
 
 async def main() -> int:
-    """Main entry point for pricing sync script."""
+    """Main entry point for pricing sync script.
+
+    This script is designed to be run manually or via cron to refresh pricing data.
+    It intelligently checks if current pricing already exists before fetching from
+    llm-prices.com, preventing unnecessary API calls and duplicate database inserts.
+
+    Typical usage:
+        # Check and sync if needed (default behavior)
+        python scripts/sync_pricing.py
+
+        # Preview what would be synced
+        python scripts/sync_pricing.py --dry-run
+
+        # Force sync even if current pricing exists
+        python scripts/sync_pricing.py --force
+
+    The pricing data is stored in the model_prices table with historical snapshots,
+    enabling price history analysis and understanding of routing decisions over time.
+    """
     parser = argparse.ArgumentParser(
         description="Sync LLM pricing from llm-prices.com to Supabase"
     )
@@ -173,6 +239,11 @@ async def main() -> int:
         "--dry-run",
         action="store_true",
         help="Show what would be synced without updating database",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force sync even if current pricing already exists",
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
@@ -186,15 +257,17 @@ async def main() -> int:
         # Fetch pricing data
         pricing_data = await fetch_pricing_data()
 
-        # Sync to database
-        updated, inserted = await sync_pricing_to_database(
-            pricing_data, dry_run=args.dry_run
+        # Sync to database (with intelligent duplicate detection)
+        inserted, _ = await sync_pricing_to_database(
+            pricing_data, dry_run=args.dry_run, force=args.force
         )
 
         if args.dry_run:
             logger.info("Dry run complete - no changes made")
+        elif inserted > 0:
+            logger.info(f"Pricing sync successful: {inserted} new snapshots inserted")
         else:
-            logger.info(f"Pricing sync successful: {inserted} new, {updated} updated")
+            logger.info("Pricing sync skipped - current pricing already exists")
 
         return 0
 
