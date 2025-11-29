@@ -24,14 +24,22 @@ Example:
 """
 
 import asyncio
-from typing import Any, AsyncIterator, Iterator, List, Optional
+import sys
+from typing import Any, AsyncIterator, List, Optional
 
-from langchain_core.callbacks import (
-    AsyncCallbackHandlerForLLMRun,
-    CallbackManagerForLLMRun,
-)
-from langchain_core.language_models.llms import BaseLLM
-from langchain_core.outputs import LLMResult
+# Check for langchain_core dependency
+try:
+    from langchain_core.callbacks import (
+        AsyncCallbackHandlerForLLMRun,
+        CallbackManagerForLLMRun,
+    )
+    from langchain_core.language_models.llms import BaseLLM
+    from langchain_core.outputs import LLMResult  # noqa: F401
+except ImportError:
+    print("LangChain integration requires langchain-core.")
+    print("Install with: pip install langchain langchain-core")
+    sys.exit(0)
+
 from pydantic import Field
 
 from conduit.core.models import Query
