@@ -92,10 +92,13 @@ class PricingManager:
         """Get current model pricing with intelligent fallback.
 
         Strategy:
-            1. If in-memory cache exists (same session), return immediately
+            1. Check in-memory cache (if fresh within cache_ttl_hours)
             2. Try database (if configured)
             3. Try local cache file
             4. Direct fetch from llm-prices.com
+
+        In-memory cache has session-level TTL to prevent stale pricing
+        in long-running processes (e.g., 30-day server uptime).
 
         Returns:
             Dictionary mapping model_id to ModelPricing
@@ -103,10 +106,25 @@ class PricingManager:
         Raises:
             RuntimeError: If all strategies fail or pricing is stale with fail_on_stale_cache=True
         """
-        # Fast path: In-memory cache for this session
-        if self._memory_cache is not None:
-            logger.debug("Using in-memory pricing cache")
-            return self._memory_cache
+        # Fast path: In-memory cache (with session-level TTL)
+        if self._memory_cache is not None and self._cache_loaded_at is not None:
+            cache_age_hours = (
+                datetime.now(timezone.utc) - self._cache_loaded_at
+            ).total_seconds() / 3600
+
+            if cache_age_hours < self.cache_ttl_hours:
+                logger.debug(
+                    f"Using in-memory pricing cache (age: {cache_age_hours:.1f}h, "
+                    f"TTL: {self.cache_ttl_hours}h)"
+                )
+                return self._memory_cache
+            else:
+                logger.info(
+                    f"In-memory cache expired ({cache_age_hours:.1f}h > {self.cache_ttl_hours}h), "
+                    "reloading pricing"
+                )
+                self._memory_cache = None
+                self._cache_loaded_at = None
 
         # Try database first (if configured)
         if self.database is not None:
@@ -114,6 +132,7 @@ class PricingManager:
                 pricing = await self._load_from_database()
                 if pricing:
                     self._memory_cache = pricing
+                    self._cache_loaded_at = datetime.now(timezone.utc)
                     return pricing
             except Exception as e:
                 logger.warning(f"Database pricing load failed: {e}")
@@ -124,6 +143,7 @@ class PricingManager:
             pricing = await self._load_from_cache()
             if pricing:
                 self._memory_cache = pricing
+                self._cache_loaded_at = datetime.now(timezone.utc)
                 return pricing
         except Exception as e:
             logger.warning(f"Cache pricing load failed: {e}")
@@ -133,6 +153,7 @@ class PricingManager:
         try:
             pricing = await self._fetch_and_cache()
             self._memory_cache = pricing
+            self._cache_loaded_at = datetime.now(timezone.utc)
             return pricing
         except Exception as e:
             logger.error(f"Failed to fetch pricing from llm-prices.com: {e}")
