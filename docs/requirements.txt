@@ -1,0 +1,16 @@
+# Documentation build dependencies for ReadTheDocs
+# These are separate from the main project dependencies
+
+# Sphinx documentation generator
+sphinx>=7.0.0
+
+# ReadTheDocs theme
+sphinx-rtd-theme>=2.0.0
+
+# MyST parser for Markdown support
+myst-parser>=2.0.0
+
+# Optional: for autodoc to work, we need the project's core dependencies
+# But we keep this minimal to speed up RTD builds
+pydantic>=2.0.0
+numpy>=2.0.0
