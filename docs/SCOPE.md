@@ -1,7 +1,7 @@
 # Conduit Scope Boundaries
 
-**Last Updated**: 2025-11-26
-**Status**: Pre-1.0 (v0.0.4-alpha)
+**Last Updated**: 2025-11-29
+**Status**: Pre-1.0 (v0.1.0)
 
 This document defines what Conduit does and doesn't do. Clear scope boundaries help users make informed decisions and protect long-term maintainability.
 

@@ -1,5 +1,7 @@
 # Contributing to Conduit
 
+**Last Updated**: 2025-11-29
+
 Thank you for your interest in contributing to Conduit! This guide will help you get started.
 
 ## Quick Start
@@ -7,6 +9,7 @@ Thank you for your interest in contributing to Conduit! This guide will help you
 ### Prerequisites
 
 - Python 3.11+ (3.13 recommended)
+- [uv](https://github.com/astral-sh/uv) - Fast Python package manager
 - At least one LLM API key (OpenAI, Anthropic, Google, Groq, etc.)
 - Redis (optional - for caching)
 - PostgreSQL (optional - for history persistence)
@@ -18,18 +21,17 @@ Thank you for your interest in contributing to Conduit! This guide will help you
 git clone https://github.com/ashita-ai/conduit.git
 cd conduit
 
-# Create and activate virtual environment
-python3.13 -m venv .venv
-source .venv/bin/activate
+# Install dependencies using uv (installs all extras including dev dependencies)
+uv sync --all-extras
 
-# Install dependencies
-pip install -e ".[dev]"
+# Activate virtual environment
+source .venv/bin/activate
 
 # Install git hooks (recommended)
 bash scripts/install-hooks.sh
 
 # Run tests to verify setup
-pytest
+uv run pytest -m "not slow and not downloads_models and not requires_api_key"
 ```
 
 ### Configuration

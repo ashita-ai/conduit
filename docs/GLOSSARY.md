@@ -1,5 +1,7 @@
 # Conduit Glossary
 
+**Last Updated**: 2025-11-29
+
 Technical terms and concepts used throughout Conduit.
 
 ## Core Concepts
