@@ -4,6 +4,24 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from conduit.core.models import QueryConstraints
+
+
+class ContextMetadata(BaseModel):
+    """Optional context metadata for routing requests.
+
+    Provides structured fields for common context information while
+    allowing arbitrary extra fields for application-specific data.
+    All fields are optional to maximize flexibility.
+    """
+
+    source: str | None = Field(None, description="Request source identifier")
+    session_id: str | None = Field(None, description="Session identifier")
+    request_id: str | None = Field(None, description="External request ID")
+    tags: list[str] | None = Field(None, description="Optional tags for categorization")
+
+    model_config = {"extra": "allow"}
+
 
 class CompleteRequest(BaseModel):
     """Request schema for POST /v1/complete."""
@@ -12,12 +30,12 @@ class CompleteRequest(BaseModel):
     result_type: str | None = Field(
         None, description="Pydantic model name for structured output (optional)"
     )
-    constraints: dict[str, Any] | None = Field(
+    constraints: QueryConstraints | None = Field(
         None,
         description="Optional routing constraints (max_cost, max_latency, min_quality, preferred_provider)",
     )
     user_id: str | None = Field(None, description="User identifier for tracking")
-    context: dict[str, Any] | None = Field(
+    context: ContextMetadata | None = Field(
         None, description="Additional context metadata"
     )
 

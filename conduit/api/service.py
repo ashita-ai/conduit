@@ -54,9 +54,9 @@ class RoutingService:
         self,
         prompt: str,
         result_type: type[BaseModel] | None = None,
-        constraints: dict[str, Any] | None = None,
+        constraints: QueryConstraints | dict[str, Any] | None = None,
         user_id: str | None = None,
-        context: dict[str, Any] | None = None,
+        context: BaseModel | dict[str, Any] | None = None,
     ) -> RoutingResult:
         """Route and execute LLM query.
 
@@ -89,16 +89,27 @@ class RoutingService:
 
             result_type = DefaultResult
 
-        # Parse constraints
+        # Parse constraints (accept both typed model and dict for backward compatibility)
         query_constraints = None
         if constraints:
-            query_constraints = QueryConstraints(**constraints)
+            if isinstance(constraints, QueryConstraints):
+                query_constraints = constraints
+            else:
+                query_constraints = QueryConstraints(**constraints)
+
+        # Convert context to dict if it's a Pydantic model
+        context_dict: dict[str, Any] | None = None
+        if context:
+            if isinstance(context, BaseModel):
+                context_dict = context.model_dump(exclude_none=True)
+            else:
+                context_dict = context
 
         # Create query
         query = Query(
             text=prompt,
             user_id=user_id,
-            context=context,
+            context=context_dict,
             constraints=query_constraints,
         )
 

@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 
 class UserPreferences(BaseModel):
@@ -261,11 +261,13 @@ class ModelState(BaseModel):
         description="Last update timestamp",
     )
 
+    @computed_field
     @property
     def mean_success_rate(self) -> float:
         """Expected success rate (mean of Beta distribution)."""
         return self.alpha / (self.alpha + self.beta)
 
+    @computed_field
     @property
     def variance(self) -> float:
         """Variance of Beta distribution."""

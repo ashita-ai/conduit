@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 class ModelPricing(BaseModel):
@@ -51,16 +51,19 @@ class ModelPricing(BaseModel):
         description="Timestamp when this pricing snapshot was recorded",
     )
 
+    @computed_field
     @property
     def input_cost_per_token(self) -> float:
         """Cost per single input token in dollars."""
         return self.input_cost_per_million / 1_000_000.0
 
+    @computed_field
     @property
     def output_cost_per_token(self) -> float:
         """Cost per single output token in dollars."""
         return self.output_cost_per_million / 1_000_000.0
 
+    @computed_field
     @property
     def cached_input_cost_per_token(self) -> float | None:
         """Cost per single cached input token in dollars, if available."""

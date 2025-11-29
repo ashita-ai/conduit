@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from conduit.core.config import load_feature_dimensions
 from conduit.core.models import QueryFeatures
@@ -39,6 +39,7 @@ class ModelArm(BaseModel):
     expected_quality: float = 0.5
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    @computed_field
     @property
     def full_name(self) -> str:
         """Get full model name for PydanticAI."""

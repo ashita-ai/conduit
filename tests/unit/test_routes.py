@@ -103,9 +103,10 @@ class TestCompleteEndpoint:
         )
 
         assert response.status_code == 200
-        # Verify constraints were passed to service
+        # Verify constraints were passed to service (now as QueryConstraints model)
         call_args = mock_service.complete.call_args
-        assert call_args.kwargs["constraints"]["max_cost"] == 0.001
+        constraints = call_args.kwargs["constraints"]
+        assert constraints.max_cost == 0.001
 
     def test_complete_missing_prompt(self, client):
         """Test completion with missing prompt."""
