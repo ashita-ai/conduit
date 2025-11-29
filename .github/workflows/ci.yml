@@ -12,31 +12,31 @@ permissions:
 
 jobs:
   # Skip full CI for documentation-only changes
+  # Uses negation: run CI if ANY code files changed (not just docs)
   check-docs-only:
     name: Check if docs-only
     runs-on: ubuntu-latest
     outputs:
-      docs_only: ${{ steps.filter.outputs.docs_only }}
+      code_changed: ${{ steps.filter.outputs.code }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
-            docs_only:
-              - 'docs/**'
-              - '**.md'
-              - 'README'
-              - 'CONTRIBUTING'
-              - 'LICENSE'
-              - 'CHANGELOG'
-              - 'AUTHORS'
+            code:
+              - 'conduit/**'
+              - 'tests/**'
+              - 'examples/**'
+              - 'pyproject.toml'
+              - 'alembic/**'
+              - '.github/workflows/**'
 
   test:
     name: Test Suite
     runs-on: ubuntu-latest
     needs: check-docs-only
-    if: needs.check-docs-only.outputs.docs_only == 'false'
+    if: needs.check-docs-only.outputs.code_changed == 'true'
 
     services:
       postgres:
@@ -89,7 +89,7 @@ jobs:
     name: Lint & Format
     runs-on: ubuntu-latest
     needs: check-docs-only
-    if: needs.check-docs-only.outputs.docs_only == 'false'
+    if: needs.check-docs-only.outputs.code_changed == 'true'
 
     steps:
       - uses: actions/checkout@v4
@@ -117,7 +117,7 @@ jobs:
     name: Type Check
     runs-on: ubuntu-latest
     needs: check-docs-only
-    if: needs.check-docs-only.outputs.docs_only == 'false'
+    if: needs.check-docs-only.outputs.code_changed == 'true'
 
     steps:
       - uses: actions/checkout@v4

@@ -23,43 +23,35 @@ class TestThompsonSamplingNonStationary:
     """Tests for Thompson Sampling with sliding window."""
 
     @pytest.mark.asyncio
-    async def test_sliding_window_initialization(self, test_arms: list[ModelArm]) -> None:
+    async def test_sliding_window_initialization(
+        self, test_arms: list[ModelArm]
+    ) -> None:
         """Test that sliding window is initialized correctly."""
-        bandit = ThompsonSamplingBandit(
-            arms=test_arms,
-            window_size=100,
-            random_seed=42)
+        bandit = ThompsonSamplingBandit(arms=test_arms, window_size=100, random_seed=42)
 
         assert bandit.window_size == 100
         assert len(bandit.reward_history) == 3  # Three arms from fixture
-        assert all(
-            history.maxlen == 100 for history in bandit.reward_history.values()
-        )
+        assert all(history.maxlen == 100 for history in bandit.reward_history.values())
 
     @pytest.mark.asyncio
     async def test_unlimited_history(self, test_arms: list[ModelArm]) -> None:
         """Test that window_size=0 creates unlimited history."""
         bandit = ThompsonSamplingBandit(
-            arms=test_arms,
-            window_size=0,  # Unlimited
-            random_seed=42)
+            arms=test_arms, window_size=0, random_seed=42  # Unlimited
+        )
 
         assert bandit.window_size == 0
         # Deque without maxlen = unlimited
-        assert all(
-            history.maxlen is None for history in bandit.reward_history.values()
-        )
+        assert all(history.maxlen is None for history in bandit.reward_history.values())
 
     @pytest.mark.asyncio
     async def test_window_drops_oldest_observations(
-        self,
-        test_arms: list[ModelArm],
-        test_features: QueryFeatures) -> None:
+        self, test_arms: list[ModelArm], test_features: QueryFeatures
+    ) -> None:
         """Test that sliding window drops oldest observations when full."""
         bandit = ThompsonSamplingBandit(
-            arms=test_arms,
-            window_size=3,  # Very small window
-            random_seed=42)
+            arms=test_arms, window_size=3, random_seed=42  # Very small window
+        )
 
         arm = test_arms[0]
         model_id = arm.model_id
@@ -71,7 +63,8 @@ class TestThompsonSamplingNonStationary:
                 model_id=model_id,
                 cost=0.001,
                 quality_score=reward,  # Varying quality
-                latency=1.0)
+                latency=1.0,
+            )
             await bandit.update(feedback, test_features)
 
         # Window should only have last 3 observations
@@ -79,14 +72,21 @@ class TestThompsonSamplingNonStationary:
 
         # Check that alpha/beta recalculated from last 3 rewards only
         # Last 3 quality_scores: 0.3, 0.4, 0.5
-        # Calculate what the composite rewards would be
+        # Calculate what the composite rewards would be using bandit's reward weights
         last_3_qualities = [0.3, 0.4, 0.5]
         expected_rewards = []
         for q in last_3_qualities:
             fb = BanditFeedback(
                 model_id=model_id, cost=0.001, quality_score=q, latency=1.0
             )
-            expected_rewards.append(fb.calculate_reward())
+            # Use bandit's reward weights for consistency
+            expected_rewards.append(
+                fb.calculate_reward(
+                    quality_weight=bandit.reward_weights["quality"],
+                    cost_weight=bandit.reward_weights["cost"],
+                    latency_weight=bandit.reward_weights["latency"],
+                )
+            )
 
         expected_alpha = bandit.prior_alpha + sum(expected_rewards)
         expected_beta = bandit.prior_beta + sum(1.0 - r for r in expected_rewards)
@@ -96,14 +96,10 @@ class TestThompsonSamplingNonStationary:
 
     @pytest.mark.asyncio
     async def test_adapts_to_distribution_shift(
-        self,
-        test_arms: list[ModelArm],
-        test_features: QueryFeatures) -> None:
+        self, test_arms: list[ModelArm], test_features: QueryFeatures
+    ) -> None:
         """Test that algorithm adapts when model quality changes."""
-        bandit = ThompsonSamplingBandit(
-            arms=test_arms,
-            window_size=50,
-            random_seed=42)
+        bandit = ThompsonSamplingBandit(arms=test_arms, window_size=50, random_seed=42)
 
         arm1_id = test_arms[0].model_id
         arm2_id = test_arms[1].model_id
@@ -114,14 +110,16 @@ class TestThompsonSamplingNonStationary:
                 model_id=arm1_id,
                 cost=0.0001,
                 quality_score=0.95,  # High quality
-                latency=1.0)
+                latency=1.0,
+            )
             await bandit.update(feedback1, test_features)
 
             feedback2 = BanditFeedback(
                 model_id=arm2_id,
                 cost=0.0002,
                 quality_score=0.70,  # Low quality
-                latency=1.2)
+                latency=1.2,
+            )
             await bandit.update(feedback2, test_features)
 
         # At this point, arm1 should have higher alpha (better expected reward)
@@ -136,14 +134,16 @@ class TestThompsonSamplingNonStationary:
                 model_id=arm1_id,
                 cost=0.0001,
                 quality_score=0.60,  # Quality dropped!
-                latency=1.0)
+                latency=1.0,
+            )
             await bandit.update(feedback1, test_features)
 
             feedback2 = BanditFeedback(
                 model_id=arm2_id,
                 cost=0.0002,
                 quality_score=0.95,  # Quality improved!
-                latency=1.2)
+                latency=1.2,
+            )
             await bandit.update(feedback2, test_features)
 
         # Now arm2 should have higher alpha (window only sees recent data)
@@ -157,14 +157,10 @@ class TestUCB1NonStationary:
 
     @pytest.mark.asyncio
     async def test_sliding_window_mean_recalculation(
-        self,
-        test_arms: list[ModelArm],
-        test_features: QueryFeatures) -> None:
+        self, test_arms: list[ModelArm], test_features: QueryFeatures
+    ) -> None:
         """Test that UCB1 recalculates mean from sliding window."""
-        bandit = UCB1Bandit(
-            arms=test_arms,
-            window_size=3,
-            random_seed=42)
+        bandit = UCB1Bandit(arms=test_arms, window_size=3, random_seed=42)
 
         arm = test_arms[0]
         model_id = arm.model_id
@@ -173,23 +169,28 @@ class TestUCB1NonStationary:
         qualities = [0.5, 0.6, 0.7, 0.8, 0.9]
         for q in qualities:
             feedback = BanditFeedback(
-                model_id=model_id,
-                cost=0.001,
-                quality_score=q,
-                latency=1.0)
+                model_id=model_id, cost=0.001, quality_score=q, latency=1.0
+            )
             await bandit.update(feedback, test_features)
 
         # Window should only have last 3 observations
         assert len(bandit.reward_history[model_id]) == 3
 
         # Calculate expected mean from last 3 qualities (0.7, 0.8, 0.9)
+        # Use bandit's reward weights for consistency
         last_3_qualities = [0.7, 0.8, 0.9]
         expected_rewards = []
         for q in last_3_qualities:
             fb = BanditFeedback(
                 model_id=model_id, cost=0.001, quality_score=q, latency=1.0
             )
-            expected_rewards.append(fb.calculate_reward())
+            expected_rewards.append(
+                fb.calculate_reward(
+                    quality_weight=bandit.reward_weights["quality"],
+                    cost_weight=bandit.reward_weights["cost"],
+                    latency_weight=bandit.reward_weights["latency"],
+                )
+            )
 
         expected_mean = sum(expected_rewards) / len(expected_rewards)
         assert abs(bandit.mean_reward[model_id] - expected_mean) < 0.001
@@ -199,9 +200,7 @@ class TestEpsilonGreedyNonStationary:
     """Tests for Epsilon-Greedy with sliding window."""
 
     @pytest.mark.asyncio
-    async def test_window_size_configuration(
-        self,
-        test_arms: list[ModelArm]) -> None:
+    async def test_window_size_configuration(self, test_arms: list[ModelArm]) -> None:
         """Test different window size configurations."""
         # Test with window
         bandit1 = EpsilonGreedyBandit(arms=test_arms, window_size=100)
@@ -219,24 +218,18 @@ class TestLinUCBNonStationary:
 
     @pytest.mark.asyncio
     async def test_observation_history_storage(
-        self,
-        test_arms: list[ModelArm],
-        test_features: QueryFeatures) -> None:
+        self, test_arms: list[ModelArm], test_features: QueryFeatures
+    ) -> None:
         """Test that LinUCB stores observations (x, r) in history."""
-        bandit = LinUCBBandit(
-            arms=test_arms,
-            window_size=10,
-            random_seed=42)
+        bandit = LinUCBBandit(arms=test_arms, window_size=10, random_seed=42)
 
         arm = test_arms[0]
         model_id = arm.model_id
 
         # Add observation
         feedback = BanditFeedback(
-            model_id=model_id,
-            cost=0.001,
-            quality_score=0.9,
-            latency=1.0)
+            model_id=model_id, cost=0.001, quality_score=0.9, latency=1.0
+        )
         await bandit.update(feedback, test_features)
 
         # Check observation was stored
@@ -246,20 +239,22 @@ class TestLinUCBNonStationary:
         # Feature vector should be (386, 1)
         assert obs_x.shape == (386, 1)
 
-        # Reward should match composite reward
-        expected_reward = feedback.calculate_reward()
+        # Reward should match composite reward using bandit's weights
+        expected_reward = feedback.calculate_reward(
+            quality_weight=bandit.reward_weights["quality"],
+            cost_weight=bandit.reward_weights["cost"],
+            latency_weight=bandit.reward_weights["latency"],
+        )
         assert abs(obs_r - expected_reward) < 0.001
 
     @pytest.mark.asyncio
     async def test_matrix_recalculation_from_window(
-        self,
-        test_arms: list[ModelArm],
-        test_features: QueryFeatures) -> None:
+        self, test_arms: list[ModelArm], test_features: QueryFeatures
+    ) -> None:
         """Test that A and b matrices are recalculated from window."""
         bandit = LinUCBBandit(
-            arms=test_arms,
-            window_size=2,  # Very small window
-            random_seed=42)
+            arms=test_arms, window_size=2, random_seed=42  # Very small window
+        )
 
         arm = test_arms[0]
         model_id = arm.model_id
@@ -270,7 +265,8 @@ class TestLinUCBNonStationary:
                 model_id=model_id,
                 cost=0.001,
                 quality_score=0.8 + i * 0.05,  # 0.8, 0.85, 0.9
-                latency=1.0)
+                latency=1.0,
+            )
             await bandit.update(feedback, test_features)
 
         # Window should only have last 2 observations
@@ -289,14 +285,9 @@ class TestLinUCBNonStationary:
         assert np.allclose(bandit.b[model_id], expected_b)
 
     @pytest.mark.asyncio
-    async def test_adapts_to_feature_shift(
-        self,
-        test_arms: list[ModelArm]) -> None:
+    async def test_adapts_to_feature_shift(self, test_arms: list[ModelArm]) -> None:
         """Test LinUCB adapts when context-reward relationship changes."""
-        bandit = LinUCBBandit(
-            arms=test_arms,
-            window_size=50,
-            random_seed=42)
+        bandit = LinUCBBandit(arms=test_arms, window_size=50, random_seed=42)
 
         arm = test_arms[0]
         model_id = arm.model_id
@@ -307,12 +298,14 @@ class TestLinUCBNonStationary:
                 embedding=[0.1] * 384,
                 token_count=10,  # Simple
                 complexity_score=0.2,  # Low complexity
-                query_text="Simple query")
+                query_text="Simple query",
+            )
             feedback = BanditFeedback(
                 model_id=model_id,
                 cost=0.001,
                 quality_score=0.95,  # High quality for simple
-                latency=0.5)
+                latency=0.5,
+            )
             await bandit.update(feedback, features_simple)
 
         # Store theta after phase 1
@@ -326,12 +319,14 @@ class TestLinUCBNonStationary:
                 embedding=[0.9] * 384,
                 token_count=500,  # Complex
                 complexity_score=0.9,  # High complexity
-                query_text="Complex technical query")
+                query_text="Complex technical query",
+            )
             feedback = BanditFeedback(
                 model_id=model_id,
                 cost=0.001,
                 quality_score=0.95,  # High quality for complex now
-                latency=2.0)
+                latency=2.0,
+            )
             await bandit.update(feedback, features_complex)
 
         # Store theta after phase 2
@@ -348,9 +343,8 @@ class TestNonStationaryReset:
 
     @pytest.mark.asyncio
     async def test_thompson_reset_clears_history(
-        self,
-        test_arms: list[ModelArm],
-        test_features: QueryFeatures) -> None:
+        self, test_arms: list[ModelArm], test_features: QueryFeatures
+    ) -> None:
         """Test Thompson Sampling reset clears history."""
         bandit = ThompsonSamplingBandit(arms=test_arms, window_size=100)
 
@@ -360,7 +354,8 @@ class TestNonStationaryReset:
                 model_id=test_arms[0].model_id,
                 cost=0.001,
                 quality_score=0.9,
-                latency=1.0)
+                latency=1.0,
+            )
             await bandit.update(feedback, test_features)
 
         # Reset
@@ -374,9 +369,8 @@ class TestNonStationaryReset:
 
     @pytest.mark.asyncio
     async def test_linucb_reset_clears_observations(
-        self,
-        test_arms: list[ModelArm],
-        test_features: QueryFeatures) -> None:
+        self, test_arms: list[ModelArm], test_features: QueryFeatures
+    ) -> None:
         """Test LinUCB reset clears observation history."""
         bandit = LinUCBBandit(arms=test_arms, window_size=50)
 
@@ -386,7 +380,8 @@ class TestNonStationaryReset:
                 model_id=test_arms[0].model_id,
                 cost=0.001,
                 quality_score=0.9,
-                latency=1.0)
+                latency=1.0,
+            )
             await bandit.update(feedback, test_features)
 
         # Reset

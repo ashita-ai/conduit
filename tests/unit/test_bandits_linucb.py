@@ -6,11 +6,12 @@ Uses shared fixtures from tests/conftest.py: test_arms, test_features
 import numpy as np
 import pytest
 
-from conduit.engines.bandits.linucb import LinUCBBandit
-from conduit.engines.bandits.base import BanditFeedback
 from conduit.core.models import QueryFeatures
+from conduit.engines.bandits.base import BanditFeedback
+from conduit.engines.bandits.linucb import LinUCBBandit
 
 # test_arms and test_features fixtures imported from conftest.py
+
 
 class TestLinUCBBandit:
     """Tests for LinUCBBandit."""
@@ -54,7 +55,9 @@ class TestLinUCBBandit:
         # Check metadata (last 2 dims)
         assert np.isclose(x[384, 0], 50.0 / 1000.0)  # normalized token_count
         assert np.isclose(x[385, 0], 0.5)  # complexity_score
-        assert np.isclose(x[385, 0], test_features.complexity_score)  # complexity_score (last metadata)
+        assert np.isclose(
+            x[385, 0], test_features.complexity_score
+        )  # complexity_score (last metadata)
 
     @pytest.mark.asyncio
     async def test_select_arm_returns_valid_arm(self, test_arms, test_features):
@@ -79,10 +82,8 @@ class TestLinUCBBandit:
         b_before = bandit.b[arm.model_id].copy()
 
         feedback = BanditFeedback(
-            model_id=arm.model_id,
-            cost=0.001,
-            quality_score=0.9,
-            latency=1.0)
+            model_id=arm.model_id, cost=0.001, quality_score=0.9, latency=1.0
+        )
 
         await bandit.update(feedback, test_features)
 
@@ -110,10 +111,8 @@ class TestLinUCBBandit:
 
         # Apply update manually
         feedback = BanditFeedback(
-            model_id=model_id,
-            cost=0.001,
-            quality_score=0.9,
-            latency=1.0)
+            model_id=model_id, cost=0.001, quality_score=0.9, latency=1.0
+        )
 
         await bandit.update(feedback, test_features)
 
@@ -134,16 +133,12 @@ class TestLinUCBBandit:
 
         # Context 1: Simple query (low complexity)
         context1 = QueryFeatures(
-            embedding=[0.1] * 384,
-            token_count=10,
-            complexity_score=0.1
+            embedding=[0.1] * 384, token_count=10, complexity_score=0.1
         )
 
         # Context 2: Complex query (high complexity)
         context2 = QueryFeatures(
-            embedding=[0.9] * 384,
-            token_count=100,
-            complexity_score=0.9
+            embedding=[0.9] * 384, token_count=100, complexity_score=0.9
         )
 
         # Train on context1: o4-mini performs well
@@ -155,10 +150,8 @@ class TestLinUCBBandit:
                 quality = 0.6
 
             feedback = BanditFeedback(
-                model_id=arm.model_id,
-                cost=0.001,
-                quality_score=quality,
-                latency=1.0)
+                model_id=arm.model_id, cost=0.001, quality_score=quality, latency=1.0
+            )
             await bandit.update(feedback, context1)
 
         # Train on context2: gpt-5.1 performs well
@@ -170,10 +163,8 @@ class TestLinUCBBandit:
                 quality = 0.6
 
             feedback = BanditFeedback(
-                model_id=arm.model_id,
-                cost=0.001,
-                quality_score=quality,
-                latency=1.0)
+                model_id=arm.model_id, cost=0.001, quality_score=quality, latency=1.0
+            )
             await bandit.update(feedback, context2)
 
         # After learning, bandit should have updated its models
@@ -209,10 +200,8 @@ class TestLinUCBBandit:
         for _ in range(5):
             arm = await bandit.select_arm(test_features)
             feedback = BanditFeedback(
-                model_id=arm.model_id,
-                cost=0.001,
-                quality_score=0.9,
-                latency=1.0)
+                model_id=arm.model_id, cost=0.001, quality_score=0.9, latency=1.0
+            )
             await bandit.update(feedback, test_features)
 
         assert bandit.total_queries == 5
@@ -237,10 +226,8 @@ class TestLinUCBBandit:
         # Do some updates
         arm = await bandit.select_arm(test_features)
         feedback = BanditFeedback(
-            model_id=arm.model_id,
-            cost=0.001,
-            quality_score=0.9,
-            latency=1.0)
+            model_id=arm.model_id, cost=0.001, quality_score=0.9, latency=1.0
+        )
         await bandit.update(feedback, test_features)
 
         stats = bandit.get_stats()
@@ -269,7 +256,7 @@ class TestLinUCBBandit:
             features = QueryFeatures(
                 embedding=[np.random.rand() for _ in range(384)],
                 token_count=20,
-                complexity_score=0.3
+                complexity_score=0.3,
             )
 
             arm = await bandit.select_arm(features)
@@ -280,10 +267,8 @@ class TestLinUCBBandit:
                 quality = 0.6
 
             feedback = BanditFeedback(
-                model_id=arm.model_id,
-                cost=0.001,
-                quality_score=quality,
-                latency=1.0)
+                model_id=arm.model_id, cost=0.001, quality_score=quality, latency=1.0
+            )
             await bandit.update(feedback, features)
 
         # Long queries (token_count > 200) -> gpt-5.1 performs well
@@ -291,7 +276,7 @@ class TestLinUCBBandit:
             features = QueryFeatures(
                 embedding=[np.random.rand() for _ in range(384)],
                 token_count=300,
-                complexity_score=0.8
+                complexity_score=0.8,
             )
 
             arm = await bandit.select_arm(features)
@@ -302,10 +287,8 @@ class TestLinUCBBandit:
                 quality = 0.6
 
             feedback = BanditFeedback(
-                model_id=arm.model_id,
-                cost=0.001,
-                quality_score=quality,
-                latency=1.0)
+                model_id=arm.model_id, cost=0.001, quality_score=quality, latency=1.0
+            )
             await bandit.update(feedback, features)
 
         # Both models should have been tried
@@ -323,10 +306,8 @@ class TestLinUCBBandit:
         # Select an arm and update it
         arm = await bandit.select_arm(test_features)
         feedback = BanditFeedback(
-            model_id=arm.model_id,
-            cost=0.001,
-            quality_score=0.9,
-            latency=1.0)
+            model_id=arm.model_id, cost=0.001, quality_score=0.9, latency=1.0
+        )
         await bandit.update(feedback, test_features)
 
         # Manually compute UCB for the updated arm
@@ -355,10 +336,8 @@ class TestLinUCBBandit:
 
         # Apply feedback
         feedback = BanditFeedback(
-            model_id=model_id,
-            cost=0.001,
-            quality_score=0.9,
-            latency=1.0)
+            model_id=model_id, cost=0.001, quality_score=0.9, latency=1.0
+        )
         await bandit.update(feedback, test_features)
 
         # Verify A_inv was updated (should differ from initial identity)
@@ -373,13 +352,14 @@ class TestLinUCBBandit:
             features_i = QueryFeatures(
                 embedding=[0.1 + i * 0.01] * 384,
                 token_count=50 + i * 10,
-                complexity_score=0.5 + i * 0.05
+                complexity_score=0.5 + i * 0.05,
             )
             feedback_i = BanditFeedback(
                 model_id=model_id,
                 cost=0.001 * (i + 1),
                 quality_score=0.9 - i * 0.02,
-                latency=1.0 + i * 0.1)
+                latency=1.0 + i * 0.1,
+            )
             await bandit.update(feedback_i, features_i)
 
             # Verify A_inv remains valid after each update
@@ -400,7 +380,7 @@ class TestLinUCBBandit:
             features_i = QueryFeatures(
                 embedding=[np.random.rand() for _ in range(384)],
                 token_count=50 + i * 10,
-                complexity_score=0.5 + i * 0.05
+                complexity_score=0.5 + i * 0.05,
             )
 
             arm = await bandit_sm.select_arm(features_i)
@@ -408,7 +388,8 @@ class TestLinUCBBandit:
                 model_id=arm.model_id,
                 cost=0.001 * (i + 1),
                 quality_score=0.85 + np.random.rand() * 0.1,
-                latency=1.0 + i * 0.1)
+                latency=1.0 + i * 0.1,
+            )
             await bandit_sm.update(feedback, features_i)
 
         # For each arm, verify that cached A_inv matches direct inversion of A
@@ -429,13 +410,11 @@ class TestLinUCBBandit:
             features_i = QueryFeatures(
                 embedding=[0.1 + i * 0.01] * 384,
                 token_count=50 + i * 10,
-                complexity_score=0.5
+                complexity_score=0.5,
             )
             feedback = BanditFeedback(
-                model_id=model_id,
-                cost=0.001,
-                quality_score=0.9,
-                latency=1.0)
+                model_id=model_id, cost=0.001, quality_score=0.9, latency=1.0
+            )
             await bandit.update(feedback, features_i)
 
             # Verify A_inv is correct inverse of A
@@ -465,10 +444,8 @@ class TestLinUCBBandit:
         for _ in range(5):
             arm = await bandit.select_arm(test_features)
             feedback = BanditFeedback(
-                model_id=arm.model_id,
-                cost=0.001,
-                quality_score=0.9,
-                latency=1.0)
+                model_id=arm.model_id, cost=0.001, quality_score=0.9, latency=1.0
+            )
             await bandit.update(feedback, test_features)
 
         # Verify A_inv changed
@@ -496,19 +473,258 @@ class TestLinUCBBandit:
         model_id = arm.model_id
 
         features = QueryFeatures(
-            embedding=[0.1] * 384,
-            token_count=50,
-            complexity_score=0.5
+            embedding=[0.1] * 384, token_count=50, complexity_score=0.5
         )
 
         feedback = BanditFeedback(
-            model_id=model_id,
-            cost=0.001,
-            quality_score=0.9,
-            latency=1.0)
+            model_id=model_id, cost=0.001, quality_score=0.9, latency=1.0
+        )
 
         await bandit.update(feedback, features)
 
         # Verify A_inv is still valid
         product = bandit.A[model_id] @ bandit.A_inv[model_id]
         assert np.allclose(product, np.identity(bandit.feature_dim), atol=1e-10)
+
+    def test_custom_reward_weights(self, test_arms):
+        """Test initialization with custom reward weights."""
+        custom_weights = {"quality": 0.5, "cost": 0.3, "latency": 0.2}
+        bandit = LinUCBBandit(test_arms, reward_weights=custom_weights)
+
+        assert bandit.reward_weights == custom_weights
+        assert bandit.reward_weights["quality"] == 0.5
+        assert bandit.reward_weights["cost"] == 0.3
+        assert bandit.reward_weights["latency"] == 0.2
+
+    def test_random_seed(self, test_arms):
+        """Test initialization with random seed for reproducibility."""
+        bandit1 = LinUCBBandit(test_arms, random_seed=42)
+        bandit2 = LinUCBBandit(test_arms, random_seed=42)
+
+        # Both bandits should be in the same state after seeding
+        assert bandit1.alpha == bandit2.alpha
+        assert bandit1.feature_dim == bandit2.feature_dim
+
+
+class TestLinUCBStatePersistence:
+    """Tests for LinUCB state persistence with observation history."""
+
+    @pytest.mark.asyncio
+    async def test_to_state_basic(self, test_arms, test_features):
+        """Test basic to_state serialization."""
+        bandit = LinUCBBandit(test_arms, alpha=1.5, window_size=10)
+
+        # Build some state
+        for i in range(3):
+            arm = await bandit.select_arm(test_features)
+            feedback = BanditFeedback(
+                model_id=arm.model_id, cost=0.001, quality_score=0.9, latency=1.0
+            )
+            await bandit.update(feedback, test_features)
+
+        state = bandit.to_state()
+
+        assert state.algorithm == "linucb"
+        assert state.alpha == 1.5
+        assert state.feature_dim == 386
+        assert state.total_queries == 3
+        assert set(state.arm_ids) == {"o4-mini", "gpt-5.1", "claude-haiku-4-5"}
+
+    @pytest.mark.asyncio
+    async def test_to_state_with_observation_history(self, test_arms, test_features):
+        """Test to_state includes observation history."""
+        bandit = LinUCBBandit(test_arms, window_size=5)
+
+        # Build state with multiple observations
+        for i in range(3):
+            features_i = QueryFeatures(
+                embedding=[0.1 + i * 0.01] * 384,
+                token_count=50 + i * 10,
+                complexity_score=0.5,
+            )
+            arm = await bandit.select_arm(features_i)
+            feedback = BanditFeedback(
+                model_id=arm.model_id, cost=0.001, quality_score=0.8 + i * 0.05, latency=1.0
+            )
+            await bandit.update(feedback, features_i)
+
+        state = bandit.to_state()
+
+        # Should have observation history entries
+        assert len(state.observation_history) == 3
+        for entry in state.observation_history:
+            assert "arm_id" in entry
+            assert "features" in entry
+            assert "reward" in entry
+            assert len(entry["features"]) == 386
+
+    @pytest.mark.asyncio
+    async def test_from_state_restores_counters(self, test_arms, test_features):
+        """Test from_state restores arm pulls and query counts."""
+        from conduit.core.state_store import BanditState
+
+        bandit = LinUCBBandit(test_arms, alpha=1.5)
+
+        # Build some state
+        for _ in range(5):
+            arm = await bandit.select_arm(test_features)
+            feedback = BanditFeedback(
+                model_id=arm.model_id, cost=0.001, quality_score=0.9, latency=1.0
+            )
+            await bandit.update(feedback, test_features)
+
+        # Serialize state
+        state = bandit.to_state()
+
+        # Create new bandit and restore
+        bandit2 = LinUCBBandit(test_arms, alpha=1.5)
+        bandit2.from_state(state)
+
+        assert bandit2.total_queries == bandit.total_queries
+        assert bandit2.arm_pulls == bandit.arm_pulls
+        assert bandit2.arm_successes == bandit.arm_successes
+
+    @pytest.mark.asyncio
+    async def test_from_state_restores_matrices(self, test_arms, test_features):
+        """Test from_state restores A and b matrices correctly."""
+        bandit = LinUCBBandit(test_arms)
+
+        # Build some state
+        for i in range(5):
+            arm = await bandit.select_arm(test_features)
+            feedback = BanditFeedback(
+                model_id=arm.model_id, cost=0.001, quality_score=0.9, latency=1.0
+            )
+            await bandit.update(feedback, test_features)
+
+        state = bandit.to_state()
+
+        # Create new bandit and restore
+        bandit2 = LinUCBBandit(test_arms)
+        bandit2.from_state(state)
+
+        # Verify A and b are restored
+        for model_id in bandit.arms:
+            assert np.allclose(bandit2.A[model_id], bandit.A[model_id])
+            assert np.allclose(bandit2.b[model_id], bandit.b[model_id])
+
+    @pytest.mark.asyncio
+    async def test_from_state_restores_observation_history(self, test_arms, test_features):
+        """Test from_state restores observation history."""
+        bandit = LinUCBBandit(test_arms, window_size=10)
+
+        # Build state with observations on specific arm
+        model_id = test_arms[0].model_id
+        for i in range(3):
+            features_i = QueryFeatures(
+                embedding=[0.1 + i * 0.01] * 384,
+                token_count=50,
+                complexity_score=0.5,
+            )
+            feedback = BanditFeedback(
+                model_id=model_id, cost=0.001, quality_score=0.9, latency=1.0
+            )
+            await bandit.update(feedback, features_i)
+
+        state = bandit.to_state()
+
+        # Create new bandit and restore
+        bandit2 = LinUCBBandit(test_arms, window_size=10)
+        bandit2.from_state(state)
+
+        # Verify observation history restored
+        assert len(bandit2.observation_history[model_id]) == 3
+
+    @pytest.mark.asyncio
+    async def test_from_state_rejects_wrong_algorithm(self, test_arms):
+        """Test from_state raises error for wrong algorithm."""
+        from conduit.core.state_store import BanditState
+
+        bandit = LinUCBBandit(test_arms)
+
+        # Create state with wrong algorithm
+        state = BanditState(
+            algorithm="thompson_sampling",  # Wrong algorithm
+            arm_ids=["o4-mini", "gpt-5.1", "claude-haiku-4-5"],
+            arm_pulls={"o4-mini": 0, "gpt-5.1": 0, "claude-haiku-4-5": 0},
+            arm_successes={"o4-mini": 0, "gpt-5.1": 0, "claude-haiku-4-5": 0},
+            total_queries=0,
+        )
+
+        with pytest.raises(ValueError, match="'thompson_sampling' != 'linucb'"):
+            bandit.from_state(state)
+
+    @pytest.mark.asyncio
+    async def test_from_state_rejects_mismatched_arms(self, test_arms):
+        """Test from_state raises error for mismatched arms."""
+        from conduit.core.state_store import BanditState
+
+        bandit = LinUCBBandit(test_arms)
+
+        # Create state with different arms
+        state = BanditState(
+            algorithm="linucb",
+            arm_ids=["model-a", "model-b"],  # Different arms
+            arm_pulls={"model-a": 0, "model-b": 0},
+            arm_successes={"model-a": 0, "model-b": 0},
+            total_queries=0,
+        )
+
+        with pytest.raises(ValueError, match="don't match current arms"):
+            bandit.from_state(state)
+
+    @pytest.mark.asyncio
+    async def test_from_state_rejects_mismatched_feature_dim(self, test_arms):
+        """Test from_state raises error for mismatched feature dimension."""
+        from conduit.core.state_store import BanditState
+
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
+
+        # Create state with different feature dimension
+        state = BanditState(
+            algorithm="linucb",
+            arm_ids=["o4-mini", "gpt-5.1", "claude-haiku-4-5"],
+            arm_pulls={"o4-mini": 0, "gpt-5.1": 0, "claude-haiku-4-5": 0},
+            arm_successes={"o4-mini": 0, "gpt-5.1": 0, "claude-haiku-4-5": 0},
+            total_queries=0,
+            feature_dim=128,  # Different dimension
+        )
+
+        with pytest.raises(ValueError, match="dimension mismatch"):
+            bandit.from_state(state)
+
+    @pytest.mark.asyncio
+    async def test_roundtrip_state_persistence(self, test_arms, test_features):
+        """Test full roundtrip: build state, serialize, deserialize, verify."""
+        bandit = LinUCBBandit(test_arms, alpha=1.5, window_size=10)
+
+        # Build state
+        for i in range(10):
+            features_i = QueryFeatures(
+                embedding=[0.1 + i * 0.005] * 384,
+                token_count=50 + i * 5,
+                complexity_score=0.5,
+            )
+            arm = await bandit.select_arm(features_i)
+            feedback = BanditFeedback(
+                model_id=arm.model_id, cost=0.001, quality_score=0.85 + i * 0.01, latency=1.0
+            )
+            await bandit.update(feedback, features_i)
+
+        # Serialize
+        state = bandit.to_state()
+
+        # Deserialize into new bandit
+        bandit2 = LinUCBBandit(test_arms, alpha=1.5, window_size=10)
+        bandit2.from_state(state)
+
+        # Verify everything matches
+        assert bandit2.total_queries == bandit.total_queries
+        assert bandit2.arm_pulls == bandit.arm_pulls
+        assert bandit2.arm_successes == bandit.arm_successes
+        assert bandit2.alpha == bandit.alpha
+
+        for model_id in bandit.arms:
+            assert np.allclose(bandit2.A[model_id], bandit.A[model_id])
+            assert np.allclose(bandit2.b[model_id], bandit.b[model_id])
+            assert np.allclose(bandit2.A_inv[model_id], bandit.A_inv[model_id], atol=1e-10)

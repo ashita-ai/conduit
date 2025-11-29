@@ -101,9 +101,7 @@ class TestDuelingBanditSelection:
         assert arm_a.model_id != arm_b.model_id
 
     @pytest.mark.asyncio
-    async def test_select_pair_increments_queries(
-        self, test_arms, test_features
-    ):
+    async def test_select_pair_increments_queries(self, test_arms, test_features):
         """Test select_pair increments total queries."""
         bandit = DuelingBandit(test_arms)
 
@@ -116,9 +114,7 @@ class TestDuelingBanditSelection:
         assert bandit.total_queries == 2
 
     @pytest.mark.asyncio
-    async def test_select_arm_returns_top_choice(
-        self, test_arms, test_features
-    ):
+    async def test_select_arm_returns_top_choice(self, test_arms, test_features):
         """Test select_arm returns highest-scoring arm."""
         bandit = DuelingBandit(test_arms)
         arm = await bandit.select_arm(test_features)
@@ -126,9 +122,7 @@ class TestDuelingBanditSelection:
         assert arm in test_arms
 
     @pytest.mark.asyncio
-    async def test_selection_with_learned_preferences(
-        self, test_arms, test_features
-    ):
+    async def test_selection_with_learned_preferences(self, test_arms, test_features):
         """Test selection changes after learning preferences."""
         bandit = DuelingBandit(test_arms, random_seed=42)
 
@@ -162,9 +156,7 @@ class TestDuelingBanditUpdate:
     """Tests for preference updates."""
 
     @pytest.mark.asyncio
-    async def test_update_increases_winner_weight(
-        self, test_arms, test_features
-    ):
+    async def test_update_increases_winner_weight(self, test_arms, test_features):
         """Test update increases preference weight for winner."""
         bandit = DuelingBandit(test_arms)
 
@@ -189,9 +181,7 @@ class TestDuelingBanditUpdate:
         assert np.linalg.norm(w_a_after) > np.linalg.norm(w_a_before)
 
     @pytest.mark.asyncio
-    async def test_update_decreases_loser_weight(
-        self, test_arms, test_features
-    ):
+    async def test_update_decreases_loser_weight(self, test_arms, test_features):
         """Test update decreases preference weight for loser."""
         bandit = DuelingBandit(test_arms)
 
@@ -218,9 +208,7 @@ class TestDuelingBanditUpdate:
         assert np.linalg.norm(w_b_after) < np.linalg.norm(w_b_before)
 
     @pytest.mark.asyncio
-    async def test_update_increments_preference_count(
-        self, test_arms, test_features
-    ):
+    async def test_update_increments_preference_count(self, test_arms, test_features):
         """Test update increments comparison count."""
         bandit = DuelingBandit(test_arms)
 
@@ -243,9 +231,7 @@ class TestDuelingBanditUpdate:
         assert bandit.preference_counts[pair_key] == 1
 
     @pytest.mark.asyncio
-    async def test_update_with_negative_preference(
-        self, test_arms, test_features
-    ):
+    async def test_update_with_negative_preference(self, test_arms, test_features):
         """Test update with negative preference (B better than A)."""
         bandit = DuelingBandit(test_arms)
 
@@ -278,9 +264,7 @@ class TestDuelingBanditUpdate:
         assert np.linalg.norm(w_b_after) > np.linalg.norm(w_b_before)
 
     @pytest.mark.asyncio
-    async def test_update_with_confidence_weighting(
-        self, test_arms, test_features
-    ):
+    async def test_update_with_confidence_weighting(self, test_arms, test_features):
         """Test update scales gradient by confidence."""
         bandit = DuelingBandit(test_arms)
 
@@ -335,9 +319,7 @@ class TestDuelingBanditReset:
             await bandit.update(feedback, test_features)
 
         # Verify weights are non-zero
-        assert (
-            np.linalg.norm(bandit.preference_weights["o4-mini"]) > 0.0
-        )
+        assert np.linalg.norm(bandit.preference_weights["o4-mini"]) > 0.0
 
         # Reset
         bandit.reset()
@@ -405,11 +387,11 @@ class TestDuelingBanditStats:
             assert 0.0 <= pref_prob <= 1.0
 
     @pytest.mark.asyncio
-    async def test_preference_matrix_after_learning(
-        self, test_arms, test_features
-    ):
+    async def test_preference_matrix_after_learning(self, test_arms, test_features):
         """Test preference matrix reflects learned preferences."""
-        bandit = DuelingBandit(test_arms, learning_rate=0.1)  # Higher LR for faster learning
+        bandit = DuelingBandit(
+            test_arms, learning_rate=0.1
+        )  # Higher LR for faster learning
 
         # Teach bandit that gpt-5.1 is better than o4-mini
         for _ in range(50):  # More updates to build stronger preference
@@ -455,36 +437,22 @@ class TestDuelingFeedback:
     def test_feedback_preference_bounds(self):
         """Test preference must be in [-1, 1] range."""
         # Valid preferences
-        DuelingFeedback(
-            model_a_id="a", model_b_id="b", preference=-1.0
-        )  # Valid
-        DuelingFeedback(
-            model_a_id="a", model_b_id="b", preference=1.0
-        )  # Valid
-        DuelingFeedback(
-            model_a_id="a", model_b_id="b", preference=0.0
-        )  # Valid
+        DuelingFeedback(model_a_id="a", model_b_id="b", preference=-1.0)  # Valid
+        DuelingFeedback(model_a_id="a", model_b_id="b", preference=1.0)  # Valid
+        DuelingFeedback(model_a_id="a", model_b_id="b", preference=0.0)  # Valid
 
         # Invalid preferences should raise validation error
         with pytest.raises(ValueError):
-            DuelingFeedback(
-                model_a_id="a", model_b_id="b", preference=1.5
-            )  # Too high
+            DuelingFeedback(model_a_id="a", model_b_id="b", preference=1.5)  # Too high
 
         with pytest.raises(ValueError):
-            DuelingFeedback(
-                model_a_id="a", model_b_id="b", preference=-1.5
-            )  # Too low
+            DuelingFeedback(model_a_id="a", model_b_id="b", preference=-1.5)  # Too low
 
     def test_feedback_confidence_bounds(self):
         """Test confidence must be in [0, 1] range."""
         # Valid confidences
-        DuelingFeedback(
-            model_a_id="a", model_b_id="b", preference=0.0, confidence=0.0
-        )
-        DuelingFeedback(
-            model_a_id="a", model_b_id="b", preference=0.0, confidence=1.0
-        )
+        DuelingFeedback(model_a_id="a", model_b_id="b", preference=0.0, confidence=0.0)
+        DuelingFeedback(model_a_id="a", model_b_id="b", preference=0.0, confidence=1.0)
 
         # Invalid confidences should raise validation error
         with pytest.raises(ValueError):
@@ -499,8 +467,181 @@ class TestDuelingFeedback:
 
     def test_feedback_default_confidence(self):
         """Test confidence defaults to 1.0."""
-        feedback = DuelingFeedback(
-            model_a_id="a", model_b_id="b", preference=0.5
-        )
+        feedback = DuelingFeedback(model_a_id="a", model_b_id="b", preference=0.5)
 
         assert feedback.confidence == 1.0
+
+
+class TestDuelingBanditUpdateValidation:
+    """Tests for update validation errors."""
+
+    @pytest.mark.asyncio
+    async def test_update_invalid_model_a_raises_error(self, test_arms, test_features):
+        """Test update raises error when model_a_id is not in arms."""
+        bandit = DuelingBandit(test_arms)
+
+        feedback = DuelingFeedback(
+            model_a_id="invalid-model",
+            model_b_id="o4-mini",
+            preference=0.5,
+        )
+
+        with pytest.raises(ValueError, match="Model ID 'invalid-model' not in arms"):
+            await bandit.update(feedback, test_features)
+
+    @pytest.mark.asyncio
+    async def test_update_invalid_model_b_raises_error(self, test_arms, test_features):
+        """Test update raises error when model_b_id is not in arms."""
+        bandit = DuelingBandit(test_arms)
+
+        feedback = DuelingFeedback(
+            model_a_id="o4-mini",
+            model_b_id="invalid-model",
+            preference=0.5,
+        )
+
+        with pytest.raises(ValueError, match="Model ID 'invalid-model' not in arms"):
+            await bandit.update(feedback, test_features)
+
+
+class TestDuelingBanditStatePersistence:
+    """Tests for state persistence (to_state/from_state)."""
+
+    @pytest.mark.asyncio
+    async def test_to_state_serialization(self, test_arms, test_features):
+        """Test to_state serializes DuelingBandit state correctly."""
+        bandit = DuelingBandit(test_arms, exploration_weight=0.15, learning_rate=0.02)
+
+        # Build up some state
+        feedback = DuelingFeedback(
+            model_a_id="o4-mini",
+            model_b_id="gpt-5.1",
+            preference=0.7,
+            confidence=0.9,
+        )
+        await bandit.update(feedback, test_features)
+        await bandit.select_pair(test_features)
+
+        state = bandit.to_state()
+
+        assert state.algorithm == "dueling_bandit"
+        assert state.total_queries == 1
+        assert state.exploration_weight == 0.15
+        assert state.learning_rate == 0.02
+        assert state.feature_dim == 386
+        assert set(state.arm_ids) == {"o4-mini", "gpt-5.1", "claude-haiku-4-5"}
+
+        # Check preference weights were serialized
+        assert state.preference_weights is not None
+        assert len(state.preference_weights) == 3
+        for arm_id, weights in state.preference_weights.items():
+            assert isinstance(weights, list)
+            assert len(weights) == 386
+
+        # Check preference counts were serialized
+        assert state.preference_counts is not None
+
+    @pytest.mark.asyncio
+    async def test_from_state_deserialization(self, test_arms, test_features):
+        """Test from_state restores DuelingBandit state correctly."""
+        # Create original bandit with state
+        bandit1 = DuelingBandit(test_arms)
+
+        feedback = DuelingFeedback(
+            model_a_id="o4-mini",
+            model_b_id="gpt-5.1",
+            preference=0.8,
+        )
+        for _ in range(5):
+            await bandit1.update(feedback, test_features)
+
+        state = bandit1.to_state()
+
+        # Create new bandit and restore state
+        bandit2 = DuelingBandit(test_arms)
+        bandit2.from_state(state)
+
+        assert bandit2.total_queries == bandit1.total_queries
+
+        # Check weights were restored
+        for model_id in bandit1.preference_weights:
+            np.testing.assert_array_almost_equal(
+                bandit2.preference_weights[model_id],
+                bandit1.preference_weights[model_id],
+            )
+
+    def test_from_state_wrong_algorithm_raises(self, test_arms):
+        """Test from_state raises error for wrong algorithm type."""
+        from conduit.core.state_store import BanditState
+        from datetime import UTC, datetime
+
+        bandit = DuelingBandit(test_arms)
+        state = BanditState(
+            algorithm="linucb",  # Wrong algorithm
+            arm_ids=["o4-mini", "gpt-5.1", "claude-haiku-4-5"],
+            total_queries=10,
+            updated_at=datetime.now(UTC),
+        )
+
+        with pytest.raises(ValueError, match="State algorithm 'linucb' != 'dueling_bandit'"):
+            bandit.from_state(state)
+
+    def test_from_state_mismatched_arms_raises(self, test_arms):
+        """Test from_state raises error for mismatched arm IDs."""
+        from conduit.core.state_store import BanditState
+        from datetime import UTC, datetime
+
+        bandit = DuelingBandit(test_arms)
+        state = BanditState(
+            algorithm="dueling_bandit",
+            arm_ids=["model-a", "model-b"],  # Different arms
+            total_queries=10,
+            updated_at=datetime.now(UTC),
+        )
+
+        with pytest.raises(ValueError, match="don't match current arms"):
+            bandit.from_state(state)
+
+    def test_from_state_mismatched_feature_dim_raises(self, test_arms):
+        """Test from_state raises error for mismatched feature dimension."""
+        from conduit.core.state_store import BanditState
+        from datetime import UTC, datetime
+
+        bandit = DuelingBandit(test_arms, feature_dim=386)
+        state = BanditState(
+            algorithm="dueling_bandit",
+            arm_ids=["o4-mini", "gpt-5.1", "claude-haiku-4-5"],
+            total_queries=10,
+            feature_dim=100,  # Different feature dim
+            updated_at=datetime.now(UTC),
+        )
+
+        with pytest.raises(ValueError, match="State feature_dim 100 != 386"):
+            bandit.from_state(state)
+
+    @pytest.mark.asyncio
+    async def test_state_roundtrip_preserves_learning(self, test_arms, test_features):
+        """Test state save/restore preserves learned preferences."""
+        bandit1 = DuelingBandit(test_arms, learning_rate=0.1)
+
+        # Train bandit with strong preference
+        for _ in range(10):
+            feedback = DuelingFeedback(
+                model_a_id="gpt-5.1",
+                model_b_id="o4-mini",
+                preference=1.0,
+            )
+            await bandit1.update(feedback, test_features)
+
+        state = bandit1.to_state()
+
+        # Restore into new bandit
+        bandit2 = DuelingBandit(test_arms, learning_rate=0.1)
+        bandit2.from_state(state)
+
+        # Both should have same preference matrix
+        prefs1 = bandit1.get_preference_matrix()
+        prefs2 = bandit2.get_preference_matrix()
+
+        for key in prefs1:
+            assert abs(prefs1[key] - prefs2[key]) < 0.01
