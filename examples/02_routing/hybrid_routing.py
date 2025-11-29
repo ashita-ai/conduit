@@ -38,7 +38,7 @@ async def main():
     router = HybridRouter(
         models=models,
         switch_threshold=15,  # Low threshold for demo (production: 2000)
-        feature_dim=386,  # 384 embedding + 2 metadata
+        # feature_dim auto-detected from analyzer (recommended)
         ucb1_c=2.0,  # Higher exploration parameter for demo
         linucb_alpha=2.0,  # Higher exploration parameter for demo
     )

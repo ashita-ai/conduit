@@ -21,9 +21,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 from pydantic import BaseModel, Field
 
+from conduit.core.config import load_feature_dimensions
 from conduit.core.models import QueryFeatures
 
-from .base import BanditAlgorithm, ModelArm
+from .base import BanditAlgorithm, BanditFeedback, ModelArm
 
 if TYPE_CHECKING:
     from conduit.core.state_store import BanditState
@@ -73,7 +74,7 @@ class DuelingBandit(BanditAlgorithm):
     def __init__(
         self,
         arms: list[ModelArm],
-        feature_dim: int = 386,
+        feature_dim: int | None = None,
         exploration_weight: float = 0.1,
         learning_rate: float = 0.01,
         random_seed: int | None = None,
@@ -82,7 +83,7 @@ class DuelingBandit(BanditAlgorithm):
 
         Args:
             arms: List of available model arms
-            feature_dim: Dimensionality of context features (default: 386)
+            feature_dim: Dimensionality of context features (auto-detected from config if None)
             exploration_weight: Thompson sampling exploration parameter (sigma)
             learning_rate: Gradient descent learning rate
             random_seed: Random seed for reproducibility
@@ -95,6 +96,11 @@ class DuelingBandit(BanditAlgorithm):
             >>> bandit = DuelingBandit(arms, exploration_weight=0.1)
         """
         super().__init__(name="dueling_bandit", arms=arms)
+
+        # Auto-detect feature dimension from config if not provided
+        if feature_dim is None:
+            feature_config = load_feature_dimensions()
+            feature_dim = feature_config["full_dim"]
 
         self.feature_dim = feature_dim
         self.exploration_weight = exploration_weight
@@ -174,8 +180,13 @@ class DuelingBandit(BanditAlgorithm):
 
         return self.arms[model_a_id], self.arms[model_b_id]
 
-    async def update(self, feedback: DuelingFeedback, features: QueryFeatures) -> None:
+    async def update(
+        self, feedback: DuelingFeedback | BanditFeedback, features: QueryFeatures
+    ) -> None:
         """Update preference weights based on comparison outcome.
+
+        Accepts both DuelingFeedback (pairwise comparisons) and BanditFeedback (single-arm).
+        For BanditFeedback, simulates a dueling comparison against a random other arm.
 
         Uses gradient descent on preference loss:
         - If A > B (preference > 0): increase w_a, decrease w_b
@@ -184,7 +195,7 @@ class DuelingBandit(BanditAlgorithm):
         Gradient: ∇L = preference * confidence * x
 
         Args:
-            feedback: Pairwise comparison feedback
+            feedback: Pairwise comparison feedback or single-arm feedback
             features: Query context features
 
         Example:
@@ -196,8 +207,43 @@ class DuelingBandit(BanditAlgorithm):
             ... )
             >>> await bandit.update(feedback, features)
         """
-        model_a_id = feedback.model_a_id
-        model_b_id = feedback.model_b_id
+        # Extract feature vector (d × 1)
+        x = self._extract_features(features)
+
+        # Handle BanditFeedback by converting to simulated dueling comparison
+        if isinstance(feedback, BanditFeedback):
+            # Select a comparison arm (second-best from Thompson sampling)
+            scores = {}
+            for model_id, w in self.preference_weights.items():
+                score_value = w.T @ x
+                preference_score = float(score_value.item())
+                noise = np.random.normal(0, self.exploration_weight)
+                scores[model_id] = preference_score + noise
+
+            # Get top 2 arms for comparison
+            sorted_arms = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+            model_a_id = feedback.model_id  # The arm that was actually used
+
+            # Select comparison arm (avoid selecting same arm if possible)
+            model_b_id = None
+            for arm_id, _ in sorted_arms:
+                if arm_id != model_a_id:
+                    model_b_id = arm_id
+                    break
+
+            # If only one arm exists, skip update
+            if model_b_id is None:
+                return
+
+            # Convert quality_score to preference (-1 to +1)
+            preference = (feedback.quality_score - 0.5) * 2.0
+            confidence = 1.0  # Full confidence in quality score
+        else:
+            # DuelingFeedback - use as-is
+            model_a_id = feedback.model_a_id
+            model_b_id = feedback.model_b_id
+            preference = feedback.preference
+            confidence = feedback.confidence
 
         # Validate both model_ids exist in available arms
         if model_a_id not in self.arms:
@@ -211,11 +257,8 @@ class DuelingBandit(BanditAlgorithm):
                 f"Available: {list(self.arms.keys())}"
             )
 
-        # Extract feature vector (d × 1)
-        x = self._extract_features(features)
-
         # Gradient magnitude scaled by preference and confidence
-        gradient_scale = feedback.preference * feedback.confidence
+        gradient_scale = preference * confidence
 
         # Update weights for both arms
         # Winner gets positive gradient, loser gets negative
