@@ -1,5 +1,7 @@
 # Fallback Chains
 
+**Last Updated**: 2025-11-29
+
 Automatic model fallback when primary model fails. Essential for production resilience.
 
 ## Overview

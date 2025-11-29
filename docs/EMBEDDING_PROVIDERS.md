@@ -1,5 +1,7 @@
 # Embedding Providers Guide
 
+**Last Updated**: 2025-11-29
+
 Conduit supports multiple embedding providers for query feature extraction. Choose the provider that best fits your needs based on cost, quality, and deployment requirements.
 
 ## Quick Comparison

@@ -1,5 +1,7 @@
 # Pricing Architecture
 
+**Last Updated**: 2025-11-29
+
 Conduit's pricing infrastructure provides automatic model cost tracking with intelligent fallback strategies for maximum reliability.
 
 ## Overview
