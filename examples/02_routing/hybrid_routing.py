@@ -39,6 +39,7 @@ async def main():
         models=models,
         switch_threshold=15,  # Low threshold for demo (production: 2000)
         # feature_dim auto-detected from analyzer (recommended)
+        phase1_algorithm="ucb1",  # Use UCB1 for phase 1 (matches example docs)
         ucb1_c=2.0,  # Higher exploration parameter for demo
         linucb_alpha=2.0,  # Higher exploration parameter for demo
     )
@@ -154,8 +155,8 @@ async def main():
     print("=" * 80)
 
     # Get stats from both phases
-    ucb1_stats = router.ucb1.get_stats()
-    linucb_stats = router.linucb.get_stats()
+    ucb1_stats = router.phase1_bandit.get_stats()
+    linucb_stats = router.phase2_bandit.get_stats()
 
     print(f"Current phase: {router.current_phase}")
     print(f"Total queries: {router.query_count}")
