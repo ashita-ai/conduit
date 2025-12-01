@@ -12,7 +12,7 @@ from unittest.mock import Mock, AsyncMock, MagicMock
 pytest.importorskip("litellm")
 
 from conduit_litellm.strategy import ConduitRoutingStrategy
-from conduit_litellm.utils import extract_query_text
+from conduit_litellm.utils import extract_query_text, extract_model_ids, validate_litellm_model_list
 from conduit.core.models import Query, RoutingDecision, QueryFeatures
 
 
@@ -185,3 +185,66 @@ def test_setup_strategy_helper(mock_litellm_router):
 
     assert strategy._router == mock_litellm_router
     mock_litellm_router.set_custom_routing_strategy.assert_called_once_with(strategy)
+
+
+def test_extract_model_ids_with_standard_litellm_format():
+    """Test extract_model_ids works with standard LiteLLM format (no model_info.id)."""
+    # Standard LiteLLM format without model_info.id
+    model_list = [
+        {
+            "model_name": "gpt-4",
+            "litellm_params": {"model": "openai/gpt-4"}
+        },
+        {
+            "model_name": "claude-3",
+            "litellm_params": {"model": "anthropic/claude-3-opus"}
+        }
+    ]
+    
+    model_ids = extract_model_ids(model_list)
+    
+    # Should auto-generate IDs from model_name
+    assert model_ids == ["gpt-4", "claude-3"]
+
+
+def test_extract_model_ids_with_explicit_id():
+    """Test extract_model_ids works with explicit model_info.id."""
+    model_list = [
+        {
+            "model_name": "gpt-4",
+            "litellm_params": {"model": "openai/gpt-4"},
+            "model_info": {"id": "gpt-4-openai"}
+        }
+    ]
+    
+    model_ids = extract_model_ids(model_list)
+    
+    # Should use explicit ID
+    assert model_ids == ["gpt-4-openai"]
+
+
+def test_extract_model_ids_from_litellm_params():
+    """Test extract_model_ids generates ID from litellm_params.model when model_name missing."""
+    model_list = [
+        {
+            "litellm_params": {"model": "openai/gpt-4o-mini"}
+        }
+    ]
+    
+    model_ids = extract_model_ids(model_list)
+    
+    # Should normalize litellm_params.model (remove provider prefix)
+    assert model_ids == ["gpt-4o-mini"]
+
+
+def test_validate_litellm_model_list_standard_format():
+    """Test validation accepts standard LiteLLM format without model_info."""
+    model_list = [
+        {
+            "model_name": "gpt-4",
+            "litellm_params": {"model": "openai/gpt-4"}
+        }
+    ]
+    
+    # Should not raise ValueError
+    validate_litellm_model_list(model_list)

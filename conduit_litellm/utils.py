@@ -8,6 +8,9 @@ from conduit.core.config import load_litellm_config
 def validate_litellm_model_list(model_list: list[dict[str, Any]]) -> None:
     """Validate LiteLLM model_list format.
 
+    Validates that model_list is a non-empty list of dictionaries.
+    Note: model_info.id is optional and will be auto-generated if missing.
+
     Args:
         model_list: LiteLLM router model_list configuration.
 
@@ -18,8 +21,7 @@ def validate_litellm_model_list(model_list: list[dict[str, Any]]) -> None:
         >>> model_list = [
         ...     {
         ...         "model_name": "gpt-4",
-        ...         "litellm_params": {"model": "openai/gpt-4"},
-        ...         "model_info": {"id": "gpt-4-openai"}
+        ...         "litellm_params": {"model": "openai/gpt-4"}
         ...     }
         ... ]
         >>> validate_litellm_model_list(model_list)
@@ -34,23 +36,77 @@ def validate_litellm_model_list(model_list: list[dict[str, Any]]) -> None:
         if not isinstance(deployment, dict):
             raise ValueError(f"Deployment {i} must be a dictionary")
 
-        if "model_info" not in deployment:
-            raise ValueError(f"Deployment {i} missing 'model_info'")
+        # Require either model_name or litellm_params.model
+        if "model_name" not in deployment and (
+            "litellm_params" not in deployment
+            or "model" not in deployment.get("litellm_params", {})
+        ):
+            raise ValueError(
+                f"Deployment {i} must have 'model_name' or 'litellm_params.model'"
+            )
 
-        if "id" not in deployment["model_info"]:
-            raise ValueError(f"Deployment {i} missing 'model_info.id'")
+
+def _generate_model_id(deployment: dict[str, Any], index: int) -> str:
+    """Generate a model ID from deployment configuration.
+
+    Tries to extract ID from:
+    1. model_info.id (if present)
+    2. model_info (if it's a string)
+    3. model_name
+    4. litellm_params.model (normalized)
+    5. Fallback to "model-{index}"
+
+    Args:
+        deployment: Deployment dictionary from model_list.
+        index: Index of deployment in model_list.
+
+    Returns:
+        Generated model ID string.
+    """
+    # Try model_info.id first
+    if "model_info" in deployment:
+        model_info = deployment["model_info"]
+        if isinstance(model_info, dict) and "id" in model_info:
+            return model_info["id"]
+        if isinstance(model_info, str):
+            return model_info
+
+    # Try model_name
+    if "model_name" in deployment:
+        return normalize_model_name(deployment["model_name"])
+
+    # Try litellm_params.model
+    if "litellm_params" in deployment:
+        litellm_params = deployment["litellm_params"]
+        if isinstance(litellm_params, dict) and "model" in litellm_params:
+            return normalize_model_name(litellm_params["model"])
+
+    # Fallback to index-based ID
+    return f"model-{index}"
 
 
 def extract_model_ids(model_list: list[dict[str, Any]]) -> list[str]:
     """Extract model IDs from LiteLLM model_list.
 
+    Auto-generates IDs if model_info.id is missing, making it compatible
+    with standard LiteLLM model_list format.
+
     Args:
         model_list: LiteLLM router model_list configuration.
 
     Returns:
-        List of model IDs.
+        List of model IDs (extracted or auto-generated).
 
     Example:
+        >>> # Standard LiteLLM format (no model_info.id)
+        >>> model_list = [
+        ...     {"model_name": "gpt-4", "litellm_params": {"model": "openai/gpt-4"}},
+        ...     {"model_name": "claude-3", "litellm_params": {"model": "anthropic/claude-3-opus"}}
+        ... ]
+        >>> extract_model_ids(model_list)
+        ['gpt-4', 'claude-3']
+
+        >>> # With explicit model_info.id
         >>> model_list = [
         ...     {"model_info": {"id": "gpt-4-openai"}},
         ...     {"model_info": {"id": "claude-3-opus"}}
@@ -59,7 +115,9 @@ def extract_model_ids(model_list: list[dict[str, Any]]) -> list[str]:
         ['gpt-4-openai', 'claude-3-opus']
     """
     validate_litellm_model_list(model_list)
-    return [deployment["model_info"]["id"] for deployment in model_list]
+    return [
+        _generate_model_id(deployment, i) for i, deployment in enumerate(model_list)
+    ]
 
 
 def normalize_model_name(model_name: str) -> str:
