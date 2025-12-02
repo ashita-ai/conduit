@@ -18,49 +18,49 @@ class TestContextualThompsonSamplingBandit:
 
     def test_initialization_default_params(self, test_arms):
         """Test bandit initializes with default parameters."""
-        bandit = ContextualThompsonSamplingBandit(test_arms)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386)
 
         assert bandit.name == "contextual_thompson_sampling"
         assert len(bandit.arms) == 3
         assert bandit.total_queries == 0
         assert bandit.lambda_reg == 1.0
-        assert bandit.feature_dim == 1538
+        assert bandit.feature_dim == 386
 
         # Check initial posterior parameters - should be prior (uninformative)
         for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             # mu should be zero vector (uninformative prior)
-            assert np.allclose(bandit.mu[model_id], np.zeros((1538, 1)))
+            assert np.allclose(bandit.mu[model_id], np.zeros((386, 1)))
             # Sigma should be identity (uninformative prior)
-            assert np.allclose(bandit.Sigma[model_id], np.identity(1538))
+            assert np.allclose(bandit.Sigma[model_id], np.identity(386))
 
     def test_initialization_custom_lambda(self, test_arms):
         """Test bandit with custom regularization parameter."""
-        bandit = ContextualThompsonSamplingBandit(test_arms, lambda_reg=2.0)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386, lambda_reg=2.0)
 
         assert bandit.lambda_reg == 2.0
 
     def test_feature_extraction(self, test_arms, test_features):
         """Test feature vector extraction from QueryFeatures."""
-        bandit = ContextualThompsonSamplingBandit(test_arms)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386)
 
         x = bandit._extract_features(test_features)
 
         # Check shape
-        assert x.shape == (1538, 1)
+        assert x.shape == (386, 1)
 
-        # Check embedding values (first 1536 dims)
-        assert np.allclose(x[:1536, 0], 0.1)
+        # Check embedding values (first 384 dims)
+        assert np.allclose(x[:384, 0], 0.1)
 
         # Check metadata (last 2 dims)
-        assert np.isclose(x[1536, 0], 50.0 / 1000.0)  # normalized token_count
-        assert np.isclose(x[1537, 0], 0.5)  # complexity_score
-        assert np.isclose(x[1537, 0], test_features.complexity_score)  # complexity_score (last metadata)
+        assert np.isclose(x[384, 0], 50.0 / 1000.0)  # normalized token_count
+        assert np.isclose(x[385, 0], 0.5)  # complexity_score
+        assert np.isclose(x[385, 0], test_features.complexity_score)  # complexity_score (last metadata)
 
     @pytest.mark.asyncio
     async def test_select_arm_returns_valid_arm(self, test_arms, test_features):
         """Test arm selection returns valid arm from available arms."""
-        bandit = ContextualThompsonSamplingBandit(test_arms, random_seed=42)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386, random_seed=42)
 
         arm = await bandit.select_arm(test_features)
 
@@ -71,7 +71,7 @@ class TestContextualThompsonSamplingBandit:
     @pytest.mark.asyncio
     async def test_random_seed_initialization(self, test_arms, test_features):
         """Test that random seed is properly initialized."""
-        bandit = ContextualThompsonSamplingBandit(test_arms, random_seed=42)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386, random_seed=42)
 
         # With a seed, arm selection should be deterministic for same state
         arm1 = await bandit.select_arm(test_features)
@@ -88,7 +88,7 @@ class TestContextualThompsonSamplingBandit:
     @pytest.mark.asyncio
     async def test_update_with_feedback(self, test_arms, test_features):
         """Test update correctly updates posterior distribution."""
-        bandit = ContextualThompsonSamplingBandit(test_arms)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386)
 
         arm = await bandit.select_arm(test_features)
 
@@ -114,7 +114,7 @@ class TestContextualThompsonSamplingBandit:
     @pytest.mark.asyncio
     async def test_posterior_update_formula(self, test_arms, test_features):
         """Test posterior update formulas are correct."""
-        bandit = ContextualThompsonSamplingBandit(test_arms, lambda_reg=1.0)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386, lambda_reg=1.0)
 
         arm = test_arms[0]
         model_id = arm.model_id
@@ -138,7 +138,7 @@ class TestContextualThompsonSamplingBandit:
             quality_weight=0.70, cost_weight=0.20, latency_weight=0.10
         )
 
-        Sigma_inv = np.identity(1538) + 1.0 * (x @ x.T)
+        Sigma_inv = np.identity(386) + 1.0 * (x @ x.T)
         expected_Sigma = np.linalg.inv(Sigma_inv)
         expected_mu = expected_Sigma @ (1.0 * reward * x)
 
@@ -149,7 +149,7 @@ class TestContextualThompsonSamplingBandit:
     @pytest.mark.asyncio
     async def test_uncertainty_decreases_with_data(self, test_arms, test_features):
         """Test that posterior uncertainty (trace of Sigma) decreases with more data."""
-        bandit = ContextualThompsonSamplingBandit(test_arms)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386)
 
         arm = test_arms[0]
         model_id = arm.model_id
@@ -175,18 +175,18 @@ class TestContextualThompsonSamplingBandit:
     @pytest.mark.asyncio
     async def test_learning_with_different_contexts(self, test_arms):
         """Test bandit learns different rewards for different contexts."""
-        bandit = ContextualThompsonSamplingBandit(test_arms, random_seed=42)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386, random_seed=42)
 
         # Context 1: Simple query (low complexity)
         context1 = QueryFeatures(
-            embedding=[0.1] * 1536,
+            embedding=[0.1] * 384,
             token_count=10,
             complexity_score=0.1
         )
 
         # Context 2: Complex query (high complexity)
         context2 = QueryFeatures(
-            embedding=[0.9] * 1536,
+            embedding=[0.9] * 384,
             token_count=100,
             complexity_score=0.9
         )
@@ -227,7 +227,7 @@ class TestContextualThompsonSamplingBandit:
     @pytest.mark.asyncio
     async def test_cholesky_fallback(self, test_arms, test_features):
         """Test graceful fallback when Cholesky decomposition fails."""
-        bandit = ContextualThompsonSamplingBandit(test_arms)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386)
 
         # Manually corrupt Sigma to make it non-positive-definite
         arm = test_arms[0]
@@ -241,7 +241,7 @@ class TestContextualThompsonSamplingBandit:
     @pytest.mark.asyncio
     async def test_reset(self, test_arms, test_features):
         """Test reset restores initial state."""
-        bandit = ContextualThompsonSamplingBandit(test_arms)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386)
 
         # Do some updates
         for _ in range(5):
@@ -263,16 +263,16 @@ class TestContextualThompsonSamplingBandit:
         for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert bandit.arm_pulls[model_id] == 0
             # mu should be zero vector (prior)
-            assert np.allclose(bandit.mu[model_id], np.zeros((1538, 1)))
+            assert np.allclose(bandit.mu[model_id], np.zeros((386, 1)))
             # Sigma should be identity (prior)
-            assert np.allclose(bandit.Sigma[model_id], np.identity(1538))
+            assert np.allclose(bandit.Sigma[model_id], np.identity(386))
             # History should be empty
             assert len(bandit.observation_history[model_id]) == 0
 
     @pytest.mark.asyncio
     async def test_get_stats(self, test_arms, test_features):
         """Test get_stats returns comprehensive statistics."""
-        bandit = ContextualThompsonSamplingBandit(test_arms, lambda_reg=1.5)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386, lambda_reg=1.5)
 
         # Do some updates
         arm = await bandit.select_arm(test_features)
@@ -295,13 +295,13 @@ class TestContextualThompsonSamplingBandit:
         assert "arm_sigma_traces" in stats
 
         assert stats["lambda_reg"] == 1.5
-        assert stats["feature_dim"] == 1538
+        assert stats["feature_dim"] == 386
         assert stats["total_queries"] == 1
 
     @pytest.mark.asyncio
     async def test_sliding_window(self, test_arms, test_features):
         """Test sliding window correctly limits observation history."""
-        bandit = ContextualThompsonSamplingBandit(test_arms, window_size=5)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386, window_size=5)
 
         arm = test_arms[0]
         model_id = arm.model_id
@@ -323,11 +323,11 @@ class TestContextualThompsonSamplingBandit:
     async def test_sliding_window_adaptation(self, test_arms):
         """Test sliding window adapts to distribution shift."""
         bandit = ContextualThompsonSamplingBandit(
-            test_arms, window_size=10, random_seed=42
+            test_arms, feature_dim=386, window_size=10, random_seed=42
         )
 
         features = QueryFeatures(
-            embedding=[0.5] * 1536,
+            embedding=[0.5] * 384,
             token_count=50,
             complexity_score=0.5
         )
@@ -369,14 +369,14 @@ class TestContextualThompsonSamplingBandit:
     @pytest.mark.asyncio
     async def test_contextual_learning(self, test_arms):
         """Test bandit learns context-dependent preferences."""
-        bandit = ContextualThompsonSamplingBandit(test_arms, random_seed=42)
+        bandit = ContextualThompsonSamplingBandit(test_arms, feature_dim=386, random_seed=42)
 
         # Scenario: Model A good for short queries, Model B good for long queries
 
         # Short queries (token_count < 50) -> o4-mini performs well
         for _ in range(10):
             features = QueryFeatures(
-                embedding=[np.random.rand() for _ in range(1536)],
+                embedding=[np.random.rand() for _ in range(384)],
                 token_count=20,
                 complexity_score=0.3
             )
@@ -398,7 +398,7 @@ class TestContextualThompsonSamplingBandit:
         # Long queries (token_count > 200) -> gpt-5.1 performs well
         for _ in range(10):
             features = QueryFeatures(
-                embedding=[np.random.rand() for _ in range(1536)],
+                embedding=[np.random.rand() for _ in range(384)],
                 token_count=300,
                 complexity_score=0.8
             )
@@ -428,10 +428,10 @@ class TestContextualThompsonSamplingBandit:
     async def test_regularization_effect(self, test_arms, test_features):
         """Test lambda_reg parameter controls posterior uncertainty."""
         # Low lambda = less regularization = faster learning but less stable
-        bandit_low = ContextualThompsonSamplingBandit(test_arms, lambda_reg=0.1)
+        bandit_low = ContextualThompsonSamplingBandit(test_arms, feature_dim=386, lambda_reg=0.1)
 
         # High lambda = more regularization = slower learning but more stable
-        bandit_high = ContextualThompsonSamplingBandit(test_arms, lambda_reg=10.0)
+        bandit_high = ContextualThompsonSamplingBandit(test_arms, feature_dim=386, lambda_reg=10.0)
 
         arm = test_arms[0]
         model_id = arm.model_id
@@ -457,7 +457,7 @@ class TestContextualThompsonSamplingBandit:
     async def test_success_threshold_configurable(self, test_arms, test_features):
         """Test success_threshold parameter is configurable."""
         bandit = ContextualThompsonSamplingBandit(
-            test_arms, success_threshold=0.90
+            test_arms, success_threshold=0.90, feature_dim=386
         )
 
         arm = test_arms[0]

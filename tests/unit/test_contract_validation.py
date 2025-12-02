@@ -23,7 +23,7 @@ from conduit.core.models import QueryFeatures
 def all_algorithms(test_arms):
     """Fixture providing all algorithm implementations for contract testing."""
     return [
-        LinUCBBandit(test_arms, alpha=1.0),
+        LinUCBBandit(test_arms, alpha=1.0, feature_dim=386),
         ThompsonSamplingBandit(test_arms),
         UCB1Bandit(test_arms, c=2.0),
         EpsilonGreedyBandit(test_arms, epsilon=0.1),
@@ -154,7 +154,7 @@ class TestPersistence:
 
             # Create new instance and restore state
             if algorithm.name == "linucb":
-                new_algorithm = LinUCBBandit(algorithm.arm_list, alpha=algorithm.alpha)
+                new_algorithm = LinUCBBandit(algorithm.arm_list, alpha=algorithm.alpha, feature_dim=algorithm.feature_dim)
             elif algorithm.name == "thompson_sampling":
                 new_algorithm = ThompsonSamplingBandit(algorithm.arm_list)
             elif algorithm.name == "ucb1":

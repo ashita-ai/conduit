@@ -106,15 +106,18 @@ def test_features() -> QueryFeatures:
     """Create canonical test query features for bandit tests.
 
     Returns a QueryFeatures instance with:
-    - 1536-dim embedding (OpenAI text-embedding-3-small compatible)
+    - 384-dim embedding (HuggingFace all-MiniLM-L6-v2 compatible for tests)
     - Moderate token count (50)
     - Medium complexity (0.5)
     - Query text for context detection
 
+    Note: Tests use 384-dim mocked embeddings regardless of production config.
+    Production uses 1536-dim OpenAI embeddings, but tests must remain isolated.
+
     Used by: All bandit algorithm test files
     """
     return QueryFeatures(
-        embedding=[0.1] * 1536,
+        embedding=[0.1] * 384,
         token_count=50,
         complexity_score=0.5,
         query_text="test query",
@@ -123,23 +126,27 @@ def test_features() -> QueryFeatures:
 
 @pytest.fixture
 def mock_embedding_provider():
-    """Create a mock embedding provider that returns consistent 1536-dim embeddings."""
+    """Create a mock embedding provider that returns consistent 384-dim embeddings.
+
+    Tests should use 384-dim mocked embeddings regardless of production config.
+    Production uses 1536-dim OpenAI embeddings, but tests must remain isolated.
+    """
     from unittest.mock import Mock
 
     async def mock_embed_batch(texts):
         """Return one embedding per input text."""
-        return [[0.1] * 1536 for _ in texts]
+        return [[0.1] * 384 for _ in texts]
 
     mock_provider = Mock()
-    mock_provider.embed = AsyncMock(return_value=[0.1] * 1536)
+    mock_provider.embed = AsyncMock(return_value=[0.1] * 384)
     mock_provider.embed_batch = mock_embed_batch
-    mock_provider.dimension = 1536
+    mock_provider.dimension = 384
     return mock_provider
 
 
 @pytest.fixture
 def test_analyzer(mock_embedding_provider):
-    """Create query analyzer with consistent 1536-dim embeddings.
+    """Create query analyzer with consistent 384-dim embeddings.
 
     This prevents auto-detection of different embeddings which would create
     dimension mismatches.

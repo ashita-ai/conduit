@@ -18,7 +18,7 @@ class TestLinUCBBandit:
 
     def test_initialization_default_alpha(self, test_arms):
         """Test LinUCB bandit initializes with default parameters."""
-        bandit = LinUCBBandit(test_arms)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         assert bandit.name == "linucb"
         assert len(bandit.arms) == 3
@@ -36,13 +36,13 @@ class TestLinUCBBandit:
 
     def test_initialization_custom_alpha(self, test_arms):
         """Test LinUCB bandit with custom exploration parameter."""
-        bandit = LinUCBBandit(test_arms, alpha=2.0)
+        bandit = LinUCBBandit(test_arms, feature_dim=386, alpha=2.0)
 
         assert bandit.alpha == 2.0
 
     def test_feature_extraction(self, test_arms, test_features):
         """Test feature vector extraction from QueryFeatures."""
-        bandit = LinUCBBandit(test_arms)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         x = bandit._extract_features(test_features)
 
@@ -62,7 +62,7 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_select_arm_returns_valid_arm(self, test_arms, test_features):
         """Test arm selection returns valid arm from available arms."""
-        bandit = LinUCBBandit(test_arms)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         arm = await bandit.select_arm(test_features)
 
@@ -73,7 +73,7 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_update_with_feedback(self, test_arms, test_features):
         """Test update correctly updates A and b matrices."""
-        bandit = LinUCBBandit(test_arms)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         arm = await bandit.select_arm(test_features)
 
@@ -97,7 +97,7 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_matrix_updates(self, test_arms, test_features):
         """Test A and b update formulas are correct."""
-        bandit = LinUCBBandit(test_arms)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         arm = test_arms[0]
         model_id = arm.model_id
@@ -129,7 +129,7 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_learning_with_different_contexts(self, test_arms):
         """Test bandit learns different rewards for different contexts."""
-        bandit = LinUCBBandit(test_arms, alpha=0.5)
+        bandit = LinUCBBandit(test_arms, feature_dim=386, alpha=0.5)
 
         # Context 1: Simple query (low complexity)
         context1 = QueryFeatures(
@@ -175,10 +175,10 @@ class TestLinUCBBandit:
     async def test_exploration_parameter_effect(self, test_arms, test_features):
         """Test alpha parameter controls exploration vs exploitation."""
         # Low alpha = more exploitation
-        bandit_low = LinUCBBandit(test_arms, alpha=0.1)
+        bandit_low = LinUCBBandit(test_arms, feature_dim=386, alpha=0.1)
 
         # High alpha = more exploration
-        bandit_high = LinUCBBandit(test_arms, alpha=5.0)
+        bandit_high = LinUCBBandit(test_arms, feature_dim=386, alpha=5.0)
 
         # Verify alpha is stored correctly
         assert bandit_low.alpha == 0.1
@@ -194,7 +194,7 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_reset(self, test_arms, test_features):
         """Test reset restores initial state."""
-        bandit = LinUCBBandit(test_arms)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         # Do some updates
         for _ in range(5):
@@ -221,7 +221,7 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_get_stats(self, test_arms, test_features):
         """Test get_stats returns comprehensive statistics."""
-        bandit = LinUCBBandit(test_arms, alpha=1.5)
+        bandit = LinUCBBandit(test_arms, feature_dim=386, alpha=1.5)
 
         # Do some updates
         arm = await bandit.select_arm(test_features)
@@ -247,7 +247,7 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_contextual_learning(self, test_arms):
         """Test LinUCB learns context-dependent preferences."""
-        bandit = LinUCBBandit(test_arms, alpha=1.0)
+        bandit = LinUCBBandit(test_arms, feature_dim=386, alpha=1.0)
 
         # Scenario: Model A good for short queries, Model B good for long queries
 
@@ -301,7 +301,7 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_ucb_computation(self, test_arms, test_features):
         """Test UCB value computation is reasonable."""
-        bandit = LinUCBBandit(test_arms, alpha=1.0)
+        bandit = LinUCBBandit(test_arms, feature_dim=386, alpha=1.0)
 
         # Select an arm and update it
         arm = await bandit.select_arm(test_features)
@@ -326,7 +326,7 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_sherman_morrison_incremental_update(self, test_arms, test_features):
         """Test Sherman-Morrison incremental A_inv update (no sliding window)."""
-        bandit = LinUCBBandit(test_arms, window_size=0)  # No sliding window
+        bandit = LinUCBBandit(test_arms, feature_dim=386, window_size=0)  # No sliding window
 
         arm = test_arms[0]
         model_id = arm.model_id
@@ -373,7 +373,7 @@ class TestLinUCBBandit:
         np.random.seed(42)
 
         # Create two bandits: one with Sherman-Morrison, one using direct inversion for comparison
-        bandit_sm = LinUCBBandit(test_arms, window_size=0, alpha=1.0)
+        bandit_sm = LinUCBBandit(test_arms, feature_dim=386, window_size=0, alpha=1.0)
 
         # Simulate multiple updates
         for i in range(10):
@@ -400,7 +400,7 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_sliding_window_incremental_updates(self, test_arms, test_features):
         """Test sliding window mode uses incremental Woodbury updates for O(d²) complexity."""
-        bandit = LinUCBBandit(test_arms, window_size=5)  # Small window
+        bandit = LinUCBBandit(test_arms, feature_dim=386, window_size=5)  # Small window
 
         arm = test_arms[0]
         model_id = arm.model_id
@@ -427,7 +427,7 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_a_inv_initialization(self, test_arms):
         """Test A_inv is initialized to identity matrix."""
-        bandit = LinUCBBandit(test_arms)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         for model_id in ["o4-mini", "gpt-5.1", "claude-haiku-4-5"]:
             assert np.allclose(bandit.A_inv[model_id], np.identity(386))
@@ -438,7 +438,7 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_a_inv_reset(self, test_arms, test_features):
         """Test reset() restores A_inv to identity."""
-        bandit = LinUCBBandit(test_arms)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         # Do some updates
         for _ in range(5):
@@ -464,7 +464,7 @@ class TestLinUCBBandit:
     @pytest.mark.asyncio
     async def test_numerical_stability_fallback(self, test_arms):
         """Test numerical stability fallback when denominator is too small."""
-        bandit = LinUCBBandit(test_arms, window_size=0)
+        bandit = LinUCBBandit(test_arms, feature_dim=386, window_size=0)
 
         # This test verifies the code path exists, though triggering it is difficult
         # The denominator = 1 + x^T @ A_inv @ x should always be > 1 for positive definite A
@@ -489,7 +489,7 @@ class TestLinUCBBandit:
     def test_custom_reward_weights(self, test_arms):
         """Test initialization with custom reward weights."""
         custom_weights = {"quality": 0.5, "cost": 0.3, "latency": 0.2}
-        bandit = LinUCBBandit(test_arms, reward_weights=custom_weights)
+        bandit = LinUCBBandit(test_arms, feature_dim=386, reward_weights=custom_weights)
 
         assert bandit.reward_weights == custom_weights
         assert bandit.reward_weights["quality"] == 0.5
@@ -498,8 +498,8 @@ class TestLinUCBBandit:
 
     def test_random_seed(self, test_arms):
         """Test initialization with random seed for reproducibility."""
-        bandit1 = LinUCBBandit(test_arms, random_seed=42)
-        bandit2 = LinUCBBandit(test_arms, random_seed=42)
+        bandit1 = LinUCBBandit(test_arms, feature_dim=386, random_seed=42)
+        bandit2 = LinUCBBandit(test_arms, feature_dim=386, random_seed=42)
 
         # Both bandits should be in the same state after seeding
         assert bandit1.alpha == bandit2.alpha
@@ -512,7 +512,7 @@ class TestLinUCBStatePersistence:
     @pytest.mark.asyncio
     async def test_to_state_basic(self, test_arms, test_features):
         """Test basic to_state serialization."""
-        bandit = LinUCBBandit(test_arms, alpha=1.5, window_size=10)
+        bandit = LinUCBBandit(test_arms, feature_dim=386, alpha=1.5, window_size=10)
 
         # Build some state
         for i in range(3):
@@ -533,7 +533,7 @@ class TestLinUCBStatePersistence:
     @pytest.mark.asyncio
     async def test_to_state_with_observation_history(self, test_arms, test_features):
         """Test to_state includes observation history."""
-        bandit = LinUCBBandit(test_arms, window_size=5)
+        bandit = LinUCBBandit(test_arms, feature_dim=386, window_size=5)
 
         # Build state with multiple observations
         for i in range(3):
@@ -563,7 +563,7 @@ class TestLinUCBStatePersistence:
         """Test from_state restores arm pulls and query counts."""
         from conduit.core.state_store import BanditState
 
-        bandit = LinUCBBandit(test_arms, alpha=1.5)
+        bandit = LinUCBBandit(test_arms, feature_dim=386, alpha=1.5)
 
         # Build some state
         for _ in range(5):
@@ -577,7 +577,7 @@ class TestLinUCBStatePersistence:
         state = bandit.to_state()
 
         # Create new bandit and restore
-        bandit2 = LinUCBBandit(test_arms, alpha=1.5)
+        bandit2 = LinUCBBandit(test_arms, feature_dim=386, alpha=1.5)
         bandit2.from_state(state)
 
         assert bandit2.total_queries == bandit.total_queries
@@ -587,7 +587,7 @@ class TestLinUCBStatePersistence:
     @pytest.mark.asyncio
     async def test_from_state_restores_matrices(self, test_arms, test_features):
         """Test from_state restores A and b matrices correctly."""
-        bandit = LinUCBBandit(test_arms)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         # Build some state
         for i in range(5):
@@ -600,7 +600,7 @@ class TestLinUCBStatePersistence:
         state = bandit.to_state()
 
         # Create new bandit and restore
-        bandit2 = LinUCBBandit(test_arms)
+        bandit2 = LinUCBBandit(test_arms, feature_dim=386)
         bandit2.from_state(state)
 
         # Verify A and b are restored
@@ -611,7 +611,7 @@ class TestLinUCBStatePersistence:
     @pytest.mark.asyncio
     async def test_from_state_restores_observation_history(self, test_arms, test_features):
         """Test from_state restores observation history."""
-        bandit = LinUCBBandit(test_arms, window_size=10)
+        bandit = LinUCBBandit(test_arms, feature_dim=386, window_size=10)
 
         # Build state with observations on specific arm
         model_id = test_arms[0].model_id
@@ -629,7 +629,7 @@ class TestLinUCBStatePersistence:
         state = bandit.to_state()
 
         # Create new bandit and restore
-        bandit2 = LinUCBBandit(test_arms, window_size=10)
+        bandit2 = LinUCBBandit(test_arms, feature_dim=386, window_size=10)
         bandit2.from_state(state)
 
         # Verify observation history restored
@@ -640,7 +640,7 @@ class TestLinUCBStatePersistence:
         """Test from_state raises error for wrong algorithm."""
         from conduit.core.state_store import BanditState
 
-        bandit = LinUCBBandit(test_arms)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         # Create state with wrong algorithm
         state = BanditState(
@@ -659,7 +659,7 @@ class TestLinUCBStatePersistence:
         """Test from_state raises error for mismatched arms."""
         from conduit.core.state_store import BanditState
 
-        bandit = LinUCBBandit(test_arms)
+        bandit = LinUCBBandit(test_arms, feature_dim=386)
 
         # Create state with different arms
         state = BanditState(
@@ -696,7 +696,7 @@ class TestLinUCBStatePersistence:
     @pytest.mark.asyncio
     async def test_roundtrip_state_persistence(self, test_arms, test_features):
         """Test full roundtrip: build state, serialize, deserialize, verify."""
-        bandit = LinUCBBandit(test_arms, alpha=1.5, window_size=10)
+        bandit = LinUCBBandit(test_arms, feature_dim=386, alpha=1.5, window_size=10)
 
         # Build state
         for i in range(10):
@@ -715,7 +715,7 @@ class TestLinUCBStatePersistence:
         state = bandit.to_state()
 
         # Deserialize into new bandit
-        bandit2 = LinUCBBandit(test_arms, alpha=1.5, window_size=10)
+        bandit2 = LinUCBBandit(test_arms, feature_dim=386, alpha=1.5, window_size=10)
         bandit2.from_state(state)
 
         # Verify everything matches

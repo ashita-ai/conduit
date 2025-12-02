@@ -221,7 +221,7 @@ class TestLinUCBNonStationary:
         self, test_arms: list[ModelArm], test_features: QueryFeatures
     ) -> None:
         """Test that LinUCB stores observations (x, r) in history."""
-        bandit = LinUCBBandit(arms=test_arms, window_size=10, random_seed=42)
+        bandit = LinUCBBandit(arms=test_arms, feature_dim=386, window_size=10, random_seed=42)
 
         arm = test_arms[0]
         model_id = arm.model_id
@@ -236,8 +236,8 @@ class TestLinUCBNonStationary:
         assert len(bandit.observation_history[model_id]) == 1
         obs_x, obs_r = bandit.observation_history[model_id][0]
 
-        # Feature vector should be (1538, 1)
-        assert obs_x.shape == (1538, 1)
+        # Feature vector should be (386, 1)
+        assert obs_x.shape == (386, 1)
 
         # Reward should match composite reward using bandit's weights
         expected_reward = feedback.calculate_reward(
@@ -253,7 +253,7 @@ class TestLinUCBNonStationary:
     ) -> None:
         """Test that A and b matrices are recalculated from window."""
         bandit = LinUCBBandit(
-            arms=test_arms, window_size=2, random_seed=42  # Very small window
+            arms=test_arms, window_size=2, random_seed=42, feature_dim=386  # Very small window
         )
 
         arm = test_arms[0]
@@ -287,7 +287,7 @@ class TestLinUCBNonStationary:
     @pytest.mark.asyncio
     async def test_adapts_to_feature_shift(self, test_arms: list[ModelArm]) -> None:
         """Test LinUCB adapts when context-reward relationship changes."""
-        bandit = LinUCBBandit(arms=test_arms, window_size=50, random_seed=42)
+        bandit = LinUCBBandit(arms=test_arms, feature_dim=386, window_size=50, random_seed=42)
 
         arm = test_arms[0]
         model_id = arm.model_id
@@ -295,7 +295,7 @@ class TestLinUCBNonStationary:
         # Phase 1: Simple queries (low complexity) get good quality
         for _ in range(50):
             features_simple = QueryFeatures(
-                embedding=[0.1] * 1536,
+                embedding=[0.1] * 384,
                 token_count=10,  # Simple
                 complexity_score=0.2,  # Low complexity
                 query_text="Simple query",
@@ -316,7 +316,7 @@ class TestLinUCBNonStationary:
         # (This will push out all Phase 1 observations)
         for _ in range(100):
             features_complex = QueryFeatures(
-                embedding=[0.9] * 1536,
+                embedding=[0.9] * 384,
                 token_count=500,  # Complex
                 complexity_score=0.9,  # High complexity
                 query_text="Complex technical query",
@@ -372,7 +372,7 @@ class TestNonStationaryReset:
         self, test_arms: list[ModelArm], test_features: QueryFeatures
     ) -> None:
         """Test LinUCB reset clears observation history."""
-        bandit = LinUCBBandit(arms=test_arms, window_size=50)
+        bandit = LinUCBBandit(arms=test_arms, feature_dim=386, window_size=50)
 
         # Add observations
         for _ in range(10):

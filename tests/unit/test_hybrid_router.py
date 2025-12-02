@@ -290,6 +290,7 @@ async def test_provider_inference():
             "command-r-plus",
         ],
         switch_threshold=10,
+        feature_dim=386,
     )
 
     assert router._infer_provider("gpt-4o") == "openai"
@@ -352,6 +353,7 @@ async def test_reward_weights_propagation(test_models):
         models=test_models,
         switch_threshold=10,
         reward_weights=custom_weights,
+        feature_dim=386,
     )
 
     assert router.ucb1.reward_weights == custom_weights
