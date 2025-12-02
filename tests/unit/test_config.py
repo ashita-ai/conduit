@@ -18,8 +18,8 @@ class TestSettings:
         # Redis URL may come from environment (.env file) or default
         assert settings.redis_url.startswith("redis://")  # Accept any valid redis URL
         assert settings.redis_cache_ttl == 86400  # 24 hours default
-        # embedding_model may be set by .env or defaults to empty string
-        assert isinstance(settings.embedding_model, str)
+        # embedding_model may be set by conduit.yaml or None (provider default)
+        assert settings.embedding_model is None or isinstance(settings.embedding_model, str)
         assert settings.exploration_rate == 0.1
         assert settings.api_rate_limit == 100
         assert settings.api_host == "0.0.0.0"

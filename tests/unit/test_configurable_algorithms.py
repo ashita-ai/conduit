@@ -476,6 +476,7 @@ async def test_thompson_to_linucb_transition(test_features):
         phase1_algorithm="thompson_sampling",
         phase2_algorithm="linucb",
         switch_threshold=10,  # Small threshold for testing
+        feature_dim=386,  # Test dimension (384-dim embedding + 2 metadata)
     )
 
     # Route queries in phase1 (Thompson Sampling)
@@ -508,6 +509,7 @@ async def test_all_combinations_transition():
             phase1_algorithm=phase1,
             phase2_algorithm=phase2,
             switch_threshold=5,
+            feature_dim=386,  # Test dimension (384-dim embedding + 2 metadata)
         )
 
         # Route enough queries to trigger transition

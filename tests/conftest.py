@@ -31,15 +31,20 @@ except ImportError:
 
 
 @pytest.fixture(autouse=True)
-def mock_huggingface_embeddings():
+def mock_huggingface_embeddings(monkeypatch):
     """Mock HuggingFace embedding provider to avoid real API calls in tests.
 
     HuggingFace deprecated api-inference.huggingface.co and now requires
     authentication for router.huggingface.co. Unit tests should not make
     real API calls, so we mock the embedding provider globally.
+
+    Also sets a fake OPENAI_API_KEY so tests using OpenAI embeddings don't fail.
     """
-    # Create fake 1536-dim embedding (OpenAI text-embedding-3-small dimension)
-    fake_embedding = [0.1] * 1536
+    # Set fake OpenAI API key for tests that use OpenAI embeddings
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-fake-key-for-testing")
+
+    # Create fake 384-dim embedding (test dimension, not production)
+    fake_embedding = [0.1] * 384
 
     async def mock_embed(self, text: str) -> list[float]:
         return fake_embedding
@@ -47,8 +52,16 @@ def mock_huggingface_embeddings():
     async def mock_embed_batch(self, texts: list[str]) -> list[list[float]]:
         return [fake_embedding for _ in texts]
 
+    # Mock dimension property to return 384 (test dimension)
+    def mock_dimension(self) -> int:
+        return 384
+
     with patch('conduit.engines.embeddings.huggingface.HuggingFaceEmbeddingProvider.embed', new=mock_embed), \
-         patch('conduit.engines.embeddings.huggingface.HuggingFaceEmbeddingProvider.embed_batch', new=mock_embed_batch):
+         patch('conduit.engines.embeddings.huggingface.HuggingFaceEmbeddingProvider.embed_batch', new=mock_embed_batch), \
+         patch('conduit.engines.embeddings.huggingface.HuggingFaceEmbeddingProvider.dimension', new_callable=lambda: property(mock_dimension)), \
+         patch('conduit.engines.embeddings.openai.OpenAIEmbeddingProvider.embed', new=mock_embed), \
+         patch('conduit.engines.embeddings.openai.OpenAIEmbeddingProvider.embed_batch', new=mock_embed_batch), \
+         patch('conduit.engines.embeddings.openai.OpenAIEmbeddingProvider.dimension', new_callable=lambda: property(mock_dimension)):
         yield
 
 
