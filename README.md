@@ -1,4 +1,4 @@
-# Conduit Router
+# Conduit
 
 ![Conduit banner](assets/conduit.jpeg)
 
