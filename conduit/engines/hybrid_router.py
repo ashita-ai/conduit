@@ -290,27 +290,58 @@ class HybridRouter:
         )
 
     def _get_fallback_chain(
-        self, selected_model: str, max_fallbacks: int = 3
+        self,
+        selected_model: str,
+        max_fallbacks: int = 3,
+        available_arm_ids: set[str] | None = None,
     ) -> list[str]:
         """Generate fallback chain excluding selected model.
 
         Returns models sorted by expected_quality descending,
-        excluding the selected model.
+        excluding the selected model. If available_arm_ids is provided,
+        only includes arms from that set.
 
         Args:
             selected_model: The model already selected (to exclude)
             max_fallbacks: Maximum number of fallbacks to return
+            available_arm_ids: Optional set of arm IDs to filter to (for cost constraints)
 
         Returns:
             List of model IDs for fallback, ordered by expected quality
         """
         # Get all arms except selected, sorted by expected_quality
+        candidates = [arm for arm in self.arms if arm.model_id != selected_model]
+
+        # Filter to available arms if specified
+        if available_arm_ids is not None:
+            candidates = [
+                arm for arm in candidates if arm.model_id in available_arm_ids
+            ]
+
         fallbacks = sorted(
-            [arm for arm in self.arms if arm.model_id != selected_model],
+            candidates,
             key=lambda a: a.expected_quality,
             reverse=True,
         )
         return [arm.model_id for arm in fallbacks[:max_fallbacks]]
+
+    def _select_best_available_arm(self, available_arms: list[ModelArm]) -> ModelArm:
+        """Select best arm from available arms when bandit's choice isn't available.
+
+        Uses expected_quality as the selection criterion since we can't use
+        the bandit's learned values for arms it wasn't considering.
+
+        Args:
+            available_arms: List of available arms to choose from
+
+        Returns:
+            Best available arm by expected_quality
+        """
+        if not available_arms:
+            # Fallback to first arm if somehow empty (shouldn't happen)
+            return self.arms[0]
+
+        return max(available_arms, key=lambda a: a.expected_quality)
 
     def _infer_provider(self, model_id: str) -> str:
         """Infer provider from model ID.
@@ -336,11 +367,15 @@ class HybridRouter:
         else:
             return "unknown"
 
-    async def route(self, query: Query) -> RoutingDecision:
+    async def route(
+        self, query: Query, available_arms: list[ModelArm] | None = None
+    ) -> RoutingDecision:
         """Route query using hybrid strategy (UCB1 or LinUCB based on phase).
 
         Args:
             query: Query to route
+            available_arms: Optional subset of arms to consider for routing.
+                If None, uses all arms. Used for cost budget filtering.
 
         Returns:
             RoutingDecision with selected model and metadata
@@ -350,6 +385,9 @@ class HybridRouter:
             - Phase 2 (queries >= threshold): Uses LinUCB with full features
             - Transition at threshold: Transfers UCB1 knowledge to LinUCB
         """
+        # Use all arms if no subset specified
+        if available_arms is None:
+            available_arms = self.arms
         self.query_count += 1
 
         # Check if should transition to phase2
@@ -358,6 +396,9 @@ class HybridRouter:
             and self.query_count >= self.switch_threshold
         ):
             await self._transition_to_phase2()
+
+        # Build set of available arm IDs for filtering
+        available_arm_ids = {arm.model_id for arm in available_arms}
 
         # Route based on current phase
         if self.current_phase == self.phase1_algorithm:
@@ -373,13 +414,23 @@ class HybridRouter:
             )
             arm = await self.phase1_bandit.select_arm(dummy_features)
 
+            # If selected arm not in available set, pick best available arm
+            if arm.model_id not in available_arm_ids:
+                arm = self._select_best_available_arm(available_arms)
+                logger.debug(
+                    f"Bandit selection {arm.model_id} not in available arms, "
+                    f"using best available: {arm.model_id}"
+                )
+
             # Calculate confidence based on pull count
             confidence = self._calculate_phase1_confidence(arm.model_id)
 
             return RoutingDecision(
                 query_id=query.id,
                 selected_model=arm.model_id,
-                fallback_chain=self._get_fallback_chain(arm.model_id),
+                fallback_chain=self._get_fallback_chain(
+                    arm.model_id, available_arm_ids=available_arm_ids
+                ),
                 confidence=confidence,
                 features=features,  # Use real features in response
                 reasoning=f"Hybrid routing (phase: {self.phase1_algorithm}, query {self.query_count}/{self.switch_threshold})",
@@ -394,13 +445,23 @@ class HybridRouter:
             features = await self.analyzer.analyze(query.text)
             arm = await self.phase2_bandit.select_arm(features)
 
+            # If selected arm not in available set, pick best available arm
+            if arm.model_id not in available_arm_ids:
+                arm = self._select_best_available_arm(available_arms)
+                logger.debug(
+                    f"Bandit selection not in available arms, "
+                    f"using best available: {arm.model_id}"
+                )
+
             # Calculate confidence based on pull count
             confidence = self._calculate_phase2_confidence(arm.model_id)
 
             return RoutingDecision(
                 query_id=query.id,
                 selected_model=arm.model_id,
-                fallback_chain=self._get_fallback_chain(arm.model_id),
+                fallback_chain=self._get_fallback_chain(
+                    arm.model_id, available_arm_ids=available_arm_ids
+                ),
                 confidence=confidence,
                 features=features,
                 reasoning=f"Hybrid routing (phase: {self.phase2_algorithm}, query {self.query_count})",

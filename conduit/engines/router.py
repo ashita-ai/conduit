@@ -1,6 +1,5 @@
 """Routing engine for ML-powered model selection."""
 
-import asyncio
 import logging
 import os
 from datetime import datetime
@@ -14,6 +13,7 @@ from conduit.core.models import (
     RoutingDecision,
 )
 from conduit.engines.analyzer import QueryAnalyzer
+from conduit.engines.cost_filter import CostFilter
 from conduit.engines.hybrid_router import HybridRouter
 
 if TYPE_CHECKING:
@@ -307,6 +307,13 @@ class Router:
             )
 
         self.cache = cache_service
+
+        # Initialize cost filter for budget enforcement
+        self.cost_filter = CostFilter(
+            output_ratio=settings.cost_output_ratio,
+            fallback_on_empty=settings.cost_fallback_on_empty,
+        )
+
         logger.info(
             f"Router initialized with algorithm='{algorithm}' "
             f"(switch_threshold={config['switch_threshold']}, "
@@ -363,8 +370,35 @@ class Router:
             self.hybrid_router.ucb1.reward_weights = weights
             self.hybrid_router.linucb.reward_weights = weights
 
-        # Route query
-        decision = await self.hybrid_router.route(query)
+        # Apply cost budget filtering if max_cost constraint is set
+        available_arms = None
+        constraints_relaxed = False
+        if query.constraints and query.constraints.max_cost is not None:
+            filter_result = self.cost_filter.filter_by_budget(
+                models=self.hybrid_router.arms,
+                max_cost=query.constraints.max_cost,
+                query_text=query.text,
+            )
+            available_arms = filter_result.models
+            constraints_relaxed = filter_result.was_relaxed
+
+            if filter_result.was_relaxed:
+                logger.warning(
+                    f"Cost constraint relaxed: budget=${query.constraints.max_cost:.4f}, "
+                    f"using cheapest model {filter_result.cheapest_model}"
+                )
+
+        # Route query with filtered arms
+        decision = await self.hybrid_router.route(query, available_arms=available_arms)
+
+        # Add cost constraint metadata to decision if constraints were applied
+        if query.constraints and query.constraints.max_cost is not None:
+            decision.metadata["max_cost_budget"] = query.constraints.max_cost
+            decision.metadata["constraints_relaxed"] = constraints_relaxed
+            if constraints_relaxed:
+                decision.metadata["cost_fallback_reason"] = (
+                    "No models within budget, using cheapest available"
+                )
 
         # Periodic checkpoint
         if (
