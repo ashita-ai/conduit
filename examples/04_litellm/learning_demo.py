@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from conduit.engines.bandits.linucb import LinUCBBandit
 from conduit.engines.bandits.base import ModelArm, BanditFeedback
 from conduit.core.models import QueryFeatures
-from conduit.core.config import get_fallback_pricing, get_default_pricing
+from conduit.core.pricing import get_model_pricing, compute_cost
 
 # Check for available API keys
 def get_available_models() -> list[dict[str, Any]]:
@@ -51,12 +51,12 @@ def get_available_models() -> list[dict[str, Any]]:
     if os.getenv("ANTHROPIC_API_KEY"):
         models.extend([
             {
-                "model_id": "claude-3-haiku-20240307",
+                "model_id": "claude-3-5-haiku-20241022",
                 "provider": "anthropic",
                 "description": "Fast and affordable",
             },
             {
-                "model_id": "claude-3-5-sonnet-20241022",
+                "model_id": "claude-sonnet-4-20250514",
                 "provider": "anthropic",
                 "description": "Excellent for complex tasks",
             },
@@ -65,7 +65,7 @@ def get_available_models() -> list[dict[str, Any]]:
     if os.getenv("GOOGLE_API_KEY"):
         models.extend([
             {
-                "model_id": "gemini-1.5-flash",
+                "model_id": "gemini-2.0-flash",
                 "provider": "google",
                 "description": "Fast and affordable",
             },
@@ -155,14 +155,14 @@ async def call_llm(model_id: str, provider: str, prompt: str) -> tuple[str, floa
         # Get cost from response metadata
         cost = response._hidden_params.get("response_cost", 0.0) or 0.0
 
-        # If cost not available, estimate from tokens
+        # If cost not available, estimate from tokens using LiteLLM pricing
         if cost == 0.0:
             usage = response.usage
-            pricing = get_fallback_pricing()
-            model_pricing = pricing.get(model_id, get_default_pricing())
-            input_cost = (usage.prompt_tokens / 1_000_000) * model_pricing["input"]
-            output_cost = (usage.completion_tokens / 1_000_000) * model_pricing["output"]
-            cost = input_cost + output_cost
+            cost = compute_cost(
+                input_tokens=usage.prompt_tokens,
+                output_tokens=usage.completion_tokens,
+                model_id=model_id,
+            )
 
         return text, cost, latency
 
@@ -208,19 +208,19 @@ async def run_real_demo():
         print(f"  - {m['model_id']} ({m['provider']}): {m['description']}")
     print()
 
-    # Create model arms
-    pricing = get_fallback_pricing()
-    default_pricing = get_default_pricing()
-
+    # Create model arms using LiteLLM pricing
     arms = []
     for m in available_models:
-        model_pricing = pricing.get(m["model_id"], default_pricing)
+        pricing = get_model_pricing(m["model_id"])
+        # Use pricing if available, otherwise use defaults
+        input_cost = pricing.input_cost_per_token if pricing else 1.0 / 1_000_000
+        output_cost = pricing.output_cost_per_token if pricing else 1.0 / 1_000_000
         arms.append(ModelArm(
             model_id=m["model_id"],
             provider=m["provider"],
             model_name=m["model_id"],
-            cost_per_input_token=model_pricing["input"] / 1_000_000,
-            cost_per_output_token=model_pricing["output"] / 1_000_000,
+            cost_per_input_token=input_cost,
+            cost_per_output_token=output_cost,
         ))
 
     # Initialize bandit

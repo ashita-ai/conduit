@@ -1,33 +1,43 @@
 #!/usr/bin/env python3
-"""Sync LLM pricing data from llm-prices.com to Supabase.
+"""Sync LLM pricing data from LiteLLM to PostgreSQL database.
 
-This script fetches current pricing for all LLM models from the community-maintained
-llm-prices.com API and updates the model_prices table in Supabase.
+This script snapshots current pricing from LiteLLM's bundled model_cost database
+and stores it in the model_prices table for historical tracking.
 
 Usage:
-    python scripts/sync_pricing.py [--dry-run] [--verbose]
+    python scripts/sync_pricing.py [--dry-run] [--verbose] [--force]
 
 Features:
-- Fetches pricing from https://www.llm-prices.com/current-v1.json
-- Updates existing prices or inserts new models
-- Preserves source attribution and snapshot timestamp
+- Uses LiteLLM's bundled pricing (no external API calls)
+- Stores timestamped snapshots for historical analysis
 - Supports dry-run mode for validation
-- Handles cached input pricing when available
+- Includes cache pricing (read and creation costs)
 
-Source: https://github.com/simonw/llm-prices
+Why snapshot pricing?
+- Track pricing changes over time
+- Understand routing decisions with historical context
+- Audit cost calculations retroactively
+- Compare model economics across time periods
+
+Environment:
+    DATABASE_URL - PostgreSQL connection string (required for actual sync)
 """
 
 import argparse
 import asyncio
-import json
 import logging
 import os
 import sys
-from datetime import datetime
-from typing import Any
+from datetime import datetime, timezone
+from pathlib import Path
 
-import httpx
-from supabase import acreate_client
+import asyncpg
+import litellm
+from dotenv import load_dotenv
+
+# Load .env file from project root
+project_root = Path(__file__).parent.parent
+load_dotenv(project_root / ".env")
 
 # Configure logging
 logging.basicConfig(
@@ -36,204 +46,185 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# llm-prices.com API endpoint
-LLM_PRICES_API = "https://www.llm-prices.com/current-v1.json"
+
+# Skip models with unreasonably high pricing (likely data errors)
+MAX_REASONABLE_COST_PER_MILLION = 1000.0  # $1000/1M tokens
 
 
-async def fetch_pricing_data() -> dict[str, Any]:
-    """Fetch current pricing data from llm-prices.com API.
-
-    Returns:
-        Dictionary with 'updated_at' and 'prices' keys
-
-    Raises:
-        httpx.HTTPError: If API request fails
-        json.JSONDecodeError: If response is not valid JSON
-    """
-    logger.info(f"Fetching pricing data from {LLM_PRICES_API}")
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.get(LLM_PRICES_API)
-        response.raise_for_status()
-        data = response.json()
-
-    logger.info(
-        f"Fetched {len(data['prices'])} models (updated: {data['updated_at']})"
-    )
-    return data
-
-
-def map_model_to_pricing_record(model: dict[str, Any], snapshot_at: str) -> dict[str, Any]:
-    """Map llm-prices.com model data to our model_prices schema.
-
-    Args:
-        model: Model data from API (id, vendor, name, input, output, input_cached)
-        snapshot_at: ISO 8601 timestamp for this pricing snapshot
+def get_litellm_pricing() -> list[dict]:
+    """Extract pricing data from LiteLLM's bundled model_cost.
 
     Returns:
-        Dictionary matching model_prices table schema
+        List of pricing records ready for database insertion
     """
-    return {
-        "model_id": model["id"],
-        "input_cost_per_million": float(model["input"]),
-        "output_cost_per_million": float(model["output"]),
-        "cached_input_cost_per_million": (
-            float(model["input_cached"]) if model.get("input_cached") else None
-        ),
-        "source": "llm-prices.com",
-        "snapshot_at": snapshot_at,
-    }
+    pricing_records = []
+    snapshot_at = datetime.now(timezone.utc)
+    skipped = 0
+
+    for model_id, model_info in litellm.model_cost.items():
+        # Skip non-chat models and the sample spec
+        if model_id == "sample_spec":
+            continue
+        mode = model_info.get("mode", "")
+        if mode and mode != "chat":
+            continue
+
+        # Skip models without input pricing
+        if "input_cost_per_token" not in model_info:
+            continue
+
+        # Convert per-token to per-million
+        input_cost = model_info.get("input_cost_per_token", 0.0) * 1_000_000
+        output_cost = model_info.get("output_cost_per_token", 0.0) * 1_000_000
+
+        # Skip unreasonable pricing (data errors in LiteLLM)
+        if input_cost > MAX_REASONABLE_COST_PER_MILLION or output_cost > MAX_REASONABLE_COST_PER_MILLION:
+            skipped += 1
+            continue
+
+        # Cache pricing (if available)
+        cache_read_cost = model_info.get("cache_read_input_token_cost")
+
+        pricing_records.append({
+            "model_id": model_id,
+            "input_cost_per_million": input_cost,
+            "output_cost_per_million": output_cost,
+            "cached_input_cost_per_million": (
+                cache_read_cost * 1_000_000 if cache_read_cost else None
+            ),
+            "source": "litellm",
+            "snapshot_at": snapshot_at,
+        })
+
+    logger.info(f"Extracted pricing for {len(pricing_records)} models from LiteLLM")
+    if skipped:
+        logger.info(f"Skipped {skipped} models with unreasonable pricing (>${MAX_REASONABLE_COST_PER_MILLION}/1M)")
+    return pricing_records
 
 
-def deduplicate_models(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Deduplicate models by model_id, keeping the last occurrence.
-
-    Args:
-        models: List of model pricing records
+async def get_latest_snapshot_date(database_url: str) -> str | None:
+    """Get the date of the most recent pricing snapshot.
 
     Returns:
-        Deduplicated list of models
+        ISO date string (YYYY-MM-DD) or None if no snapshots exist
     """
-    seen = {}
-    for model in models:
-        seen[model["model_id"]] = model  # Last one wins
-    return list(seen.values())
-
-
-async def check_if_pricing_current(snapshot_date: str) -> bool:
-    """Check if we already have pricing for the given snapshot date.
-
-    Args:
-        snapshot_date: ISO 8601 date string (e.g., "2025-11-29")
-
-    Returns:
-        True if pricing exists for this date, False otherwise
-
-    Raises:
-        ValueError: If SUPABASE_URL or SUPABASE_ANON_KEY not set
-    """
-    supabase_url = os.getenv("SUPABASE_URL")
-    supabase_key = os.getenv("SUPABASE_ANON_KEY")
-
-    if not supabase_url or not supabase_key:
-        raise ValueError(
-            "SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment"
-        )
-
-    client = await acreate_client(supabase_url, supabase_key)
-
-    # Check if any pricing exists for this snapshot date
-    result = await client.table("model_prices").select("id").gte(
-        "snapshot_at", snapshot_date
-    ).lt("snapshot_at", f"{snapshot_date}T23:59:59Z").limit(1).execute()
-
-    return len(result.data) > 0
+    try:
+        # Disable statement cache for pgbouncer compatibility (Supabase, etc.)
+        conn = await asyncpg.connect(database_url, statement_cache_size=0)
+        try:
+            row = await conn.fetchrow(
+                "SELECT snapshot_at FROM model_prices ORDER BY snapshot_at DESC LIMIT 1"
+            )
+            if row and row["snapshot_at"]:
+                return row["snapshot_at"].strftime("%Y-%m-%d")
+            return None
+        finally:
+            await conn.close()
+    except Exception as e:
+        logger.debug(f"Could not check latest snapshot: {e}")
+        return None
 
 
 async def sync_pricing_to_database(
-    pricing_data: dict[str, Any], dry_run: bool = False, force: bool = False
-) -> tuple[int, int]:
-    """Sync pricing data to Supabase model_prices table.
-
-    This function intelligently manages pricing snapshots:
-    - Checks if current pricing already exists before inserting
-    - Inserts new snapshots (preserving historical data)
-    - Never overwrites existing pricing records
+    pricing_records: list[dict],
+    database_url: str,
+    dry_run: bool = False,
+    force: bool = False,
+) -> int:
+    """Sync pricing data to PostgreSQL database.
 
     Args:
-        pricing_data: Data from llm-prices.com API
+        pricing_records: List of pricing records from LiteLLM
+        database_url: PostgreSQL connection string
         dry_run: If True, don't actually update database
-        force: If True, insert even if current pricing exists
+        force: If True, insert even if today's snapshot exists
 
     Returns:
-        Tuple of (models_inserted, 0)
-
-    Raises:
-        ValueError: If SUPABASE_URL or SUPABASE_ANON_KEY not set
+        Number of records inserted
     """
-    supabase_url = os.getenv("SUPABASE_URL")
-    supabase_key = os.getenv("SUPABASE_ANON_KEY")
-
-    if not supabase_url or not supabase_key:
-        raise ValueError(
-            "SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment"
-        )
-
-    # Connect to Supabase
-    client = await acreate_client(supabase_url, supabase_key)
-
-    snapshot_at = pricing_data["updated_at"]
-    snapshot_date = snapshot_at.split("T")[0]  # Extract YYYY-MM-DD
-
-    # Check if we already have pricing for this date
-    if not force:
-        has_current = await check_if_pricing_current(snapshot_date)
-        if has_current:
-            logger.info(
-                f"Pricing for {snapshot_date} already exists in database. Skipping sync."
-            )
-            logger.info("Use --force to insert anyway.")
-            return (0, 0)
-
-    models_raw = [
-        map_model_to_pricing_record(model, snapshot_at)
-        for model in pricing_data["prices"]
-    ]
-
-    # Deduplicate in case source data has duplicates
-    models_to_sync = deduplicate_models(models_raw)
-    if len(models_raw) != len(models_to_sync):
-        logger.warning(
-            f"Deduplicated {len(models_raw) - len(models_to_sync)} duplicate models"
-        )
-
-    logger.info(f"Inserting {len(models_to_sync)} pricing snapshots for {snapshot_date}")
-
+    # Dry run - just show what would be inserted
     if dry_run:
-        logger.info("DRY RUN - Would insert the following models:")
-        for model in models_to_sync[:10]:  # Show first 10
+        logger.info(f"DRY RUN - Would insert {len(pricing_records)} pricing records")
+        logger.info("Sample records:")
+        for record in pricing_records[:5]:
             logger.info(
-                f"  {model['model_id']}: ${model['input_cost_per_million']}/M in, "
-                f"${model['output_cost_per_million']}/M out"
+                f"  {record['model_id']}: "
+                f"${record['input_cost_per_million']:.4f}/M in, "
+                f"${record['output_cost_per_million']:.4f}/M out"
             )
-        if len(models_to_sync) > 10:
-            logger.info(f"  ... and {len(models_to_sync) - 10} more")
-        return (0, 0)
+        if len(pricing_records) > 5:
+            logger.info(f"  ... and {len(pricing_records) - 5} more")
+        return 0
 
-    # Insert new pricing snapshots (preserves historical data)
-    # The UNIQUE(model_id, snapshot_at) constraint prevents duplicates
-    logger.info(f"Inserting {len(models_to_sync)} new pricing snapshots")
+    # Check if we already have a snapshot today
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if not force:
+        latest_date = await get_latest_snapshot_date(database_url)
+        if latest_date == today:
+            logger.info(f"Pricing snapshot for {today} already exists. Use --force to add another.")
+            return 0
 
-    await client.table("model_prices").insert(models_to_sync).execute()
+    # Connect and insert using batch SQL for speed
+    # Disable statement cache for pgbouncer compatibility (Supabase, etc.)
+    logger.info(f"Inserting {len(pricing_records)} pricing records...")
+    conn = await asyncpg.connect(database_url, statement_cache_size=0)
+    try:
+        # Build VALUES clauses for batch insert
+        values = []
+        for record in pricing_records:
+            # Escape single quotes in model_id
+            safe_id = record["model_id"].replace("'", "''")
+            cache_val = record["cached_input_cost_per_million"]
+            cache_str = str(cache_val) if cache_val is not None else "NULL"
+            snapshot_str = record["snapshot_at"].isoformat()
+            values.append(
+                f"('{safe_id}', {record['input_cost_per_million']}, "
+                f"{record['output_cost_per_million']}, {cache_str}, "
+                f"'{record['source']}', '{snapshot_str}')"
+            )
 
-    logger.info(
-        f"Sync complete: {len(models_to_sync)} pricing snapshots inserted for {snapshot_date}"
+        # Insert in batches of 500 to avoid query size limits
+        batch_size = 500
+        inserted = 0
+        for i in range(0, len(values), batch_size):
+            batch = values[i : i + batch_size]
+            sql = f"""INSERT INTO model_prices
+                (model_id, input_cost_per_million, output_cost_per_million,
+                 cached_input_cost_per_million, source, snapshot_at)
+                VALUES {','.join(batch)}
+                ON CONFLICT (model_id, snapshot_at) DO NOTHING"""
+            await conn.execute(sql)
+            inserted = min(i + batch_size, len(values))
+            logger.info(f"  Inserted {inserted}/{len(values)} records...")
+
+        logger.info(f"Sync complete: {len(values)} pricing records inserted")
+        return len(values)
+    finally:
+        await conn.close()
+
+
+def print_litellm_version_info():
+    """Print LiteLLM version and pricing stats."""
+    try:
+        from litellm._version import version
+    except (ImportError, AttributeError):
+        version = "unknown"
+
+    chat_models = sum(
+        1 for m, info in litellm.model_cost.items()
+        if m != "sample_spec"
+        and info.get("mode", "") in ("", "chat")
+        and "input_cost_per_token" in info
     )
-    return (len(models_to_sync), 0)
+
+    logger.info(f"LiteLLM version: {version}")
+    logger.info(f"Chat models with pricing: {chat_models}")
 
 
 async def main() -> int:
-    """Main entry point for pricing sync script.
-
-    This script is designed to be run manually or via cron to refresh pricing data.
-    It intelligently checks if current pricing already exists before fetching from
-    llm-prices.com, preventing unnecessary API calls and duplicate database inserts.
-
-    Typical usage:
-        # Check and sync if needed (default behavior)
-        python scripts/sync_pricing.py
-
-        # Preview what would be synced
-        python scripts/sync_pricing.py --dry-run
-
-        # Force sync even if current pricing exists
-        python scripts/sync_pricing.py --force
-
-    The pricing data is stored in the model_prices table with historical snapshots,
-    enabling price history analysis and understanding of routing decisions over time.
-    """
+    """Main entry point for pricing sync script."""
     parser = argparse.ArgumentParser(
-        description="Sync LLM pricing from llm-prices.com to Supabase"
+        description="Sync LLM pricing from LiteLLM to PostgreSQL database"
     )
     parser.add_argument(
         "--dry-run",
@@ -243,36 +234,51 @@ async def main() -> int:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Force sync even if current pricing already exists",
+        help="Force sync even if today's snapshot already exists",
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose logging"
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable verbose logging",
     )
     args = parser.parse_args()
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    try:
-        # Fetch pricing data
-        pricing_data = await fetch_pricing_data()
+    print_litellm_version_info()
 
-        # Sync to database (with intelligent duplicate detection)
-        inserted, _ = await sync_pricing_to_database(
-            pricing_data, dry_run=args.dry_run, force=args.force
+    # Get database URL
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url and not args.dry_run:
+        logger.error("DATABASE_URL environment variable not set")
+        logger.info("Set DATABASE_URL to your PostgreSQL connection string")
+        logger.info("Example: postgresql://user:pass@host:5432/dbname")
+        return 1
+
+    try:
+        # Get pricing from LiteLLM
+        pricing_records = get_litellm_pricing()
+
+        # Sync to database
+        inserted = await sync_pricing_to_database(
+            pricing_records,
+            database_url or "",
+            dry_run=args.dry_run,
+            force=args.force,
         )
 
         if args.dry_run:
             logger.info("Dry run complete - no changes made")
         elif inserted > 0:
-            logger.info(f"Pricing sync successful: {inserted} new snapshots inserted")
+            logger.info(f"Successfully stored {inserted} pricing snapshots")
         else:
-            logger.info("Pricing sync skipped - current pricing already exists")
+            logger.info("No new snapshots stored (already up to date)")
 
         return 0
 
-    except httpx.HTTPError as e:
-        logger.error(f"Failed to fetch pricing data: {e}")
+    except asyncpg.PostgresError as e:
+        logger.error(f"Database error: {e}")
         return 1
     except Exception as e:
         logger.error(f"Sync failed: {e}", exc_info=True)

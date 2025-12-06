@@ -262,8 +262,9 @@ class TestModelPricingOperations:
             for model_id, pricing in prices.items():
                 assert isinstance(pricing, ModelPricing)
                 assert pricing.model_id == model_id
-                assert pricing.input_cost_per_million > 0
-                assert pricing.output_cost_per_million > 0
+                # Pricing can be 0 for free-tier models (e.g., codestral)
+                assert pricing.input_cost_per_million >= 0
+                assert pricing.output_cost_per_million >= 0
 
 
 class TestResponseRetrieval:

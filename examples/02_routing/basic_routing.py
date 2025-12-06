@@ -22,7 +22,6 @@ Expected output:
     Features:
       - Token count: 12
       - Complexity: 0.25
-      - Domain: general (0.82)
 """
 
 import asyncio
@@ -62,7 +61,6 @@ async def main() -> None:
         print(f"\nFeatures:")
         print(f"  - Token count: {decision.features.token_count}")
         print(f"  - Complexity: {decision.features.complexity_score:.2f}")
-        print(f"  - Domain: {decision.features.domain} ({decision.features.domain_confidence:.2f})")
 
     except Exception as e:
         print(f"\nError: {e}")

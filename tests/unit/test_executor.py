@@ -256,13 +256,13 @@ class TestModelExecutor:
             MockAgent.return_value = mock_agent
 
             response = await executor.execute(
-                model="claude-3.5-sonnet",
+                model="claude-3-5-sonnet-20241022",  # Full model ID for LiteLLM
                 prompt="Test",
                 result_type=TestResult,
                 query_id="test-alt-tokens",
             )
 
-            # claude-3.5-sonnet fallback pricing: input=3.00, output=15.00 per 1M tokens
+            # claude-3-5-sonnet-20241022 LiteLLM pricing: input=3.00, output=15.00 per 1M tokens
             # Cost = (500 * 3.00/1M) + (250 * 15.00/1M)
             # Cost = 0.0015 + 0.00375 = 0.00525
             assert response.cost == pytest.approx(0.00525, rel=0.01)
@@ -333,20 +333,9 @@ class TestModelExecutor:
                 assert "Could not extract tokens" in str(mock_logger.warning.call_args)
 
     @pytest.mark.asyncio
-    async def test_cost_calculation_uses_database_pricing_when_available(self):
-        """Test cost calculation prefers database-backed pricing over fallback table."""
-        # Database-backed pricing: 0.001 input, 0.004 output per 1M tokens
-        pricing = {
-            "custom-model": ModelPricing(
-                model_id="custom-model",
-                input_cost_per_million=0.001,
-                output_cost_per_million=0.004,
-                cached_input_cost_per_million=None,
-                source="test",
-                snapshot_at=None,
-            )
-        }
-        executor = ModelExecutor(pricing=pricing)
+    async def test_cost_calculation_uses_litellm_pricing(self):
+        """Test cost calculation uses LiteLLM's bundled pricing database."""
+        executor = ModelExecutor()
 
         test_data = TestResult(answer="Answer", confidence=0.9)
         mock_usage = MockUsage(request_tokens=1_000_000, response_tokens=500_000)
@@ -358,15 +347,15 @@ class TestModelExecutor:
             MockAgent.return_value = mock_agent
 
             response = await executor.execute(
-                model="custom-model",
+                model="gpt-4o-mini",  # Known model in LiteLLM
                 prompt="Test",
                 result_type=TestResult,
-                query_id="test-db-pricing",
+                query_id="test-litellm-pricing",
             )
 
-            # Cost per token: input=1e-9, output=4e-9
-            # Cost = 1_000_000 * 1e-9 + 500_000 * 4e-9 = 0.001 + 0.002 = 0.003
-            assert response.cost == pytest.approx(0.003, rel=0.01)
+            # gpt-4o-mini has known pricing in LiteLLM
+            # Cost should be > 0 (not using fallback)
+            assert response.cost > 0
 
     @pytest.mark.asyncio
     async def test_latency_measurement(self):

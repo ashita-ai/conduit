@@ -66,20 +66,20 @@ async def main() -> None:
         model_list.extend([
             {
                 "model_name": "llm",  # Same name - Conduit picks best
-                "litellm_params": {"model": "claude-3-5-sonnet-20241022", "api_key": api_keys["Anthropic"]},
-                "model_info": {"id": "claude-sonnet-4.5"},  # Conduit's standardized model ID
+                "litellm_params": {"model": "claude-sonnet-4-20250514", "api_key": api_keys["Anthropic"]},
+                "model_info": {"id": "claude-sonnet-4"},  # Conduit's standardized model ID
             },
             {
                 "model_name": "llm",  # Same name - part of pool
                 "litellm_params": {"model": "claude-3-5-haiku-20241022", "api_key": api_keys["Anthropic"]},
-                "model_info": {"id": "claude-haiku-4.5"},  # Conduit's standardized model ID
+                "model_info": {"id": "claude-haiku-3.5"},  # Conduit's standardized model ID
             },
         ])
 
     if api_keys["Google"]:
         model_list.append({
             "model_name": "llm",  # Same name - Conduit can choose Gemini
-            "litellm_params": {"model": "gemini/gemini-1.5-flash", "api_key": api_keys["Google"]},
+            "litellm_params": {"model": "gemini/gemini-2.0-flash", "api_key": api_keys["Google"]},
             "model_info": {"id": "gemini-2.0-flash"},  # Conduit's standardized model ID
         })
 
