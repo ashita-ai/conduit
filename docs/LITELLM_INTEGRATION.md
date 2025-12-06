@@ -51,9 +51,7 @@ Conduit integrates with LiteLLM as a native routing strategy, bringing ML-powere
 | **Routing** | Rule-based (❌) | ML-based (✅) | ML-based (✅) |
 | **Infrastructure** | Battle-tested (✅) | New (⚠️) | Battle-tested (✅) |
 | **Intelligence** | None (❌) | Contextual bandits (✅) | Contextual bandits (✅) |
-| **Cost Tracking** | Built-in via response (✅) | llm-prices.com fetch (⚠️) | Built-in via LiteLLM\* (✅) |
-
-\* When Issue #13 (feedback loop) is complete, `conduit_litellm` will use LiteLLM's built-in cost tracking via `response._hidden_params["response_cost"]` instead of llm-prices.com.
+| **Cost Tracking** | Built-in via response (✅) | LiteLLM bundled (✅) | LiteLLM bundled (✅) |
 
 **Integration opportunity**: LiteLLM's infrastructure + Conduit's intelligence = best of both worlds
 
@@ -115,7 +113,7 @@ The feedback loop works seamlessly in the background:
 6. Update bandit: `router.bandit.update(feedback, features)` or `router.hybrid_router.update()`
 7. Bandit learns which models work best for each query type
 
-This eliminates dependency on llm-prices.com for `conduit_litellm` usage.
+This uses LiteLLM's built-in cost tracking, with no external API dependencies.
 
 ### Strategic Benefits
 
@@ -129,7 +127,7 @@ This eliminates dependency on llm-prices.com for `conduit_litellm` usage.
 - **100+ providers**: Instant access to LiteLLM's entire ecosystem
 - **Battle-tested infra**: LiteLLM handles retries, fallbacks, rate limiting
 - **Cost tracking**: LiteLLM provides cost/latency in response metadata (`response._hidden_params["response_cost"]`)
-- **No llm-prices.com dependency**: Use LiteLLM's built-in pricing instead of external API
+- **Bundled pricing**: Uses LiteLLM's built-in model_cost database (no external API)
 - **Maintenance**: LiteLLM team maintains provider APIs, not us
 
 #### User Benefits
@@ -161,7 +159,7 @@ This eliminates dependency on llm-prices.com for `conduit_litellm` usage.
 - ✅ Update bandit with `BanditFeedback` (quality + cost + latency)
 - ✅ Support both hybrid and standard routing modes
 - ✅ Comprehensive tests (test_litellm_feedback.py)
-- ✅ Eliminated llm-prices.com dependency (uses LiteLLM's built-in cost tracking)
+- ✅ Uses LiteLLM's built-in cost tracking (bundled pricing, no external APIs)
 
 #### Phase 3: Testing & Docs ⏳ PARTIAL
 - ⏳ Unit tests for `ConduitRoutingStrategy` (optional dependency blocks pytest)
