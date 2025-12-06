@@ -331,6 +331,18 @@ class Settings(BaseSettings):
         default="development", description="Environment (development, production)"
     )
 
+    # Cost Budget Enforcement
+    cost_output_ratio: float = Field(
+        default=1.0,
+        description="Output token ratio for cost estimation (output = input * ratio)",
+        ge=0.1,
+        le=10.0,
+    )
+    cost_fallback_on_empty: bool = Field(
+        default=True,
+        description="Use cheapest model when none fit budget (False = raise error)",
+    )
+
     # Arbiter Evaluation Configuration
     arbiter_enabled: bool = Field(
         default=False, description="Enable Arbiter LLM-as-judge evaluation"
@@ -1128,6 +1140,66 @@ def load_cache_config() -> dict[str, Any]:
             pass
 
     # Environment variables handled by Settings class
+    return defaults
+
+
+def load_cost_config() -> dict[str, Any]:
+    """Load cost budget configuration from conduit.yaml.
+
+    3-tier fallback chain:
+        1. YAML config (conduit.yaml routing.cost)
+        2. Environment variables (COST_OUTPUT_RATIO, COST_FALLBACK_ON_EMPTY)
+        3. Hardcoded defaults
+
+    Returns:
+        Dict with cost configuration:
+        - output_ratio: float (default 1.0)
+        - fallback_on_empty: bool (default True)
+
+    Example:
+        >>> config = load_cost_config()
+        >>> config["output_ratio"]
+        1.0
+        >>> config["fallback_on_empty"]
+        True
+    """
+    # Hardcoded defaults
+    defaults = {
+        "output_ratio": 1.0,
+        "fallback_on_empty": True,
+    }
+
+    config_path = Path("conduit.yaml")
+
+    # Try YAML
+    if config_path.exists():
+        try:
+            with open(config_path) as f:
+                config = yaml.safe_load(f)
+                if isinstance(config, dict):
+                    routing = config.get("routing", {})
+                    if isinstance(routing, dict):
+                        cost_config = routing.get("cost", {})
+                        if isinstance(cost_config, dict) and cost_config:
+                            return {**defaults, **cost_config}
+        except Exception:
+            pass
+
+    # Try environment variables
+    env_overrides = {}
+    if os.getenv("COST_OUTPUT_RATIO"):
+        try:
+            env_overrides["output_ratio"] = float(os.getenv("COST_OUTPUT_RATIO", "1.0"))
+        except ValueError:
+            pass
+    if os.getenv("COST_FALLBACK_ON_EMPTY"):
+        env_overrides["fallback_on_empty"] = (
+            os.getenv("COST_FALLBACK_ON_EMPTY", "true").lower() == "true"
+        )
+
+    if env_overrides:
+        return {**defaults, **env_overrides}
+
     return defaults
 
 

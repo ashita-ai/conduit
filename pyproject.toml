@@ -44,6 +44,7 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "pyyaml>=6.0",
     "supabase>=2.25.0",
+    "tiktoken>=0.7.0",
 ]
 
 [project.optional-dependencies]

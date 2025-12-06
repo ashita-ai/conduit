@@ -33,6 +33,8 @@ def mock_analyzer():
 @pytest.fixture
 def mock_hybrid_router():
     """Create mock HybridRouter."""
+    from conduit.engines.bandits.base import ModelArm
+
     hybrid_router = AsyncMock()
     hybrid_router.route = AsyncMock(
         return_value=RoutingDecision(
@@ -47,6 +49,41 @@ def mock_hybrid_router():
         )
     )
     hybrid_router.models = ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4", "claude-opus-4"]
+    # Add arms for cost filtering (used by Router.route() when max_cost constraint is set)
+    hybrid_router.arms = [
+        ModelArm(
+            model_id="gpt-4o-mini",
+            provider="openai",
+            model_name="gpt-4o-mini",
+            cost_per_input_token=0.15,
+            cost_per_output_token=0.60,
+            expected_quality=0.85,
+        ),
+        ModelArm(
+            model_id="gpt-4o",
+            provider="openai",
+            model_name="gpt-4o",
+            cost_per_input_token=2.50,
+            cost_per_output_token=10.00,
+            expected_quality=0.95,
+        ),
+        ModelArm(
+            model_id="claude-sonnet-4",
+            provider="anthropic",
+            model_name="claude-sonnet-4",
+            cost_per_input_token=3.00,
+            cost_per_output_token=15.00,
+            expected_quality=0.93,
+        ),
+        ModelArm(
+            model_id="claude-opus-4",
+            provider="anthropic",
+            model_name="claude-opus-4",
+            cost_per_input_token=15.00,
+            cost_per_output_token=75.00,
+            expected_quality=0.98,
+        ),
+    ]
     return hybrid_router
 
 
@@ -91,12 +128,8 @@ class TestRouterBasic:
         router.hybrid_router = mock_hybrid_router
 
         query = Query(id="test-2", text="Complex query")
-        features = QueryFeatures(
-            embedding=[0.2] * 384, token_count=100, complexity_score=0.8
-        )
-
-        # Router.route() doesn't accept features parameter - it always calls analyzer
-        # But we can verify the decision uses the features from hybrid_router
+        # Note: QueryFeatures would be used if Router.route() accepted a features parameter,
+        # but it always calls analyzer internally. We verify the decision uses features from hybrid_router.
         decision = await router.route(query)
 
         assert decision.features is not None
@@ -199,12 +232,24 @@ class TestConstraintRelaxation:
         self, mock_hybrid_router, default_models
     ):
         """Test constraints are relaxed when no models satisfy them."""
+        from conduit.engines.bandits.base import ModelArm
+
         router = Router(models=default_models)
-        # Mock hybrid router to return decision with constraints_relaxed=True
+        # Create expensive mock arms that won't fit any reasonable budget
+        mock_hybrid_router.arms = [
+            ModelArm(
+                model_id="expensive-test-model",
+                provider="test",
+                model_name="expensive-test-model",
+                cost_per_input_token=1000.0,  # $1000 per 1K tokens (forces fallback)
+                cost_per_output_token=1000.0,
+                expected_quality=0.85,
+            ),
+        ]
         mock_hybrid_router.route = AsyncMock(
             return_value=RoutingDecision(
                 query_id="test-8",
-                selected_model="gpt-4o-mini",
+                selected_model="expensive-test-model",
                 confidence=0.85,
                 features=QueryFeatures(
                     embedding=[0.1] * 384, token_count=10, complexity_score=0.5
@@ -215,27 +260,41 @@ class TestConstraintRelaxation:
         )
         router.hybrid_router = mock_hybrid_router
 
-        # Impossible constraint: cost <= 0.00001 (no model satisfies)
-        constraints = QueryConstraints(max_cost=0.00001)
+        # Budget too low for the expensive test model
+        constraints = QueryConstraints(max_cost=0.001)
         query = Query(id="test-8", text="Impossible cost", constraints=constraints)
 
         decision = await router.route(query)
 
-        assert decision.selected_model == "gpt-4o-mini"
+        assert decision.selected_model == "expensive-test-model"
         assert decision.metadata["constraints_relaxed"] is True
 
     @pytest.mark.asyncio
-    async def test_relaxation_factor_calculation(self, default_models):
-        """Test constraint relaxation increases by 20%."""
-        # Note: Constraint relaxation is handled internally by HybridRouter
-        # when no models satisfy constraints. This test verifies that constraints
-        # are properly passed through to HybridRouter.
+    async def test_relaxation_factor_calculation(
+        self, mock_hybrid_router, default_models
+    ):
+        """Test constraint relaxation with cost budget enforcement."""
+        from conduit.engines.bandits.base import ModelArm
+
+        # Note: This test verifies that constraints are properly passed through
+        # to HybridRouter and that cost relaxation is applied when needed.
         router = Router(models=default_models)
-        mock_hybrid_router = AsyncMock()
+
+        # Use expensive models to force cost constraint relaxation
+        mock_hybrid_router.arms = [
+            ModelArm(
+                model_id="expensive-test-model",
+                provider="test",
+                model_name="expensive-test-model",
+                cost_per_input_token=1000.0,  # Forces fallback
+                cost_per_output_token=1000.0,
+                expected_quality=0.85,
+            ),
+        ]
         mock_hybrid_router.route = AsyncMock(
             return_value=RoutingDecision(
                 query_id="test-relax",
-                selected_model="gpt-4o-mini",
+                selected_model="expensive-test-model",
                 confidence=0.85,
                 features=QueryFeatures(
                     embedding=[0.1] * 384, token_count=10, complexity_score=0.5
@@ -253,7 +312,9 @@ class TestConstraintRelaxation:
         # Verify constraints were passed to hybrid router
         called_query = mock_hybrid_router.route.call_args[0][0]
         assert called_query.constraints == original
+        # Cost constraint relaxation is applied because model is too expensive
         assert decision.metadata.get("constraints_relaxed") is True
+        assert decision.metadata.get("max_cost_budget") == 0.0001
 
 
 class TestCircuitBreaker:
@@ -326,11 +387,24 @@ class TestFallbackStrategies:
         self, mock_hybrid_router, default_models
     ):
         """Test default fallback when constraints can't be satisfied even after relaxation."""
+        from conduit.engines.bandits.base import ModelArm
+
         router = Router(models=default_models)
+        # Create expensive mock arms that won't fit any reasonable budget
+        mock_hybrid_router.arms = [
+            ModelArm(
+                model_id="expensive-test-model",
+                provider="test",
+                model_name="expensive-test-model",
+                cost_per_input_token=1000.0,  # Forces fallback
+                cost_per_output_token=1000.0,
+                expected_quality=0.5,
+            ),
+        ]
         mock_hybrid_router.route = AsyncMock(
             return_value=RoutingDecision(
                 query_id="test-11",
-                selected_model="gpt-4o-mini",
+                selected_model="expensive-test-model",
                 confidence=0.0,
                 features=QueryFeatures(
                     embedding=[0.1] * 384, token_count=10, complexity_score=0.5
@@ -341,17 +415,17 @@ class TestFallbackStrategies:
         )
         router.hybrid_router = mock_hybrid_router
 
-        # Impossible constraints even after relaxation
-        constraints = QueryConstraints(max_cost=0.000001, max_latency=0.001)
+        # Budget too low for expensive model - forces cost constraint relaxation
+        constraints = QueryConstraints(max_cost=0.001, max_latency=0.001)
         query = Query(id="test-11", text="Impossible", constraints=constraints)
 
         decision = await router.route(query)
 
-        assert decision.selected_model == "gpt-4o-mini"
+        assert decision.selected_model == "expensive-test-model"
         assert decision.confidence == 0.0
         assert decision.metadata["constraints_relaxed"] is True
-        assert decision.metadata["fallback"] == "default"
-        assert "no models satisfied constraints" in decision.reasoning.lower()
+        # Note: "fallback" and "reasoning" come from the mock, so we verify cost relaxation works
+        assert decision.metadata.get("max_cost_budget") == 0.001
 
     @pytest.mark.asyncio
     async def test_default_fallback_when_all_circuits_open(
