@@ -211,7 +211,10 @@ def compute_cost(
         cost += cache_read_tokens * pricing.cached_input_cost_per_token
 
     # Cache creation cost (if applicable)
-    if cache_creation_tokens > 0 and pricing.cache_creation_cost_per_million is not None:
+    if (
+        cache_creation_tokens > 0
+        and pricing.cache_creation_cost_per_million is not None
+    ):
         cache_creation_per_token = pricing.cache_creation_cost_per_million / 1_000_000
         cost += cache_creation_tokens * cache_creation_per_token
 
