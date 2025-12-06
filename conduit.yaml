@@ -154,13 +154,20 @@ embeddings:
     retrain_threshold: 150        # Minimum queries before auto-retraining
 
 # Feature Dimensions
-# Controls dimensionality of feature vectors for bandit algorithms
-# These are auto-calculated based on embedding provider and PCA settings
-features:
-  embedding_dim: 1536             # Base embedding dimension (OpenAI text-embedding-3-small)
-  full_dim: 1538                  # Full feature dimension (embedding + 2 metadata)
-  pca_dim: 130                    # PCA feature dimension (128 components + 2 metadata)
-  token_count_normalization: 1000.0  # Divisor for token count normalization
+# AUTO-DETECTED from embedding provider at runtime - do not set manually!
+#
+# The bandit algorithms automatically detect feature dimensions from the
+# configured embedding provider. This ensures dimensions always match:
+#   - OpenAI text-embedding-3-small: 1536 dims → full_dim = 1538
+#   - Cohere embed-english-v3.0: 1024 dims → full_dim = 1026
+#   - FastEmbed/sentence-transformers: 384 dims → full_dim = 386
+#
+# Only configure these if you need to override auto-detection:
+# features:
+#   embedding_dim: 1536           # Override embedding dimension
+#   full_dim: 1538                # embedding_dim + 2 metadata
+#   pca_dim: 130                  # PCA components + 2 metadata
+#   token_count_normalization: 1000.0
 
 # Quality Estimation Configuration
 # Used for heuristic quality scoring in LiteLLM feedback when no explicit rating
@@ -246,25 +253,6 @@ arbiter:
   evaluators:                     # Active evaluator types
     - semantic
     - factuality
-
-# Pricing Configuration
-# Intelligent pricing management with database, cache, and live fetch fallbacks
-pricing:
-  # Cache freshness threshold (hours)
-  # When using cache-only mode (no database), pricing is auto-refreshed if older than this
-  # Default: 24 hours (conservative - pricing changes infrequently)
-  cache_ttl_hours: 24
-
-  # Database staleness warning threshold (days)
-  # When using database mode, warn if latest pricing snapshot is older than this
-  # Default: 7 days (pricing changes monthly/quarterly, but warn weekly)
-  database_stale_days: 7
-
-  # Fail-fast on stale cache errors
-  # If true, fail immediately when cache is stale and llm-prices.com fetch fails
-  # If false, use stale cache with warning (graceful degradation)
-  # Default: true (prefer reliability over availability)
-  fail_on_stale_cache: true
 
 # Cache Configuration
 # Redis caching for query features and routing decisions
