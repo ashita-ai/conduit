@@ -20,7 +20,7 @@ async def main() -> None:
 
     # Initialize router (no special setup needed for preferences)
     router = Router(
-        models=["gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet-20241022"],
+        models=["gpt-4o-mini", "gpt-4o", "claude-sonnet-4-20250514"],
         cache_enabled=False  # Disable caching for clearer routing demonstration
     )
 

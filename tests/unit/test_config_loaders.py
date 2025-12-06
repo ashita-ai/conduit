@@ -21,7 +21,6 @@ from conduit.core.config import (
     load_feedback_config,
     load_hybrid_routing_config,
     load_litellm_config,
-    load_pricing_config,
     load_quality_estimation_config,
     load_routing_config,
     parse_env_value,
@@ -371,39 +370,6 @@ class TestLoadLiteLLMConfig:
         assert config["model_mappings"]["custom-model"] == "conduit-model"
         # Verify merge preserved defaults
         assert config["model_mappings"]["gpt-4o-mini"] == "o4-mini"
-
-
-class TestLoadPricingConfig:
-    """Test pricing configuration loader."""
-
-    def test_defaults(self, tmp_path, monkeypatch):
-        """Test hardcoded pricing fallbacks."""
-        monkeypatch.chdir(tmp_path)
-        pricing = load_pricing_config()
-
-        assert pricing["o4-mini"]["input"] == 1.10
-        assert pricing["o4-mini"]["output"] == 4.40
-        assert pricing["gpt-5.1"]["input"] == 2.00
-        assert pricing["claude-opus-4-5-20241124"]["input"] == 5.00
-
-    def test_yaml_loading(self, tmp_path, monkeypatch):
-        """Test loading from pricing.yaml."""
-        monkeypatch.chdir(tmp_path)
-
-        yaml_content = {
-            "pricing": {
-                "custom-model": {"input": 0.5, "output": 1.0},
-                "o4-mini": {"input": 1.5, "output": 5.0},  # Override default
-            }
-        }
-
-        yaml_path = tmp_path / "pricing.yaml"
-        with open(yaml_path, "w") as f:
-            yaml.dump(yaml_content, f)
-
-        pricing = load_pricing_config()
-        assert pricing["custom-model"]["input"] == 0.5
-        assert pricing["o4-mini"]["input"] == 1.5  # Overridden
 
 
 class TestErrorHandling:

@@ -263,4 +263,4 @@ class TestModelsEndpoint:
         data = response.json()
         assert "models" in data
         assert len(data["models"]) == 3
-        assert data["default_model"] == "claude-haiku-4.5"  # Current default model
+        assert data["default_model"] == "claude-haiku-4-5-20251001"  # First model from conduit.yaml priors

@@ -31,16 +31,24 @@ except ImportError:
 
 
 @pytest.fixture(autouse=True)
-def mock_huggingface_embeddings(monkeypatch):
+def mock_huggingface_embeddings(monkeypatch, request):
     """Mock HuggingFace embedding provider to avoid real API calls in tests.
 
     HuggingFace deprecated api-inference.huggingface.co and now requires
     authentication for router.huggingface.co. Unit tests should not make
     real API calls, so we mock the embedding provider globally.
 
-    Also sets a fake OPENAI_API_KEY so tests using OpenAI embeddings don't fail.
+    Also sets a fake OPENAI_API_KEY so tests using OpenAI embeddings don't fail,
+    but only if a real key isn't already set (to allow regression tests with real APIs).
     """
-    # Set fake OpenAI API key for tests that use OpenAI embeddings
+    # Skip setting fake API key for regression tests that need real API calls
+    # These tests are marked with @requires_api_key decorator
+    if "regression" in str(request.fspath):
+        # For regression tests, preserve the real API key from environment
+        yield
+        return
+
+    # Set fake OpenAI API key for unit/integration tests that mock API calls
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-fake-key-for-testing")
 
     # Create fake 384-dim embedding (test dimension, not production)

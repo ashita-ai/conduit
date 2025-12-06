@@ -10,10 +10,9 @@ from uuid import uuid4
 from pydantic import BaseModel
 from pydantic_ai import Agent
 
-from conduit.core.config import get_default_pricing, get_fallback_pricing
 from conduit.core.exceptions import ExecutionError
 from conduit.core.models import Response, RoutingDecision
-from conduit.core.pricing import ModelPricing
+from conduit.core.pricing import compute_cost
 
 logger = logging.getLogger(__name__)
 
@@ -49,16 +48,12 @@ class ExecutionResult:
 class ModelExecutor:
     """Execute LLM calls via PydanticAI."""
 
-    def __init__(self, pricing: dict[str, ModelPricing] | None = None) -> None:
-        """Initialize executor with agent cache and pricing.
+    def __init__(self) -> None:
+        """Initialize executor with agent cache.
 
-        Args:
-            pricing: Optional mapping of model_id to ModelPricing loaded from
-                the database. If not provided, a built-in approximate pricing
-                table will be used as a fallback.
+        Pricing is handled automatically via LiteLLM's bundled model_cost database.
         """
         self.clients: dict[str, Agent[Any, Any]] = {}
-        self.pricing: dict[str, ModelPricing] = pricing or {}
 
     async def execute(
         self,
@@ -244,35 +239,16 @@ class ModelExecutor:
     def _compute_cost(self, usage: Any, model: str) -> float:
         """Compute cost based on token usage and model pricing.
 
+        Uses LiteLLM's bundled model_cost database for accurate, up-to-date pricing.
+
         Args:
             usage: Token usage from PydanticAI (Usage object or dict)
             model: Model identifier
 
         Returns:
             Cost in dollars
-
-        Pricing strategy:
-            1. If database-backed pricing is available for the model, use it.
-            2. Otherwise, fall back to a built-in approximate pricing table.
         """
-        # Prefer database-backed pricing when available
-        db_pricing = self.pricing.get(model)
-
-        if db_pricing is not None:
-            input_cost_per_token = db_pricing.input_cost_per_token
-            output_cost_per_token = db_pricing.output_cost_per_token
-        else:
-            # Load fallback pricing from conduit.yaml
-            # Note: These are approximate. Database pricing should be preferred.
-            fallback_pricing = get_fallback_pricing()
-            default_pricing = get_default_pricing()
-
-            model_pricing = fallback_pricing.get(model, default_pricing)
-
-            input_cost_per_token = model_pricing["input"] / 1_000_000.0
-            output_cost_per_token = model_pricing["output"] / 1_000_000.0
-
-        # Handle Usage object (has attributes) or dict (has .get method)
+        # Extract token counts from Usage object or dict
         if hasattr(usage, "request_tokens") or hasattr(usage, "input_tokens"):
             # Usage object with attributes (check both naming conventions)
             input_tokens = getattr(usage, "request_tokens", 0) or getattr(
@@ -281,6 +257,7 @@ class ModelExecutor:
             output_tokens = getattr(usage, "response_tokens", 0) or getattr(
                 usage, "output_tokens", 0
             )
+            cache_read_tokens = getattr(usage, "cache_read_tokens", 0) or 0
         elif isinstance(usage, dict):
             # Dict with keys
             input_tokens = usage.get("request_tokens", 0) or usage.get(
@@ -289,6 +266,7 @@ class ModelExecutor:
             output_tokens = usage.get("response_tokens", 0) or usage.get(
                 "output_tokens", 0
             )
+            cache_read_tokens = usage.get("cache_read_tokens", 0) or 0
         else:
             # Fallback: try to convert to dict
             try:
@@ -299,12 +277,14 @@ class ModelExecutor:
                 output_tokens = usage_dict.get("response_tokens", 0) or usage_dict.get(
                     "output_tokens", 0
                 )
+                cache_read_tokens = usage_dict.get("cache_read_tokens", 0) or 0
             except Exception:
                 logger.warning(f"Could not extract tokens from usage object: {usage}")
                 return 0.0
 
-        cost = (input_tokens * input_cost_per_token) + (
-            output_tokens * output_cost_per_token
+        return compute_cost(
+            input_tokens=input_tokens or 0,
+            output_tokens=output_tokens or 0,
+            model_id=model,
+            cache_read_tokens=cache_read_tokens or 0,
         )
-
-        return float(cost)

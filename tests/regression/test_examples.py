@@ -18,6 +18,7 @@ Test categories:
 import asyncio
 import importlib.util
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -51,8 +52,11 @@ def run_example(example_path: Path, timeout: int = 30) -> tuple[int, str, str]:
     env["PYTHONPATH"] = str(PROJECT_ROOT)
 
     # Use uv run to ensure correct environment with conduit installed
+    # Try to find uv in common locations
+    uv_path = shutil.which("uv") or os.path.expanduser("~/.local/bin/uv")
+
     result = subprocess.run(
-        ["uv", "run", "python", str(example_path)],
+        [uv_path, "run", "python", str(example_path)],
         cwd=PROJECT_ROOT,
         capture_output=True,
         text=True,

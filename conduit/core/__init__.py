@@ -34,7 +34,12 @@ from conduit.core.postgres_state_store import (
     PostgresStateStore,
     StateVersionConflictError,
 )
-from conduit.core.pricing import ModelPricing
+from conduit.core.pricing import (
+    ModelPricing,
+    compute_cost,
+    get_all_model_pricing,
+    get_model_pricing,
+)
 from conduit.core.reward_calculation import (
     apply_user_preferences,
     calculate_composite_reward,
@@ -87,6 +92,9 @@ __all__ = [
     "RoutingResult",
     # Pricing
     "ModelPricing",
+    "get_model_pricing",
+    "get_all_model_pricing",
+    "compute_cost",
     # Reward Calculation
     "calculate_composite_reward",
     "normalize_quality",
