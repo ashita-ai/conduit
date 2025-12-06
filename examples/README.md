@@ -30,7 +30,7 @@ brew install redis && redis-server
 - Shows which models YOU can use (based on .env API keys)
 - Filter by quality, cost, or provider
 - Dynamic detection of configured providers
-- Auto-fetches pricing from llm-prices.com (24h cache)
+- Uses LiteLLM's bundled pricing database (updates with `uv update litellm`)
 
 ### 02_routing/ - Smart Model Selection
 

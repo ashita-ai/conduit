@@ -678,26 +678,46 @@ def load_algorithm_config(algorithm: str) -> dict[str, Any]:
     return defaults
 
 
-def load_feature_dimensions() -> dict[str, int | float]:
-    """Load feature dimension configuration from conduit.yaml.
+def load_feature_dimensions(auto_detect: bool = True) -> dict[str, int | float]:
+    """Load feature dimension configuration with auto-detection support.
 
-    3-tier fallback chain:
+    4-tier fallback chain:
         1. YAML config (conduit.yaml features)
         2. Environment variables (FEATURES_{KEY})
-        3. Hardcoded defaults (embedded below)
+        3. Auto-detect from embedding provider (if auto_detect=True)
+        4. Hardcoded defaults (ultimate fallback)
+
+    Auto-detection creates an embedding provider based on configuration and
+    reads its dimension property. This ensures dimensions match the actual
+    provider being used, regardless of configuration changes.
+
+    Args:
+        auto_detect: If True, detect dimensions from embedding provider when
+            not explicitly configured. Set to False to skip auto-detection
+            (useful for testing or when provider initialization is expensive).
 
     Returns:
-        Dict with feature dimension configuration
+        Dict with feature dimension configuration:
+        - embedding_dim: Base embedding dimension from provider
+        - full_dim: embedding_dim + 2 (token_count + complexity_score metadata)
+        - pca_dim: PCA components + 2 metadata (if PCA enabled)
+        - token_count_normalization: Divisor for token count normalization
 
     Example:
+        >>> # Auto-detect from OpenAI
         >>> config = load_feature_dimensions()
         >>> config["embedding_dim"]
-        384
-        >>> config["token_count_normalization"]
-        1000.0
+        1536  # OpenAI text-embedding-3-small
+        >>> config["full_dim"]
+        1538  # 1536 + 2 metadata
+
+        >>> # Skip auto-detection (use YAML/env/defaults)
+        >>> config = load_feature_dimensions(auto_detect=False)
+        >>> config["embedding_dim"]
+        384  # Default if not configured
     """
-    # Hardcoded defaults (ultimate fallback, no imports from defaults.py)
-    defaults = {
+    # Static defaults (only used as ultimate fallback)
+    static_defaults = {
         "embedding_dim": 384,
         "full_dim": 386,
         "pca_dim": 66,
@@ -705,22 +725,23 @@ def load_feature_dimensions() -> dict[str, int | float]:
     }
 
     config_path = Path("conduit.yaml")
+    yaml_features: dict[str, Any] = {}
 
-    # Try YAML
+    # Try YAML first
     if config_path.exists():
         try:
             with open(config_path) as f:
                 config = yaml.safe_load(f)
                 if isinstance(config, dict):
                     features = config.get("features", {})
-                    if isinstance(features, dict) and features:
-                        return {**defaults, **features}
+                    if isinstance(features, dict):
+                        yaml_features = features
         except Exception:
             pass
 
     # Try environment variables
-    env_overrides = {}
-    for key in defaults:
+    env_overrides: dict[str, int | float] = {}
+    for key in static_defaults:
         env_key = f"FEATURES_{key.upper()}"
         env_value = os.getenv(env_key)
         if env_value is not None:
@@ -729,10 +750,45 @@ def load_feature_dimensions() -> dict[str, int | float]:
             except ValueError:
                 pass
 
-    if env_overrides:
-        return {**defaults, **env_overrides}
+    # If explicit config found, use it (YAML or env override)
+    if yaml_features or env_overrides:
+        result = {**static_defaults, **yaml_features, **env_overrides}
+        return result
 
-    return defaults
+    # Auto-detect from embedding provider if enabled
+    if auto_detect:
+        try:
+            from conduit.engines.embeddings.factory import create_embedding_provider
+
+            # Load embedding config to determine provider
+            embed_config = load_embeddings_config()
+            provider = create_embedding_provider(
+                provider_type=embed_config.get("provider", "auto"),
+                model=embed_config.get("model"),
+            )
+
+            embedding_dim = provider.dimension
+            pca_config = embed_config
+            pca_enabled = pca_config.get("pca_enabled", False)
+            pca_components = pca_config.get("pca_components", 128)
+
+            # Calculate dimensions
+            full_dim = embedding_dim + 2  # +2 for token_count and complexity_score
+            pca_dim = pca_components + 2 if pca_enabled else static_defaults["pca_dim"]
+
+            return {
+                "embedding_dim": embedding_dim,
+                "full_dim": full_dim,
+                "pca_dim": pca_dim,
+                "token_count_normalization": static_defaults[
+                    "token_count_normalization"
+                ],
+            }
+        except Exception:
+            # Fall back to static defaults if auto-detection fails
+            pass
+
+    return static_defaults
 
 
 def load_quality_estimation_config() -> dict[str, Any]:

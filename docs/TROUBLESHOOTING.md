@@ -569,7 +569,7 @@ models_before = available_models(providers=["openai"])
 # Returns: gpt-4o, gpt-4o-mini, gpt-3.5-turbo, etc.
 
 # After OpenAI deprecates GPT-3.5-Turbo
-# llm-prices.com automatically updates
+# LiteLLM's bundled pricing automatically updates (run: uv update litellm)
 
 models_after = available_models(providers=["openai"])
 # Returns: gpt-4o, gpt-4o-mini (no gpt-3.5-turbo)

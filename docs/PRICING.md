@@ -206,9 +206,11 @@ from conduit.core.pricing import get_model_pricing, compute_cost
 pricing = get_model_pricing("unknown-model-xyz")
 assert pricing is None
 
-# compute_cost returns 0 and logs a warning
+# compute_cost uses conservative fallback pricing (GPT-4 tier)
+# $10/1M input + $30/1M output to avoid underreporting costs
 cost = compute_cost(1000, 500, "unknown-model-xyz")
-assert cost == 0.0  # Logged: "No pricing for unknown-model-xyz, returning 0 cost"
+# 1000 * $10/1M + 500 * $30/1M = $0.01 + $0.015 = $0.025
+assert cost == 0.025  # Logged: "No pricing for unknown-model-xyz, using conservative fallback"
 ```
 
 ## Testing
