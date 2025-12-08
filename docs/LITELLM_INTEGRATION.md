@@ -401,7 +401,6 @@ This would allow Conduit to use LiteLLM for execution while keeping ML routing. 
 
 ### Conduit Documentation
 - [Bandit Algorithms](./BANDIT_ALGORITHMS.md)
-- [Model Discovery](./MODEL_DISCOVERY.md)
 - [Architecture](./ARCHITECTURE.md)
 - [AGENTS.md (Development Guide)](../AGENTS.md)
 

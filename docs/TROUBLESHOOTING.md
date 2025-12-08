@@ -435,7 +435,7 @@ arms = [
 ]
 
 # Priors guide initial exploration
-# See docs/COLD_START.md for details
+# See docs/BANDIT_ALGORITHMS.md for details
 ```
 
 ---
@@ -975,9 +975,7 @@ router = Router(models=available_models())
 ### Check Documentation
 - **Architecture**: `docs/ARCHITECTURE.md`
 - **Bandit Algorithms**: `docs/BANDIT_ALGORITHMS.md`
-- **Cold Start**: `docs/COLD_START.md`
-- **Hybrid Routing**: `docs/HYBRID_ROUTING.md`
-- **Model Discovery**: `docs/MODEL_DISCOVERY.md`
+- **Hybrid Routing**: `docs/HYBRID_ROUTING_ALGORITHMS.md`
 
 ### Run Examples
 ```bash

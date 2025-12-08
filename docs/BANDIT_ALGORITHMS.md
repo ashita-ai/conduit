@@ -1129,8 +1129,6 @@ reward = 0.7 * quality + 0.2 * (1 - normalized_cost) + 0.1 * (1 - normalized_lat
 3. **Forced exploration**: Require N queries per model before exploitation
 4. **Transfer learning**: Use prior knowledge from similar models
 
-See `docs/COLD_START.md` for detailed strategies.
-
 ---
 
 ## References
@@ -1150,9 +1148,7 @@ See `docs/COLD_START.md` for detailed strategies.
 ### Related Conduit Docs
 
 - `docs/ARCHITECTURE.md`: System design and routing flow
-- `docs/BANDIT_TRAINING.md`: Training strategies and hyperparameters
-- `docs/COLD_START.md`: Bootstrapping new models
-- `docs/BENCHMARK_STRATEGY.md`: Algorithm comparison methodology
+- `docs/HYBRID_ROUTING_ALGORITHMS.md`: Hybrid algorithm strategies
 - `AGENTS.md`: Developer guide with code examples
 
 ---
