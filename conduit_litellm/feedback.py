@@ -13,7 +13,8 @@ from uuid import uuid4
 from conduit.core.config import load_quality_estimation_config
 from conduit.core.models import Query, Response
 from conduit.engines.bandits.base import BanditFeedback
-from conduit_litellm.utils import extract_query_text, map_litellm_to_conduit
+from conduit_litellm.model_registry import ModelRegistry, ResolveResult
+from conduit_litellm.utils import extract_query_text
 
 logger = logging.getLogger(__name__)
 
@@ -53,20 +54,38 @@ class ConduitFeedbackLogger(CustomLogger):
         >>> # Logger automatically updates bandit when LiteLLM requests complete
     """
 
-    def __init__(self, conduit_router: Any, evaluator: Any | None = None):
+    def __init__(
+        self,
+        conduit_router: Any,
+        evaluator: Any | None = None,
+        litellm_to_conduit_map: dict[str, str] | None = None,
+        model_registry: ModelRegistry | None = None,
+    ):
         """Initialize feedback logger with Conduit router reference.
 
         Args:
             conduit_router: Conduit instance (provides analyzer and bandit)
             evaluator: Optional ArbiterEvaluator for LLM-as-judge quality assessment
+            litellm_to_conduit_map: Mapping from LiteLLM model names to Conduit model IDs
+            model_registry: Optional ModelRegistry for robust alias resolution.
+                If not provided, creates a per-instance registry.
         """
         super().__init__()
         self.router = conduit_router
         self.evaluator = evaluator
+        self._litellm_to_conduit_map = litellm_to_conduit_map or {}
+        # Per-instance registry (avoids global state pollution)
+        self._model_registry = model_registry or ModelRegistry()
+
+        # Register explicit mappings with the registry
+        for litellm_name, conduit_id in self._litellm_to_conduit_map.items():
+            self._model_registry.register_mapping(litellm_name, conduit_id)
+
         logger.info(
             f"ConduitFeedbackLogger initialized "
             f"(hybrid={self.router.hybrid_router is not None}, "
-            f"evaluator={'enabled' if evaluator else 'disabled'})"
+            f"evaluator={'enabled' if evaluator else 'disabled'}, "
+            f"model_mappings={len(self._litellm_to_conduit_map)})"
         )
 
     async def async_log_success_event(
@@ -122,16 +141,24 @@ class ConduitFeedbackLogger(CustomLogger):
                 logger.warning("No model ID in LiteLLM response, skipping feedback")
                 return
 
-            # Map LiteLLM model ID to Conduit format (e.g., "gpt-4o-mini-2024-07-18" → "o4-mini")
-            model_id = map_litellm_to_conduit(litellm_model_id)
+            # Map LiteLLM model ID to Conduit format using new ResolveResult API
+            resolve_result = self._resolve_model_id(litellm_model_id)
 
-            # Validate model exists in router's arms
-            if not self._validate_model_id(model_id):
+            # Check if resolution succeeded (ResolveResult has __bool__ = success)
+            if not resolve_result:
+                # Resolution failed - log with full context and skip feedback
                 logger.warning(
-                    f"Model '{model_id}' (LiteLLM: '{litellm_model_id}') not in router arms, "
-                    f"skipping feedback (available: {self._get_available_model_ids()})"
+                    f"Model resolution failed - skipping feedback. "
+                    f"Input: '{litellm_model_id}', "
+                    f"Fallback: '{resolve_result.model_id}', "
+                    f"Source: {resolve_result.source.value}, "
+                    f"Confidence: {resolve_result.confidence:.2f}. "
+                    f"Available: {self._get_available_model_ids()[:5]}. "
+                    f"Registry stats: {self._model_registry.get_mapping_state().get('stats', {})}"
                 )
                 return
+
+            model_id = resolve_result.model_id
 
             # Extract response text for quality estimation
             response_text = self._extract_response_text(response_obj)
@@ -242,16 +269,18 @@ class ConduitFeedbackLogger(CustomLogger):
                 logger.warning("No model ID in failed request, skipping feedback")
                 return
 
-            # Map LiteLLM model ID to Conduit format (e.g., "gpt-4o-mini-2024-07-18" → "o4-mini")
-            model_id = map_litellm_to_conduit(litellm_model_id)
+            # Map LiteLLM model ID to Conduit format using new ResolveResult API
+            resolve_result = self._resolve_model_id(litellm_model_id)
 
-            # Validate model exists in router's arms
-            if not self._validate_model_id(model_id):
+            # Check if resolution succeeded
+            if not resolve_result:
                 logger.warning(
-                    f"Model '{model_id}' (LiteLLM: '{litellm_model_id}') not in router arms, "
-                    f"skipping failure feedback"
+                    f"Model resolution failed - skipping failure feedback. "
+                    f"Input: '{litellm_model_id}', Source: {resolve_result.source.value}"
                 )
                 return
+
+            model_id = resolve_result.model_id
 
             # Create feedback with low quality (failure = poor response)
             feedback = BanditFeedback(
@@ -306,31 +335,37 @@ class ConduitFeedbackLogger(CustomLogger):
 
         return None
 
-    def _validate_model_id(self, model_id: str) -> bool:
-        """Validate that model_id exists in router's available arms.
+    def _resolve_model_id(self, litellm_model_id: str) -> ResolveResult:
+        """Resolve LiteLLM model ID to Conduit model ID.
+
+        Uses the ModelRegistry for robust alias resolution with explicit
+        success/failure indication via ResolveResult.
+
+        Resolution order:
+        1. Exact alias match (confidence: 1.0)
+        2. Normalized mapping match (confidence: 0.95)
+        3. Fuzzy match against available router arms (confidence: 0.5-1.0)
+        4. Failure with normalized form as fallback (confidence: 0.0)
 
         Args:
-            model_id: Model identifier to validate
+            litellm_model_id: Model ID from LiteLLM response (e.g., "gpt-4o-mini-2024-07-18")
 
         Returns:
-            True if model exists in arms, False otherwise
+            ResolveResult with model_id, confidence, and success status.
+            Check `result.success` or `if result:` to determine if resolution succeeded.
+
+        Example:
+            >>> result = self._resolve_model_id("gpt-4o-mini-2024-07-18")
+            >>> if result:
+            ...     print(f"Resolved to {result.model_id}")
+            ... else:
+            ...     print(f"Failed: {result.source}")
         """
-        # Check hybrid router arms (both bandits share same arms list)
-        if hasattr(self.router, "hybrid_router") and self.router.hybrid_router is not None:
-            # Try linucb first (always exists in hybrid router)
-            if hasattr(self.router.hybrid_router, "linucb"):
-                bandit = self.router.hybrid_router.linucb
-                return model_id in bandit.arms if bandit else False
-            # Fallback to ucb1 (also always exists)
-            if hasattr(self.router.hybrid_router, "ucb1"):
-                bandit = self.router.hybrid_router.ucb1
-                return model_id in bandit.arms if bandit else False
+        # Get available model IDs from router for fuzzy matching
+        available_models = self._get_available_model_ids()
 
-        # Check standard bandit arms
-        if hasattr(self.router, "bandit") and self.router.bandit is not None:
-            return model_id in self.router.bandit.arms
-
-        return False
+        # Use registry for robust resolution with explicit result
+        return self._model_registry.resolve(litellm_model_id, available_models)
 
     def _get_available_model_ids(self) -> list[str]:
         """Get list of available model IDs from router arms.

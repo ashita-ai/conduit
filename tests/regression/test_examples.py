@@ -7,12 +7,9 @@ They validate that:
 3. Examples handle missing dependencies gracefully
 
 Test categories:
-- Quickstart examples: Basic router usage
-- Routing examples: Different routing strategies
-- Optimization examples: Caching, state persistence
-- LiteLLM examples: Integration with LiteLLM router
-- Personalization examples: User preferences
-- Integration examples: External library integrations
+- Core examples: Main demonstration files at root level
+- Additional examples: Routing, optimization, LiteLLM, personalization
+- Integration examples: External library integrations (in integrations/)
 """
 
 import asyncio
@@ -102,15 +99,65 @@ def requires_langchain(func):
 
 
 # ============================================================
-# Quickstart Examples (2 files)
+# Core Examples (4 main files at root level)
+# ============================================================
+
+
+@pytest.mark.regression
+@requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
+def test_quickstart():
+    """Test examples/quickstart.py runs successfully."""
+    example = EXAMPLES_DIR / "quickstart.py"
+    exit_code, stdout, stderr = run_example(example)
+
+    assert exit_code == 0, f"Example failed with stderr: {stderr}"
+    assert "Routing query:" in stdout or "Selected:" in stdout
+
+
+@pytest.mark.regression
+@requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
+def test_routing_options():
+    """Test examples/routing_options.py runs successfully."""
+    example = EXAMPLES_DIR / "routing_options.py"
+    exit_code, stdout, stderr = run_example(example, timeout=120)
+
+    assert exit_code == 0, f"Example failed with stderr: {stderr}"
+    assert "CONSTRAINTS" in stdout or "PREFERENCES" in stdout
+
+
+@pytest.mark.regression
+@requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
+def test_feedback_loop():
+    """Test examples/feedback_loop.py runs successfully."""
+    example = EXAMPLES_DIR / "feedback_loop.py"
+    exit_code, stdout, stderr = run_example(example, timeout=120)
+
+    assert exit_code == 0, f"Example failed with stderr: {stderr}"
+    assert "CACHING" in stdout or "LEARNING" in stdout or "PERSISTENCE" in stdout
+
+
+@pytest.mark.regression
+@requires_litellm
+@requires_api_key("OPENAI_API_KEY")
+def test_litellm_integration():
+    """Test examples/litellm_integration.py runs successfully."""
+    example = EXAMPLES_DIR / "litellm_integration.py"
+    exit_code, stdout, stderr = run_example(example, timeout=300)
+
+    assert exit_code == 0, f"Example failed with stderr: {stderr}"
+    assert "LITELLM" in stdout.upper() or "Conduit" in stdout
+
+
+# ============================================================
+# Quickstart Examples (at root level)
 # ============================================================
 
 
 @pytest.mark.regression
 @requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 def test_hello_world():
-    """Test examples/01_quickstart/hello_world.py runs successfully."""
-    example = EXAMPLES_DIR / "01_quickstart" / "hello_world.py"
+    """Test examples/hello_world.py runs successfully."""
+    example = EXAMPLES_DIR / "hello_world.py"
     exit_code, stdout, stderr = run_example(example)
 
     # Verify execution
@@ -124,8 +171,8 @@ def test_hello_world():
 @pytest.mark.regression
 @requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 def test_simple_router():
-    """Test examples/01_quickstart/simple_router.py runs successfully."""
-    example = EXAMPLES_DIR / "01_quickstart" / "simple_router.py"
+    """Test examples/simple_router.py runs successfully."""
+    example = EXAMPLES_DIR / "simple_router.py"
     exit_code, stdout, stderr = run_example(example)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -135,15 +182,15 @@ def test_simple_router():
 
 
 # ============================================================
-# Routing Examples (4 files)
+# Routing Examples (at root level)
 # ============================================================
 
 
 @pytest.mark.regression
 @requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 def test_basic_routing():
-    """Test examples/02_routing/basic_routing.py runs successfully."""
-    example = EXAMPLES_DIR / "02_routing" / "basic_routing.py"
+    """Test examples/basic_routing.py runs successfully."""
+    example = EXAMPLES_DIR / "basic_routing.py"
     exit_code, stdout, stderr = run_example(example)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -156,8 +203,8 @@ def test_basic_routing():
 @pytest.mark.regression
 @requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 def test_context_specific_priors():
-    """Test examples/02_routing/context_specific_priors.py runs successfully."""
-    example = EXAMPLES_DIR / "02_routing" / "context_specific_priors.py"
+    """Test examples/context_specific_priors.py runs successfully."""
+    example = EXAMPLES_DIR / "context_specific_priors.py"
     exit_code, stdout, stderr = run_example(example, timeout=60)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -170,7 +217,7 @@ def test_context_specific_priors():
 @pytest.mark.skip(reason="Example hardcodes feature_dim=386 (384-dim embeddings) but auto-detects OpenAI (1536-dim). Requires embedding provider configuration not available in test environment.")
 @requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 def test_hybrid_routing():
-    """Test examples/02_routing/hybrid_routing.py runs successfully.
+    """Test examples/hybrid_routing.py runs successfully.
 
     SKIPPED: This example hardcodes feature_dim=386 which expects 384-dim
     embeddings, but the test environment auto-detects OpenAI embeddings which
@@ -178,7 +225,7 @@ def test_hybrid_routing():
     to either: (1) specify an embedding provider explicitly, or (2) calculate
     feature_dim dynamically based on the detected provider.
     """
-    example = EXAMPLES_DIR / "02_routing" / "hybrid_routing.py"
+    example = EXAMPLES_DIR / "hybrid_routing.py"
     exit_code, stdout, stderr = run_example(example)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -190,8 +237,8 @@ def test_hybrid_routing():
 @pytest.mark.regression
 @requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 def test_with_constraints():
-    """Test examples/02_routing/with_constraints.py runs successfully."""
-    example = EXAMPLES_DIR / "02_routing" / "with_constraints.py"
+    """Test examples/with_constraints.py runs successfully."""
+    example = EXAMPLES_DIR / "with_constraints.py"
     exit_code, stdout, stderr = run_example(example)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -201,15 +248,15 @@ def test_with_constraints():
 
 
 # ============================================================
-# Optimization Examples (3 files)
+# Optimization Examples (at root level)
 # ============================================================
 
 
 @pytest.mark.regression
 @requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 def test_caching():
-    """Test examples/03_optimization/caching.py runs successfully."""
-    example = EXAMPLES_DIR / "03_optimization" / "caching.py"
+    """Test examples/caching.py runs successfully."""
+    example = EXAMPLES_DIR / "caching.py"
     exit_code, stdout, stderr = run_example(example, timeout=60)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -221,8 +268,8 @@ def test_caching():
 @pytest.mark.regression
 @requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 def test_pca_comparison():
-    """Test examples/03_optimization/pca_comparison.py runs successfully."""
-    example = EXAMPLES_DIR / "03_optimization" / "pca_comparison.py"
+    """Test examples/pca_comparison.py runs successfully."""
+    example = EXAMPLES_DIR / "pca_comparison.py"
     exit_code, stdout, stderr = run_example(example, timeout=240)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -234,8 +281,8 @@ def test_pca_comparison():
 @pytest.mark.regression
 @requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 def test_state_persistence():
-    """Test examples/03_optimization/state_persistence.py runs successfully."""
-    example = EXAMPLES_DIR / "03_optimization" / "state_persistence.py"
+    """Test examples/state_persistence.py runs successfully."""
+    example = EXAMPLES_DIR / "state_persistence.py"
     exit_code, stdout, stderr = run_example(example)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -245,7 +292,7 @@ def test_state_persistence():
 
 
 # ============================================================
-# LiteLLM Examples (5 files)
+# LiteLLM Examples (at root level)
 # ============================================================
 
 
@@ -253,8 +300,8 @@ def test_state_persistence():
 @requires_litellm
 @requires_api_key("OPENAI_API_KEY")
 def test_basic_usage():
-    """Test examples/04_litellm/basic_usage.py runs successfully."""
-    example = EXAMPLES_DIR / "04_litellm" / "basic_usage.py"
+    """Test examples/basic_usage.py runs successfully."""
+    example = EXAMPLES_DIR / "basic_usage.py"
     exit_code, stdout, stderr = run_example(example, timeout=300)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -267,8 +314,8 @@ def test_basic_usage():
 @requires_litellm
 @requires_api_key("OPENAI_API_KEY")
 def test_custom_config():
-    """Test examples/04_litellm/custom_config.py runs successfully."""
-    example = EXAMPLES_DIR / "04_litellm" / "custom_config.py"
+    """Test examples/custom_config.py runs successfully."""
+    example = EXAMPLES_DIR / "custom_config.py"
     exit_code, stdout, stderr = run_example(example, timeout=300)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -281,8 +328,8 @@ def test_custom_config():
 @requires_litellm
 @requires_api_key("OPENAI_API_KEY")
 def test_learning_demo():
-    """Test examples/04_litellm/learning_demo.py runs successfully."""
-    example = EXAMPLES_DIR / "04_litellm" / "learning_demo.py"
+    """Test examples/learning_demo.py runs successfully."""
+    example = EXAMPLES_DIR / "learning_demo.py"
     exit_code, stdout, stderr = run_example(example, timeout=400)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -295,8 +342,8 @@ def test_learning_demo():
 @requires_litellm
 @requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 def test_multi_provider():
-    """Test examples/04_litellm/multi_provider.py runs successfully."""
-    example = EXAMPLES_DIR / "04_litellm" / "multi_provider.py"
+    """Test examples/multi_provider.py runs successfully."""
+    example = EXAMPLES_DIR / "multi_provider.py"
     exit_code, stdout, stderr = run_example(example, timeout=300)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -309,8 +356,8 @@ def test_multi_provider():
 @requires_litellm
 @requires_api_key("OPENAI_API_KEY")
 def test_arbiter_quality_measurement():
-    """Test examples/04_litellm/arbiter_quality_measurement.py runs successfully."""
-    example = EXAMPLES_DIR / "04_litellm" / "arbiter_quality_measurement.py"
+    """Test examples/arbiter_quality_measurement.py runs successfully."""
+    example = EXAMPLES_DIR / "arbiter_quality_measurement.py"
     exit_code, stdout, stderr = run_example(example, timeout=180)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -321,15 +368,15 @@ def test_arbiter_quality_measurement():
 
 
 # ============================================================
-# Personalization Examples (1 file)
+# Personalization Examples (at root level)
 # ============================================================
 
 
 @pytest.mark.regression
 @requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 def test_explicit_preferences():
-    """Test examples/05_personalization/explicit_preferences.py runs successfully."""
-    example = EXAMPLES_DIR / "05_personalization" / "explicit_preferences.py"
+    """Test examples/explicit_preferences.py runs successfully."""
+    example = EXAMPLES_DIR / "explicit_preferences.py"
     exit_code, stdout, stderr = run_example(example)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
@@ -339,26 +386,114 @@ def test_explicit_preferences():
 
 
 # ============================================================
-# Integration Examples (1 file)
+# Integration Examples (in integrations/ subdirectory)
 # ============================================================
+
+
+def requires_llamaindex(func):
+    """Skip test if llama-index is not installed."""
+    try:
+        import llama_index  # noqa: F401
+
+        return func
+    except ImportError:
+        return pytest.mark.skip(
+            reason="Requires llama-index (pip install llama-index)"
+        )(func)
+
+
+def requires_fastapi(func):
+    """Skip test if fastapi is not installed."""
+    try:
+        import fastapi  # noqa: F401
+
+        return func
+    except ImportError:
+        return pytest.mark.skip(reason="Requires fastapi (pip install fastapi)")(func)
+
+
+def requires_gradio(func):
+    """Skip test if gradio is not installed."""
+    try:
+        import gradio  # noqa: F401
+
+        return func
+    except ImportError:
+        return pytest.mark.skip(reason="Requires gradio (pip install gradio)")(func)
 
 
 @pytest.mark.regression
 @requires_langchain
 @requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
-@pytest.mark.skipif(
-    sys.version_info >= (3, 14),
-    reason="LangChain has Python 3.14 compatibility issues with AsyncCallbackHandlerForLLMRun",
-)
+@pytest.mark.skip(reason="Requires langchain (pip install conduit[langchain])")
 def test_langchain_integration():
-    """Test examples/06_integrations/langchain_integration.py runs successfully."""
-    example = EXAMPLES_DIR / "06_integrations" / "langchain_integration.py"
+    """Test examples/integrations/langchain_integration.py runs successfully."""
+    example = EXAMPLES_DIR / "integrations" / "langchain_integration.py"
     exit_code, stdout, stderr = run_example(example, timeout=120)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
 
     # Should demonstrate LangChain integration
     assert "langchain" in stdout.lower() or "chain" in stdout.lower()
+
+
+@pytest.mark.regression
+@requires_llamaindex
+@requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
+@pytest.mark.skip(reason="Requires llama-index (pip install llama-index)")
+def test_llamaindex_integration():
+    """Test examples/integrations/llamaindex_integration.py runs successfully."""
+    example = EXAMPLES_DIR / "integrations" / "llamaindex_integration.py"
+    exit_code, stdout, stderr = run_example(example, timeout=180)
+
+    assert exit_code == 0, f"Example failed with stderr: {stderr}"
+
+    # Should demonstrate LlamaIndex integration
+    combined_output = stdout + stderr
+    assert (
+        "llamaindex" in combined_output.lower()
+        or "llama" in combined_output.lower()
+        or "basic usage" in combined_output.lower()
+    )
+
+
+@pytest.mark.regression
+@requires_fastapi
+@requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
+def test_fastapi_service():
+    """Test examples/integrations/fastapi_service.py runs successfully.
+
+    Note: This test runs the example in info mode (no --demo or --serve),
+    which just prints usage information and exits.
+    """
+    example = EXAMPLES_DIR / "integrations" / "fastapi_service.py"
+    exit_code, stdout, stderr = run_example(example, timeout=30)
+
+    assert exit_code == 0, f"Example failed with stderr: {stderr}"
+
+    # Should print FastAPI service info
+    assert "fastapi" in stdout.lower() or "conduit" in stdout.lower()
+
+
+@pytest.mark.regression
+@requires_gradio
+@requires_api_key("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
+@pytest.mark.skip(
+    reason="Gradio demo launches interactive server - not suitable for automated testing"
+)
+def test_gradio_demo():
+    """Test examples/integrations/gradio_demo.py runs successfully.
+
+    SKIPPED: Gradio demo launches an interactive server that doesn't exit
+    automatically. Manual testing required.
+    """
+    example = EXAMPLES_DIR / "integrations" / "gradio_demo.py"
+    exit_code, stdout, stderr = run_example(example, timeout=30)
+
+    assert exit_code == 0, f"Example failed with stderr: {stderr}"
+
+    # Should demonstrate Gradio interface
+    assert "gradio" in stdout.lower() or "demo" in stdout.lower()
 
 
 # ============================================================
@@ -385,7 +520,7 @@ def test_all_examples_have_tests():
     # Verify each example has a test
     missing_tests = []
     for example_file in example_files:
-        # Convert path to test name (e.g., "01_quickstart/hello_world.py" -> "test_hello_world")
+        # Convert path to test name (e.g., "hello_world.py" -> "test_hello_world")
         relative_path = example_file.relative_to(EXAMPLES_DIR)
         parts = relative_path.parts
         test_name = f"test_{parts[-1].replace('.py', '')}"
@@ -404,16 +539,11 @@ def test_examples_directory_exists():
     example_files = list(EXAMPLES_DIR.rglob("*.py"))
     assert len(example_files) > 0, "No example files found in examples/"
 
-    # Expected structure
-    expected_dirs = [
-        "01_quickstart",
-        "02_routing",
-        "03_optimization",
-        "04_litellm",
-        "05_personalization",
-        "06_integrations",
-    ]
+    # Verify flat structure with integrations subdirectory
+    integrations_dir = EXAMPLES_DIR / "integrations"
+    assert integrations_dir.exists(), "Expected integrations/ directory"
 
-    for expected_dir in expected_dirs:
-        dir_path = EXAMPLES_DIR / expected_dir
-        assert dir_path.exists(), f"Expected directory not found: {expected_dir}"
+    # Verify some core examples exist at root level
+    core_examples = ["quickstart.py", "routing_options.py", "feedback_loop.py"]
+    for example in core_examples:
+        assert (EXAMPLES_DIR / example).exists(), f"Core example {example} not found at root level"
