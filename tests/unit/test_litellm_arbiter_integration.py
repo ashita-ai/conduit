@@ -8,6 +8,19 @@ import pytest
 from conduit.core.models import Query, QueryFeatures, Response
 from conduit.evaluation.arbiter_evaluator import ArbiterEvaluator
 
+# Import for litellm skip check
+pytest.importorskip("litellm", reason="litellm not installed")
+
+from conduit_litellm.model_registry import ModelRegistry
+
+
+@pytest.fixture
+def litellm_to_conduit_map():
+    """Mapping from LiteLLM model names to Conduit model IDs."""
+    return {
+        "gpt-4o-mini": "o4-mini",
+    }
+
 
 # Test fixture for evaluator
 @pytest.fixture
@@ -73,13 +86,17 @@ class TestArbiterIntegration:
 
     @pytest.mark.asyncio
     async def test_feedback_logger_with_evaluator(
-        self, mock_router, mock_evaluator, litellm_response
+        self, mock_router, mock_evaluator, litellm_response, litellm_to_conduit_map
     ):
         """Test ConduitFeedbackLogger calls evaluator when provided."""
         from conduit_litellm.feedback import ConduitFeedbackLogger
 
-        # Create feedback logger with evaluator
-        logger = ConduitFeedbackLogger(mock_router, evaluator=mock_evaluator)
+        # Create feedback logger with evaluator and model mapping
+        logger = ConduitFeedbackLogger(
+            mock_router,
+            evaluator=mock_evaluator,
+            litellm_to_conduit_map=litellm_to_conduit_map,
+        )
 
         # Simulate LiteLLM success callback
         kwargs = {
@@ -116,13 +133,17 @@ class TestArbiterIntegration:
 
     @pytest.mark.asyncio
     async def test_feedback_logger_without_evaluator(
-        self, mock_router, litellm_response
+        self, mock_router, litellm_response, litellm_to_conduit_map
     ):
         """Test ConduitFeedbackLogger works without evaluator."""
         from conduit_litellm.feedback import ConduitFeedbackLogger
 
-        # Create feedback logger WITHOUT evaluator
-        logger = ConduitFeedbackLogger(mock_router, evaluator=None)
+        # Create feedback logger WITHOUT evaluator but with model mapping
+        logger = ConduitFeedbackLogger(
+            mock_router,
+            evaluator=None,
+            litellm_to_conduit_map=litellm_to_conduit_map,
+        )
 
         # Simulate LiteLLM success callback
         kwargs = {
@@ -158,7 +179,7 @@ class TestArbiterIntegration:
 
     @pytest.mark.asyncio
     async def test_evaluator_token_extraction(
-        self, mock_router, mock_evaluator
+        self, mock_router, mock_evaluator, litellm_to_conduit_map
     ):
         """Test token count extraction from LiteLLM response."""
         from conduit_litellm.feedback import ConduitFeedbackLogger
@@ -171,7 +192,11 @@ class TestArbiterIntegration:
         response.usage.total_tokens = 250
         response._hidden_params = {"response_cost": 0.0002}
 
-        logger = ConduitFeedbackLogger(mock_router, evaluator=mock_evaluator)
+        logger = ConduitFeedbackLogger(
+            mock_router,
+            evaluator=mock_evaluator,
+            litellm_to_conduit_map=litellm_to_conduit_map,
+        )
 
         kwargs = {
             "model": "gpt-4o-mini",
@@ -193,7 +218,7 @@ class TestArbiterIntegration:
 
     @pytest.mark.asyncio
     async def test_evaluator_missing_tokens(
-        self, mock_router, mock_evaluator
+        self, mock_router, mock_evaluator, litellm_to_conduit_map
     ):
         """Test handles missing token usage gracefully."""
         from conduit_litellm.feedback import ConduitFeedbackLogger
@@ -206,7 +231,11 @@ class TestArbiterIntegration:
         # Explicitly set usage to None to indicate missing data
         response.usage = None
 
-        logger = ConduitFeedbackLogger(mock_router, evaluator=mock_evaluator)
+        logger = ConduitFeedbackLogger(
+            mock_router,
+            evaluator=mock_evaluator,
+            litellm_to_conduit_map=litellm_to_conduit_map,
+        )
 
         kwargs = {
             "model": "gpt-4o-mini",

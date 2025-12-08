@@ -86,9 +86,25 @@ def mock_hybrid_router():
 
 
 @pytest.fixture
-def feedback_logger(mock_router):
-    """Create ConduitFeedbackLogger instance."""
-    return ConduitFeedbackLogger(mock_router)
+def litellm_to_conduit_map():
+    """Mapping from LiteLLM model names to Conduit model IDs.
+
+    This simulates what ConduitRoutingStrategy would register.
+    """
+    return {
+        "gpt-4o-mini": "o4-mini",
+        "claude-3-haiku": "claude-3-haiku",
+        "gemini-pro": "gemini-2.5-pro",
+    }
+
+
+@pytest.fixture
+def feedback_logger(mock_router, litellm_to_conduit_map):
+    """Create ConduitFeedbackLogger instance with proper mappings."""
+    return ConduitFeedbackLogger(
+        mock_router,
+        litellm_to_conduit_map=litellm_to_conduit_map,
+    )
 
 
 @pytest.fixture
@@ -198,10 +214,13 @@ class TestConduitFeedbackLogger:
 
     @pytest.mark.asyncio
     async def test_hybrid_router_update(
-        self, mock_hybrid_router, litellm_kwargs, litellm_response
+        self, mock_hybrid_router, litellm_kwargs, litellm_response, litellm_to_conduit_map
     ):
         """Test feedback updates HybridRouter when in hybrid mode."""
-        logger = ConduitFeedbackLogger(mock_hybrid_router)
+        logger = ConduitFeedbackLogger(
+            mock_hybrid_router,
+            litellm_to_conduit_map=litellm_to_conduit_map,
+        )
 
         await logger.async_log_success_event(
             litellm_kwargs, litellm_response, 1000.0, 1001.0
@@ -320,15 +339,25 @@ class TestConduitFeedbackLogger:
         cost = feedback_logger._extract_cost(response)
         assert cost is None
 
-    def test_validate_model_id_exists(self, feedback_logger):
-        """Test model validation for existing model (using MAPPED Conduit IDs)."""
-        # Arms contain MAPPED IDs: o4-mini, claude-3-haiku, gemini-2.5-pro
-        assert feedback_logger._validate_model_id("o4-mini") is True
-        assert feedback_logger._validate_model_id("claude-3-haiku") is True
+    def test_resolve_model_id_exact_match(self, feedback_logger):
+        """Test model resolution with exact mapping match."""
+        from conduit_litellm.model_registry import MatchSource
 
-    def test_validate_model_id_not_exists(self, feedback_logger):
-        """Test model validation for non-existent model."""
-        assert feedback_logger._validate_model_id("nonexistent") is False
+        # "gpt-4o-mini" is mapped to "o4-mini" in the litellm_to_conduit_map
+        result = feedback_logger._resolve_model_id("gpt-4o-mini")
+        assert result.success
+        assert result.model_id == "o4-mini"
+        assert result.source == MatchSource.EXACT
+        assert result.confidence == 1.0
+
+    def test_resolve_model_id_not_found(self, feedback_logger):
+        """Test model resolution for unmapped model returns failure."""
+        from conduit_litellm.model_registry import MatchSource
+
+        result = feedback_logger._resolve_model_id("nonexistent-model-xyz")
+        assert not result.success
+        assert result.source == MatchSource.FAILED
+        assert result.confidence == 0.0
 
     def test_get_available_model_ids(self, feedback_logger):
         """Test getting available model IDs (MAPPED Conduit IDs)."""
@@ -407,11 +436,14 @@ class TestFeedbackIntegration:
 
     @pytest.mark.asyncio
     async def test_feedback_updates_bandit_state(
-        self, mock_router, litellm_kwargs, litellm_response
+        self, mock_router, litellm_kwargs, litellm_response, litellm_to_conduit_map
     ):
         """Test that feedback actually updates bandit internal state."""
-        # Create logger
-        logger = ConduitFeedbackLogger(mock_router)
+        # Create logger with mappings
+        logger = ConduitFeedbackLogger(
+            mock_router,
+            litellm_to_conduit_map=litellm_to_conduit_map,
+        )
 
         # Simulate multiple successes
         for i in range(3):
@@ -430,10 +462,13 @@ class TestFeedbackIntegration:
 
     @pytest.mark.asyncio
     async def test_feedback_handles_different_models(
-        self, mock_router, litellm_response
+        self, mock_router, litellm_response, litellm_to_conduit_map
     ):
         """Test feedback works with different model IDs."""
-        logger = ConduitFeedbackLogger(mock_router)
+        logger = ConduitFeedbackLogger(
+            mock_router,
+            litellm_to_conduit_map=litellm_to_conduit_map,
+        )
 
         # LiteLLM model IDs used in requests
         litellm_models = ["gpt-4o-mini", "claude-3-haiku", "gemini-pro"]

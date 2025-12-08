@@ -6,6 +6,7 @@ from typing import Any, cast
 from conduit.core.models import Query
 from conduit.engines.router import Router
 from conduit_litellm.feedback import ConduitFeedbackLogger
+from conduit_litellm.model_registry import ModelRegistry
 from conduit_litellm.utils import (
     extract_model_ids,
     extract_query_text,
@@ -100,6 +101,10 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         self._router: Any | None = None  # LiteLLM router reference
         self.feedback_logger: ConduitFeedbackLogger | None = None  # Feedback integration
         self._feedback_registered = False  # Track if feedback logger is registered
+        # Mapping from LiteLLM model names to Conduit model IDs
+        self._litellm_to_conduit_map: dict[str, str] = {}
+        # Per-instance model registry (avoids global state pollution)
+        self._model_registry = ModelRegistry()
 
     @staticmethod
     def setup_strategy(router: Any, strategy: "ConduitRoutingStrategy") -> None:
@@ -156,9 +161,48 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         # Extract model IDs from LiteLLM model_list
         model_ids = extract_model_ids(model_list)
 
+        # Build comprehensive mapping from LiteLLM model names to Conduit model IDs
+        # Register all variations with the model registry for robust resolution
+        self._litellm_to_conduit_map = {}
+        for i, deployment in enumerate(model_list):
+            conduit_id = model_ids[i]
+            litellm_params = deployment.get("litellm_params", {})
+
+            if isinstance(litellm_params, dict) and "model" in litellm_params:
+                litellm_model = litellm_params["model"]
+
+                # Register with model registry (handles normalization automatically)
+                # validate=True logs warning if model not in LiteLLM's model_cost
+                self._model_registry.register_mapping(
+                    litellm_model, conduit_id, validate=True
+                )
+
+                # Also store in local map for backward compatibility
+                self._litellm_to_conduit_map[litellm_model] = conduit_id
+
+                # Strip provider prefix and register that too
+                if "/" in litellm_model:
+                    base_model = litellm_model.split("/", 1)[1]
+                    self._litellm_to_conduit_map[base_model] = conduit_id
+                    self._model_registry.register_mapping(base_model, conduit_id)
+
+            # Also register the conduit_id itself (for cases where response matches config)
+            self._model_registry.register_mapping(conduit_id, conduit_id)
+
+        # Validate all mappings resolve correctly
+        validation_warnings = self._model_registry.validate_mappings(model_ids)
+        if validation_warnings:
+            logger.warning(
+                f"Model registry validation found {len(validation_warnings)} issues. "
+                "Some LiteLLM responses may not map correctly to router arms."
+            )
+
         logger.info(
             f"Initializing Conduit routing strategy with {len(model_ids)} models: "
             f"{', '.join(model_ids[:5])}{'...' if len(model_ids) > 5 else ''}"
+        )
+        logger.debug(
+            f"Model registry state: {self._model_registry.get_mapping_state()}"
         )
 
         # Initialize Conduit router if not provided
@@ -330,10 +374,13 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
             if self.feedback_logger is not None and self._feedback_registered:
                 self._unregister_feedback_logger()
 
-            # Create feedback logger with optional evaluator
+            # Create feedback logger with optional evaluator and model mapping
+            # Pass per-instance registry to avoid global state pollution
             self.feedback_logger = ConduitFeedbackLogger(
                 self.conduit_router,
-                evaluator=self.evaluator
+                evaluator=self.evaluator,
+                litellm_to_conduit_map=self._litellm_to_conduit_map,
+                model_registry=self._model_registry,
             )
 
             # Register with LiteLLM's callback system
@@ -395,6 +442,9 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
             ...     strategy.cleanup()
         """
         self._unregister_feedback_logger()
+        # Clear model registry to prevent stale mappings affecting future strategies
+        self._model_registry.clear()
+        self._initialized = False
         logger.info("ConduitRoutingStrategy cleaned up")
 
     async def record_feedback(

@@ -16,8 +16,20 @@ Usage:
 """
 
 from conduit_litellm.feedback import ConduitFeedbackLogger
+from conduit_litellm.model_registry import (
+    ModelRegistry,
+    get_global_registry,
+    normalize_model_name,
+)
 from conduit_litellm.strategy import ConduitRoutingStrategy
 from conduit_litellm.utils import map_litellm_to_conduit
 
 __version__ = "0.1.0"
-__all__ = ["ConduitRoutingStrategy", "ConduitFeedbackLogger", "map_litellm_to_conduit"]
+__all__ = [
+    "ConduitRoutingStrategy",
+    "ConduitFeedbackLogger",
+    "ModelRegistry",
+    "get_global_registry",
+    "normalize_model_name",
+    "map_litellm_to_conduit",
+]
