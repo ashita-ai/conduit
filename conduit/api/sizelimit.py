@@ -85,7 +85,7 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
                         f"for {request.url.path}"
                     )
                     return JSONResponse(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                         content={
                             "error": "request_too_large",
                             "message": f"Request body exceeds maximum size of {self.max_size} bytes",

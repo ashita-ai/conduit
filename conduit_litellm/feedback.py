@@ -23,9 +23,7 @@ try:
 
     LITELLM_AVAILABLE = True
 except ImportError:
-    logger.warning(
-        "LiteLLM not installed. Install with: pip install conduit[litellm]"
-    )
+    logger.warning("LiteLLM not installed. Install with: pip install conduit[litellm]")
     LITELLM_AVAILABLE = False
 
     # Stub base class for type checking
@@ -112,7 +110,9 @@ class ConduitFeedbackLogger(CustomLogger):
             input_data = kwargs.get("input")
             query_text = extract_query_text(messages=messages, input_data=input_data)
             if not query_text:
-                logger.warning("No query text found in LiteLLM request, skipping feedback")
+                logger.warning(
+                    "No query text found in LiteLLM request, skipping feedback"
+                )
                 return
 
             # Generate features using router's analyzer
@@ -192,9 +192,9 @@ class ConduitFeedbackLogger(CustomLogger):
 
                 # Extract token count from response (LiteLLM includes usage data)
                 tokens = 0
-                usage = getattr(response_obj, 'usage', None)
+                usage = getattr(response_obj, "usage", None)
                 if usage is not None:
-                    tokens = getattr(usage, 'total_tokens', 0)
+                    tokens = getattr(usage, "total_tokens", 0)
 
                 response_obj_conduit = Response(
                     id=getattr(response_obj, "id", str(uuid4())),
@@ -243,7 +243,9 @@ class ConduitFeedbackLogger(CustomLogger):
             input_data = kwargs.get("input")
             query_text = extract_query_text(messages=messages, input_data=input_data)
             if not query_text:
-                logger.warning("No query text found in failed request, skipping feedback")
+                logger.warning(
+                    "No query text found in failed request, skipping feedback"
+                )
                 return
 
             # Generate features
@@ -374,7 +376,10 @@ class ConduitFeedbackLogger(CustomLogger):
             List of model IDs available in router
         """
         # Check hybrid router (both bandits share same arms)
-        if hasattr(self.router, "hybrid_router") and self.router.hybrid_router is not None:
+        if (
+            hasattr(self.router, "hybrid_router")
+            and self.router.hybrid_router is not None
+        ):
             # Try linucb first (always exists in hybrid router)
             if hasattr(self.router.hybrid_router, "linucb"):
                 bandit = self.router.hybrid_router.linucb
@@ -398,7 +403,10 @@ class ConduitFeedbackLogger(CustomLogger):
             features: Query features for contextual learning
         """
         # Hybrid mode: Update HybridRouter
-        if hasattr(self.router, "hybrid_router") and self.router.hybrid_router is not None:
+        if (
+            hasattr(self.router, "hybrid_router")
+            and self.router.hybrid_router is not None
+        ):
             await self.router.hybrid_router.update(feedback, features)
             logger.debug("Updated HybridRouter with feedback")
             return
@@ -482,7 +490,9 @@ class ConduitFeedbackLogger(CustomLogger):
             quality -= cfg["penalties"]["short_response"]
 
         # Check for repetition (model looping/stuck)
-        if self._has_repetition(response_clean, min_length=cfg["thresholds"]["repetition_min_length"]):
+        if self._has_repetition(
+            response_clean, min_length=cfg["thresholds"]["repetition_min_length"]
+        ):
             quality -= cfg["penalties"]["repetition"]
 
         # Check keyword overlap (basic relevance)
@@ -493,7 +503,9 @@ class ConduitFeedbackLogger(CustomLogger):
             quality -= cfg["penalties"]["low_keyword_overlap"]
 
         # Clamp to reasonable range
-        return max(cfg["bounds"]["min_quality"], min(cfg["bounds"]["max_quality"], quality))
+        return max(
+            cfg["bounds"]["min_quality"], min(cfg["bounds"]["max_quality"], quality)
+        )
 
     def _has_repetition(self, text: str, min_length: int | None = None) -> bool:
         """Detect repetitive patterns in text (model stuck/looping).
@@ -540,10 +552,26 @@ class ConduitFeedbackLogger(CustomLogger):
         words2 = set(text2.lower().split())
 
         # Remove common stopwords
-        stopwords = frozenset({
-            "the", "a", "an", "and", "or", "but", "in", "on", "at",
-            "to", "for", "of", "is", "are", "was", "were",
-        })
+        stopwords = frozenset(
+            {
+                "the",
+                "a",
+                "an",
+                "and",
+                "or",
+                "but",
+                "in",
+                "on",
+                "at",
+                "to",
+                "for",
+                "of",
+                "is",
+                "are",
+                "was",
+                "were",
+            }
+        )
         words1 = words1 - stopwords
         words2 = words2 - stopwords
 

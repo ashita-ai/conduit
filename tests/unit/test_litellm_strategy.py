@@ -12,7 +12,11 @@ from unittest.mock import Mock, AsyncMock, MagicMock
 pytest.importorskip("litellm")
 
 from conduit_litellm.strategy import ConduitRoutingStrategy
-from conduit_litellm.utils import extract_query_text, extract_model_ids, validate_litellm_model_list
+from conduit_litellm.utils import (
+    extract_query_text,
+    extract_model_ids,
+    validate_litellm_model_list,
+)
 from conduit.core.models import Query, RoutingDecision, QueryFeatures
 
 
@@ -24,13 +28,13 @@ def mock_litellm_router():
         {
             "model_name": "gpt-4",
             "model_info": {"id": "gpt-4o-mini"},
-            "litellm_params": {"model": "gpt-4o-mini"}
+            "litellm_params": {"model": "gpt-4o-mini"},
         },
         {
             "model_name": "claude-3",
             "model_info": {"id": "claude-3-haiku"},
-            "litellm_params": {"model": "claude-3-haiku"}
-        }
+            "litellm_params": {"model": "claude-3-haiku"},
+        },
     ]
     return router
 
@@ -39,17 +43,17 @@ def mock_litellm_router():
 def mock_conduit_router():
     """Create mock Conduit router."""
     router = AsyncMock()
-    router.route = AsyncMock(return_value=RoutingDecision(
-        query_id="test_query",
-        selected_model="gpt-4o-mini",
-        confidence=0.85,
-        features=QueryFeatures(
-            embedding=[0.1] * 384,
-            token_count=50,
-            complexity_score=0.5
-        ),
-        reasoning="Test routing"
-    ))
+    router.route = AsyncMock(
+        return_value=RoutingDecision(
+            query_id="test_query",
+            selected_model="gpt-4o-mini",
+            confidence=0.85,
+            features=QueryFeatures(
+                embedding=[0.1] * 384, token_count=50, complexity_score=0.5
+            ),
+            reasoning="Test routing",
+        )
+    )
     return router
 
 
@@ -62,8 +66,7 @@ async def test_async_get_available_deployment(mock_litellm_router, mock_conduit_
 
     messages = [{"role": "user", "content": "Hello world"}]
     deployment = await strategy.async_get_available_deployment(
-        model="gpt-4",
-        messages=messages
+        model="gpt-4", messages=messages
     )
 
     assert deployment["model_info"]["id"] == "gpt-4o-mini"
@@ -71,7 +74,9 @@ async def test_async_get_available_deployment(mock_litellm_router, mock_conduit_
 
 
 @pytest.mark.asyncio
-async def test_sync_in_async_context_no_runtime_error(mock_litellm_router, mock_conduit_router):
+async def test_sync_in_async_context_no_runtime_error(
+    mock_litellm_router, mock_conduit_router
+):
     """Test sync method works in async context without RuntimeError.
 
     This is the fix for Issue #31: Previously, calling sync method in an
@@ -85,10 +90,7 @@ async def test_sync_in_async_context_no_runtime_error(mock_litellm_router, mock_
     messages = [{"role": "user", "content": "Hello world"}]
 
     # This should NOT raise RuntimeError
-    deployment = strategy.get_available_deployment(
-        model="gpt-4",
-        messages=messages
-    )
+    deployment = strategy.get_available_deployment(model="gpt-4", messages=messages)
 
     assert deployment["model_info"]["id"] == "gpt-4o-mini"
     mock_conduit_router.route.assert_called_once()
@@ -102,10 +104,7 @@ def test_sync_without_event_loop(mock_litellm_router, mock_conduit_router):
 
     messages = [{"role": "user", "content": "Hello world"}]
 
-    deployment = strategy.get_available_deployment(
-        model="gpt-4",
-        messages=messages
-    )
+    deployment = strategy.get_available_deployment(model="gpt-4", messages=messages)
 
     assert deployment["model_info"]["id"] == "gpt-4o-mini"
     mock_conduit_router.route.assert_called_once()
@@ -128,7 +127,7 @@ def test_extract_query_text_from_messages():
     """Test query text extraction from messages."""
     messages = [
         {"role": "system", "content": "You are helpful"},
-        {"role": "user", "content": "What is 2+2?"}
+        {"role": "user", "content": "What is 2+2?"},
     ]
 
     text = extract_query_text(messages=messages, input_data=None)
@@ -151,17 +150,17 @@ def test_extract_query_text_from_list():
 async def test_fallback_to_model_group(mock_litellm_router, mock_conduit_router):
     """Test fallback when Conduit selects model not in model_list."""
     # Configure Conduit to select a model not in LiteLLM's list
-    mock_conduit_router.route = AsyncMock(return_value=RoutingDecision(
-        query_id="test_query",
-        selected_model="unknown-model",
-        confidence=0.85,
-        features=QueryFeatures(
-            embedding=[0.1] * 384,
-            token_count=50,
-            complexity_score=0.5
-        ),
-        reasoning="Test routing"
-    ))
+    mock_conduit_router.route = AsyncMock(
+        return_value=RoutingDecision(
+            query_id="test_query",
+            selected_model="unknown-model",
+            confidence=0.85,
+            features=QueryFeatures(
+                embedding=[0.1] * 384, token_count=50, complexity_score=0.5
+            ),
+            reasoning="Test routing",
+        )
+    )
 
     strategy = ConduitRoutingStrategy(conduit_router=mock_conduit_router)
     strategy._router = mock_litellm_router
@@ -169,8 +168,7 @@ async def test_fallback_to_model_group(mock_litellm_router, mock_conduit_router)
 
     messages = [{"role": "user", "content": "Hello"}]
     deployment = await strategy.async_get_available_deployment(
-        model="gpt-4",
-        messages=messages
+        model="gpt-4", messages=messages
     )
 
     # Should fallback to model_name match
@@ -191,14 +189,11 @@ def test_extract_model_ids_with_standard_litellm_format():
     """Test extract_model_ids works with standard LiteLLM format (no model_info.id)."""
     # Standard LiteLLM format without model_info.id
     model_list = [
-        {
-            "model_name": "gpt-4",
-            "litellm_params": {"model": "openai/gpt-4"}
-        },
+        {"model_name": "gpt-4", "litellm_params": {"model": "openai/gpt-4"}},
         {
             "model_name": "claude-3",
-            "litellm_params": {"model": "anthropic/claude-3-opus"}
-        }
+            "litellm_params": {"model": "anthropic/claude-3-opus"},
+        },
     ]
 
     model_ids = extract_model_ids(model_list)
@@ -213,7 +208,7 @@ def test_extract_model_ids_with_explicit_id():
         {
             "model_name": "gpt-4",
             "litellm_params": {"model": "openai/gpt-4"},
-            "model_info": {"id": "gpt-4-openai"}
+            "model_info": {"id": "gpt-4-openai"},
         }
     ]
 
@@ -225,11 +220,7 @@ def test_extract_model_ids_with_explicit_id():
 
 def test_extract_model_ids_from_litellm_params():
     """Test extract_model_ids generates ID from litellm_params.model when model_name missing."""
-    model_list = [
-        {
-            "litellm_params": {"model": "openai/gpt-4o-mini"}
-        }
-    ]
+    model_list = [{"litellm_params": {"model": "openai/gpt-4o-mini"}}]
 
     model_ids = extract_model_ids(model_list)
 
@@ -239,12 +230,136 @@ def test_extract_model_ids_from_litellm_params():
 
 def test_validate_litellm_model_list_standard_format():
     """Test validation accepts standard LiteLLM format without model_info."""
-    model_list = [
-        {
-            "model_name": "gpt-4",
-            "litellm_params": {"model": "openai/gpt-4"}
-        }
-    ]
+    model_list = [{"model_name": "gpt-4", "litellm_params": {"model": "openai/gpt-4"}}]
 
     # Should not raise ValueError
     validate_litellm_model_list(model_list)
+
+
+@pytest.mark.asyncio
+async def test_cleanup_unregisters_feedback_logger(
+    mock_litellm_router, mock_conduit_router
+):
+    """Test cleanup() properly unregisters feedback logger."""
+    import litellm
+
+    strategy = ConduitRoutingStrategy(conduit_router=mock_conduit_router)
+    strategy._router = mock_litellm_router
+
+    # Initialize and register feedback logger
+    await strategy._initialize_from_litellm(mock_litellm_router)
+
+    # Verify feedback logger was registered
+    assert strategy.feedback_logger is not None
+    assert strategy._feedback_registered is True
+
+    # Call cleanup
+    strategy.cleanup()
+
+    # Verify cleanup happened
+    assert strategy._initialized is False
+
+
+@pytest.mark.asyncio
+async def test_record_feedback_logs_info(
+    mock_litellm_router, mock_conduit_router, caplog
+):
+    """Test record_feedback logs informational message."""
+    import logging
+
+    strategy = ConduitRoutingStrategy(conduit_router=mock_conduit_router)
+    strategy._router = mock_litellm_router
+    strategy._initialized = True
+
+    with caplog.at_level(logging.INFO):
+        await strategy.record_feedback(
+            deployment_id="gpt-4",
+            cost=0.001,
+            latency=1.5,
+            quality_score=0.9,
+            error=None,
+        )
+
+    assert "Manual feedback received" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_record_feedback_with_error(
+    mock_litellm_router, mock_conduit_router, caplog
+):
+    """Test record_feedback logs error information."""
+    import logging
+
+    strategy = ConduitRoutingStrategy(conduit_router=mock_conduit_router)
+    strategy._router = mock_litellm_router
+    strategy._initialized = True
+
+    with caplog.at_level(logging.INFO):
+        await strategy.record_feedback(
+            deployment_id="gpt-4",
+            cost=0.0,
+            latency=2.0,
+            quality_score=0.1,
+            error="Rate limit exceeded",
+        )
+
+    assert "error=Rate limit exceeded" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_fallback_to_first_deployment(mock_conduit_router):
+    """Test fallback returns first deployment when no match found."""
+    # Create router with no matching model_name
+    router = Mock()
+    router.model_list = [
+        {
+            "model_name": "other-model",
+            "model_info": {"id": "other-model-id"},
+            "litellm_params": {"model": "other-model"},
+        }
+    ]
+
+    # Configure Conduit to select unknown model
+    mock_conduit_router.route = AsyncMock(
+        return_value=MagicMock(
+            query_id="test",
+            selected_model="unknown-model",
+            confidence=0.5,
+            features=MagicMock(
+                embedding=[0.1] * 384, token_count=50, complexity_score=0.5
+            ),
+            reasoning="Test",
+        )
+    )
+
+    strategy = ConduitRoutingStrategy(conduit_router=mock_conduit_router)
+    strategy._router = router
+    strategy._initialized = True
+
+    messages = [{"role": "user", "content": "Hello"}]
+    deployment = await strategy.async_get_available_deployment(
+        model="nonexistent", messages=messages  # No model_name matches
+    )
+
+    # Should fallback to first deployment
+    assert deployment["model_info"]["id"] == "other-model-id"
+
+
+def test_strategy_init_with_evaluator():
+    """Test strategy initialization with evaluator."""
+    mock_evaluator = Mock()
+
+    strategy = ConduitRoutingStrategy(evaluator=mock_evaluator)
+
+    assert strategy.evaluator is mock_evaluator
+    assert "evaluator" not in strategy.conduit_config  # Should be extracted
+
+
+def test_strategy_init_with_config_options():
+    """Test strategy initialization with config options."""
+    strategy = ConduitRoutingStrategy(
+        cache_enabled=True, redis_url="redis://localhost:6379"
+    )
+
+    assert strategy.conduit_config["cache_enabled"] is True
+    assert strategy.conduit_config["redis_url"] == "redis://localhost:6379"

@@ -178,10 +178,7 @@ def map_litellm_to_conduit(litellm_model: str) -> str:
 
 
 def format_routing_metadata(
-    selected_model: str,
-    confidence: float,
-    reasoning: str,
-    features: Any
+    selected_model: str, confidence: float, reasoning: str, features: Any
 ) -> dict[str, Any]:
     """Format Conduit routing decision metadata for LiteLLM.
 

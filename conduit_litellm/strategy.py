@@ -21,9 +21,7 @@ try:
 
     LITELLM_AVAILABLE = True
 except ImportError:
-    logger.warning(
-        "LiteLLM not installed. Install with: pip install conduit[litellm]"
-    )
+    logger.warning("LiteLLM not installed. Install with: pip install conduit[litellm]")
     LITELLM_AVAILABLE = False
 
     # Create stub base class for type checking when LiteLLM not installed
@@ -62,11 +60,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         ... )
     """
 
-    def __init__(
-        self,
-        conduit_router: Router | None = None,
-        **conduit_config: Any
-    ):
+    def __init__(self, conduit_router: Router | None = None, **conduit_config: Any):
         """Initialize Conduit routing strategy.
 
         Args:
@@ -95,11 +89,13 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         super().__init__()
         self.conduit_router = conduit_router
         # Extract evaluator before passing config to Router
-        self.evaluator = conduit_config.pop('evaluator', None)
+        self.evaluator = conduit_config.pop("evaluator", None)
         self.conduit_config = conduit_config
         self._initialized = False
         self._router: Any | None = None  # LiteLLM router reference
-        self.feedback_logger: ConduitFeedbackLogger | None = None  # Feedback integration
+        self.feedback_logger: ConduitFeedbackLogger | None = (
+            None  # Feedback integration
+        )
         self._feedback_registered = False  # Track if feedback logger is registered
         # Mapping from LiteLLM model names to Conduit model IDs
         self._litellm_to_conduit_map: dict[str, str] = {}
@@ -209,13 +205,9 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         if not self.conduit_router:
             # Filter out use_hybrid - Router always uses hybrid routing now
             router_config = {
-                k: v for k, v in self.conduit_config.items()
-                if k != "use_hybrid"
+                k: v for k, v in self.conduit_config.items() if k != "use_hybrid"
             }
-            self.conduit_router = Router(
-                models=model_ids,
-                **router_config
-            )
+            self.conduit_router = Router(models=model_ids, **router_config)
             logger.info(
                 f"Created Conduit router with config: "
                 f"cache_enabled={self.conduit_config.get('cache_enabled', False)}, "
@@ -272,7 +264,9 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
 
         # Find matching deployment in LiteLLM's model_list
         if self._router is None:
-            raise RuntimeError("Router not initialized. Use setup_strategy() to initialize.")
+            raise RuntimeError(
+                "Router not initialized. Use setup_strategy() to initialize."
+            )
 
         for deployment in self._router.model_list:
             if deployment["model_info"]["id"] == decision.selected_model:
@@ -349,7 +343,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
                     asyncio.run,
                     self.async_get_available_deployment(
                         model, messages, input, specific_deployment, request_kwargs
-                    )
+                    ),
                 )
                 return future.result()
 
@@ -453,7 +447,7 @@ class ConduitRoutingStrategy(CustomRoutingStrategyBase):
         cost: float,
         latency: float,
         quality_score: float | None = None,
-        error: str | None = None
+        error: str | None = None,
     ) -> None:
         """Record manual feedback to update Conduit's bandit algorithm.
 

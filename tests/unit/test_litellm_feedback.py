@@ -27,9 +27,7 @@ def mock_router():
     analyzer = Mock()
     analyzer.analyze = AsyncMock(
         return_value=QueryFeatures(
-            embedding=[0.1] * 384,
-            token_count=50,
-            complexity_score=0.5
+            embedding=[0.1] * 384, token_count=50, complexity_score=0.5
         )
     )
     router.analyzer = analyzer
@@ -61,9 +59,7 @@ def mock_hybrid_router():
     analyzer = Mock()
     analyzer.analyze = AsyncMock(
         return_value=QueryFeatures(
-            embedding=[0.1] * 384,
-            token_count=50,
-            complexity_score=0.5
+            embedding=[0.1] * 384, token_count=50, complexity_score=0.5
         )
     )
     router.analyzer = analyzer
@@ -214,7 +210,11 @@ class TestConduitFeedbackLogger:
 
     @pytest.mark.asyncio
     async def test_hybrid_router_update(
-        self, mock_hybrid_router, litellm_kwargs, litellm_response, litellm_to_conduit_map
+        self,
+        mock_hybrid_router,
+        litellm_kwargs,
+        litellm_response,
+        litellm_to_conduit_map,
     ):
         """Test feedback updates HybridRouter when in hybrid mode."""
         logger = ConduitFeedbackLogger(
@@ -303,7 +303,9 @@ class TestConduitFeedbackLogger:
 
     def test_extract_query_text_input_list(self):
         """Test query text extraction from input list."""
-        text = extract_query_text(messages=None, input_data=["First part", "Second part"])
+        text = extract_query_text(
+            messages=None, input_data=["First part", "Second part"]
+        )
         assert text == "First part Second part"
 
     def test_extract_query_text_empty(self):
@@ -371,9 +373,7 @@ class TestConduitFeedbackLogger:
         router.analyzer = Mock()
         router.analyzer.analyze = AsyncMock(
             return_value=QueryFeatures(
-                embedding=[0.1] * 384,
-                token_count=50,
-                complexity_score=0.5
+                embedding=[0.1] * 384, token_count=50, complexity_score=0.5
             )
         )
         router.hybrid_router = None
@@ -493,3 +493,219 @@ class TestFeedbackIntegration:
             call[0][0].model_id for call in mock_router.bandit.update.call_args_list
         ]
         assert model_ids == expected_mapped
+
+
+class TestQualityEstimation:
+    """Tests for quality estimation methods."""
+
+    def test_estimate_quality_normal_response(self, feedback_logger):
+        """Test quality estimation for normal response."""
+        query = "What is the capital of France?"
+        response = "The capital of France is Paris."
+
+        quality = feedback_logger._estimate_quality(query, response)
+
+        # Should get reasonable quality score
+        assert 0.7 <= quality <= 0.95
+
+    def test_estimate_quality_empty_response(self, feedback_logger):
+        """Test quality estimation for empty response."""
+        quality = feedback_logger._estimate_quality("test query", "")
+        assert quality == 0.1  # empty_quality from config
+
+    def test_estimate_quality_whitespace_only(self, feedback_logger):
+        """Test quality estimation for whitespace-only response."""
+        quality = feedback_logger._estimate_quality("test query", "   \n\t  ")
+        assert quality == 0.1  # empty_quality from config
+
+    def test_estimate_quality_short_response(self, feedback_logger):
+        """Test quality estimation penalizes very short responses."""
+        query = "Explain quantum mechanics in detail"
+        response = "QM"  # Very short
+
+        quality = feedback_logger._estimate_quality(query, response)
+
+        # Should have penalty for short response
+        assert quality < 0.8
+
+    def test_estimate_quality_repetitive_response(self, feedback_logger):
+        """Test quality estimation penalizes repetitive content."""
+        query = "Write a story"
+        response = "hello hello hello hello hello hello hello hello hello hello"
+
+        quality = feedback_logger._estimate_quality(query, response)
+
+        # Should have penalty for repetition
+        assert quality <= 0.7
+
+    def test_estimate_quality_no_keyword_overlap(self, feedback_logger):
+        """Test quality estimation penalizes irrelevant responses."""
+        query = "What is Python programming?"
+        response = "The weather is nice today in California."
+
+        quality = feedback_logger._estimate_quality(query, response)
+
+        # Should have penalty for no keyword overlap
+        assert quality < 0.8
+
+    def test_has_repetition_detects_loops(self, feedback_logger):
+        """Test repetition detection catches stuck models."""
+        text = "hello world " * 10
+
+        assert feedback_logger._has_repetition(text) is True
+
+    def test_has_repetition_short_text(self, feedback_logger):
+        """Test repetition detection handles short text."""
+        text = "hi"
+
+        assert feedback_logger._has_repetition(text) is False
+
+    def test_has_repetition_normal_text(self, feedback_logger):
+        """Test repetition detection passes normal text."""
+        text = "This is a normal response with varied content and no unusual patterns."
+
+        assert feedback_logger._has_repetition(text) is False
+
+    def test_keyword_overlap_full_overlap(self, feedback_logger):
+        """Test keyword overlap with matching keywords."""
+        query = "python programming language"
+        response = "Python is a programming language used for many applications."
+
+        overlap = feedback_logger._keyword_overlap(query, response)
+
+        assert overlap > 0.5  # Should have good overlap
+
+    def test_keyword_overlap_no_overlap(self, feedback_logger):
+        """Test keyword overlap with no matching keywords."""
+        query = "quantum physics"
+        response = "The weather is sunny today."
+
+        overlap = feedback_logger._keyword_overlap(query, response)
+
+        assert overlap == 0.0
+
+    def test_keyword_overlap_empty_query(self, feedback_logger):
+        """Test keyword overlap handles empty query."""
+        overlap = feedback_logger._keyword_overlap("", "Some response text")
+
+        assert overlap == 0.0
+
+    def test_keyword_overlap_stopwords_ignored(self, feedback_logger):
+        """Test keyword overlap ignores stopwords."""
+        query = "the a an is are"  # All stopwords
+        response = "the a an is are"
+
+        overlap = feedback_logger._keyword_overlap(query, response)
+
+        assert overlap == 0.0  # Stopwords filtered out
+
+
+class TestResponseTextExtraction:
+    """Tests for response text extraction."""
+
+    def test_extract_response_text_chat_completion(self, feedback_logger):
+        """Test extracting text from chat completion format."""
+        response = Mock()
+        message = Mock()
+        message.content = "This is the response"
+        choice = Mock()
+        choice.message = message
+        response.choices = [choice]
+
+        text = feedback_logger._extract_response_text(response)
+
+        assert text == "This is the response"
+
+    def test_extract_response_text_none_content(self, feedback_logger):
+        """Test extracting text when content is None."""
+        response = Mock()
+        message = Mock()
+        message.content = None
+        choice = Mock()
+        choice.message = message
+        response.choices = [choice]
+
+        text = feedback_logger._extract_response_text(response)
+
+        assert text == ""
+
+    def test_extract_response_text_text_attribute(self, feedback_logger):
+        """Test extracting text from text attribute."""
+        response = Mock(spec=["text"])
+        response.text = "Direct text response"
+
+        text = feedback_logger._extract_response_text(response)
+
+        assert text == "Direct text response"
+
+    def test_extract_response_text_content_attribute(self, feedback_logger):
+        """Test extracting text from content attribute."""
+        response = Mock(spec=["content"])
+        response.content = "Content response"
+
+        text = feedback_logger._extract_response_text(response)
+
+        assert text == "Content response"
+
+    def test_extract_response_text_empty_choices(self, feedback_logger):
+        """Test extracting text with empty choices list."""
+        response = Mock(spec=["choices"])
+        response.choices = []
+
+        text = feedback_logger._extract_response_text(response)
+
+        assert text == ""
+
+    def test_extract_response_text_no_attributes(self, feedback_logger):
+        """Test extracting text when no known attributes exist."""
+        response = Mock(spec=[])  # No relevant attributes
+
+        text = feedback_logger._extract_response_text(response)
+
+        assert text == ""
+
+
+class TestLatencyHandling:
+    """Tests for latency calculation edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_latency_with_datetime_objects(
+        self, feedback_logger, mock_router, litellm_response
+    ):
+        """Test latency calculation handles datetime objects."""
+        from datetime import datetime, timedelta
+
+        kwargs = {
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "test"}],
+        }
+
+        start_time = datetime.now()
+        end_time = start_time + timedelta(seconds=2.5)
+
+        await feedback_logger.async_log_success_event(
+            kwargs, litellm_response, start_time, end_time
+        )
+
+        # Verify latency was calculated correctly
+        call_args = mock_router.bandit.update.call_args
+        feedback = call_args[0][0]
+        assert 2.4 <= feedback.latency <= 2.6
+
+    @pytest.mark.asyncio
+    async def test_latency_with_float_timestamps(
+        self, feedback_logger, mock_router, litellm_response
+    ):
+        """Test latency calculation handles float timestamps."""
+        kwargs = {
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "test"}],
+        }
+
+        await feedback_logger.async_log_success_event(
+            kwargs, litellm_response, 1000.0, 1003.5
+        )
+
+        call_args = mock_router.bandit.update.call_args
+        feedback = call_args[0][0]
+        assert feedback.latency == 3.5
