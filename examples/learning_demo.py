@@ -9,7 +9,7 @@ This demo shows:
 - Actual cost and latency tracking
 - Live feedback loop with real LLM responses
 
-Run: uv run python examples/04_litellm/learning_demo.py
+Run: uv run python examples/learning_demo.py
 
 Environment variables (set at least one):
 - OPENAI_API_KEY

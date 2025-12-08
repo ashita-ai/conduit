@@ -144,8 +144,8 @@ uv run ruff check conduit/    # Linting
 uv run black conduit/         # Code formatting
 
 # Examples
-uv run python examples/01_quickstart/hello_world.py
-uv run python examples/02_routing/basic_routing.py
+uv run python examples/hello_world.py
+uv run python examples/basic_routing.py
 ```
 
 ---
@@ -196,12 +196,8 @@ conduit/
 │   ├── integration/            # Integration tests (DB, Redis, API)
 │   └── regression/             # Example file regression tests
 ├── examples/                   # Usage examples (READ ONLY)
-│   ├── 01_quickstart/          # hello_world.py, simple_router.py
-│   ├── 02_routing/             # basic_routing.py, with_constraints.py
-│   ├── 03_optimization/        # caching.py, feedback examples
-│   ├── 04_litellm/             # LiteLLM integration examples
-│   ├── 05_personalization/     # User preference examples
-│   └── 06_integrations/        # langchain_integration.py
+│   ├── *.py                    # Core examples (hello_world, basic_routing, caching, etc.)
+│   └── integrations/           # Framework integrations (FastAPI, LangChain, etc.)
 ├── docs/                       # Technical documentation
 └── notes/                      # Strategic decisions (dated, READ ONLY)
 ```
@@ -473,9 +469,9 @@ features = embedding + [
 6. Run full suite: `pytest` (ensure no regressions)
 
 ### Add New Example
-1. Create file in appropriate `examples/0X_category/` directory
+1. Create file in `examples/` directory (or `examples/integrations/` for framework integrations)
 2. Follow pattern: imports → setup → main logic → example output
-3. Test manually: `uv run python examples/XX/file.py`
+3. Test manually: `uv run python examples/your_example.py`
 4. Verify graceful degradation (works without Redis)
 5. Add regression test in `tests/regression/test_examples.py`
 

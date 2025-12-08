@@ -15,7 +15,7 @@ Expected Sample Requirements:
 - With PCA: 1,500-2,500 queries (combining 75% PCA reduction + 30% hybrid speedup)
 
 Usage:
-    python examples/02_routing/hybrid_routing.py
+    python examples/hybrid_routing.py
 """
 
 import asyncio

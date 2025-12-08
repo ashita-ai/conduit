@@ -78,7 +78,7 @@ export OPENAI_API_KEY=sk-...
 export ANTHROPIC_API_KEY=sk-...
 
 # Run example
-python examples/01_quickstart/hello_world.py
+python examples/hello_world.py
 ```
 
 ## How It Works

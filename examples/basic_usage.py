@@ -7,7 +7,7 @@ Requirements:
     - pip install conduit[litellm]
 
 Run:
-    python examples/04_litellm/basic_usage.py
+    python examples/basic_usage.py
 
 Expected output:
     Basic Conduit + LiteLLM Integration

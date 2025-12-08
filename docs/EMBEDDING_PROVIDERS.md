@@ -291,8 +291,8 @@ router = Router()  # Caching enabled by default if REDIS_URL is set
 
 See `examples/` directory for complete usage examples:
 
-- `examples/01_quickstart/hello_world.py` - Basic router usage (uses default HuggingFace)
-- `examples/02_routing/basic_routing.py` - Custom embedding provider configuration
+- `examples/hello_world.py` - Basic router usage (uses default HuggingFace)
+- `examples/basic_routing.py` - Custom embedding provider configuration
 
 ## Related Documentation
 

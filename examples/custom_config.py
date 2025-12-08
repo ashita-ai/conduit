@@ -9,7 +9,7 @@ Requirements:
     - Optional: Redis for caching
 
 Run:
-    python examples/04_litellm/custom_config.py
+    python examples/custom_config.py
 """
 
 import asyncio

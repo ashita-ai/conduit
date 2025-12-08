@@ -10,11 +10,11 @@ Benefits:
 - Lower memory usage
 
 Setup:
-1. Train PCA model once: python examples/04_pca/pca_setup.py
+1. Train PCA model once: python examples/pca_setup.py
 2. Run this comparison to see the difference
 
 Usage:
-    python examples/03_optimization/pca_comparison.py
+    python examples/pca_comparison.py
 """
 
 import asyncio
@@ -92,7 +92,7 @@ async def main():
 
     except FileNotFoundError:
         print("  ⚠️  PCA model not found!")
-        print("  Run: python examples/04_pca/pca_setup.py")
+        print("  Run: python examples/pca_setup.py")
         print()
 
     print()

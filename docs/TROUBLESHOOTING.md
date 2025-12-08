@@ -982,14 +982,13 @@ router = Router(models=available_models())
 ### Run Examples
 ```bash
 # Quick start
-python examples/01_quickstart/hello_world.py
+python examples/hello_world.py
 
 # Routing examples
-python examples/02_routing/basic_routing.py
-python examples/02_routing/hybrid_routing.py
+python examples/basic_routing.py
 
 # Optimization examples
-python examples/03_optimization/caching.py
+python examples/caching.py
 ```
 
 ### Enable Verbose Logging

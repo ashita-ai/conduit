@@ -8,7 +8,7 @@ Requirements:
     - pip install conduit[litellm]
 
 Run:
-    python examples/04_litellm/multi_provider.py
+    python examples/multi_provider.py
 """
 
 import asyncio

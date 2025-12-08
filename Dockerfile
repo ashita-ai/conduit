@@ -39,4 +39,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import conduit; import conduit_litellm" || exit 1
 
 # Default command runs the demo
-CMD ["python", "examples/04_litellm/demo.py"]
+CMD ["python", "examples/litellm_integration.py"]
