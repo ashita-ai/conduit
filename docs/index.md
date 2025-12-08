@@ -1,4 +1,4 @@
-# Conduit Router
+# Conduit
 
 **Smart LLM routing that learns to cut costs without sacrificing quality.**
 
@@ -19,67 +19,32 @@ async def main():
 asyncio.run(main())
 ```
 
-## Why Conduit?
-
-| Feature | Conduit | Static Routers | Manual Selection |
-|---------|---------|----------------|------------------|
-| **Cost Optimization** | Learns cheapest model per query type | Fixed rules, no learning | Expensive models everywhere |
-| **Quality** | Balances cost vs quality via feedback | Depends on rules | High but wasteful |
-| **Adapts to Changes** | Learns when models improve/degrade | Manual rule updates needed | Manual switching |
-| **Setup Time** | 5 lines of code | Complex rule configuration | Simple but inefficient |
-
 ## Documentation
 
-```{toctree}
-:maxdepth: 2
-:caption: Core Documentation
+### Core
+- [Architecture](ARCHITECTURE.md) - System design and components
+- [Bandit Algorithms](BANDIT_ALGORITHMS.md) - ML algorithm details
+- [Hybrid Routing](HYBRID_ROUTING_ALGORITHMS.md) - Combining exploration and exploitation
 
-ARCHITECTURE
-BANDIT_ALGORITHMS
-HYBRID_ROUTING_ALGORITHMS
-```
+### Configuration
+- [Embedding Providers](EMBEDDING_PROVIDERS.md) - Configure embeddings
+- [Fallback](FALLBACK.md) - Fallback chain behavior
+- [LiteLLM Integration](LITELLM_INTEGRATION.md) - 100+ provider support
+- [Pricing](PRICING.md) - Cost tracking
 
-```{toctree}
-:maxdepth: 2
-:caption: Configuration
-
-EMBEDDING_PROVIDERS
-FALLBACK
-LITELLM_INTEGRATION
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: Reference
-
-GLOSSARY
-SCOPE
-TROUBLESHOOTING
-```
+### Reference
+- [Glossary](GLOSSARY.md) - Terminology
+- [Scope](SCOPE.md) - What Conduit does and doesn't do
+- [Troubleshooting](TROUBLESHOOTING.md) - Common issues
 
 ## Key Features
 
-- **Learning System**: Gets smarter with every query, learns your workload patterns automatically
-- **Multi-Objective**: Balance cost, quality, and speed based on what matters to you
-- **100+ LLM Providers**: Direct support for 8 providers, extended via LiteLLM integration
-- **Smart Caching**: Faster embedding lookups on repeated queries (optional Redis)
-- **Per-Query Control**: Override optimization per query (quality-first, cost-first, speed-first)
-- **Zero Config**: Auto-detects available models from your API keys
-
-## Installation
-
-```bash
-# Clone and install
-git clone https://github.com/ashita-ai/conduit.git
-cd conduit && pip install -e .
-
-# Set API keys (at least one required)
-export OPENAI_API_KEY=sk-...
-export ANTHROPIC_API_KEY=sk-...
-
-# Run example
-python examples/hello_world.py
-```
+- **Learning System**: Gets smarter with every query
+- **Multi-Objective**: Balance cost, quality, and speed
+- **100+ LLM Providers**: Via LiteLLM integration
+- **Smart Caching**: Optional Redis for faster lookups
+- **Per-Query Control**: Override optimization per query
+- **Zero Config**: Auto-detects models from API keys
 
 ## How It Works
 
@@ -87,7 +52,7 @@ Conduit uses Thompson Sampling by default, a Bayesian bandit algorithm that:
 
 1. **Models uncertainty** for each LLM using Beta distributions
 2. **Samples** from each model's distribution to select
-3. **Updates beliefs** after every query based on success/failure
+3. **Updates beliefs** after every query based on feedback
 
 The reward formula balances quality, cost, and speed:
 ```

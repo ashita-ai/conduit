@@ -173,11 +173,11 @@ def create_demo():
     """Create the Gradio demo interface."""
 
     with gr.Blocks(
-        title="Conduit Router Demo",
+        title="Conduit Demo",
     ) as demo:
         gr.Markdown(
             """
-            # Conduit Router Demo
+            # Conduit Demo
 
             **ML-powered LLM routing** - Conduit learns which model works best for each query type.
 

@@ -67,13 +67,13 @@ class ConduitLlamaIndexLLM(CustomLLM):
     for each query based on learned patterns.
 
     Attributes:
-        router: Conduit Router instance
+        router: Conduit instance
         executor: Model executor for running queries
         context_window: Maximum context window size
         num_output: Maximum output tokens
     """
 
-    router: Router = Field(description="Conduit Router instance")
+    router: Router = Field(description="Conduit instance")
     executor: ModelExecutor | None = Field(
         default=None, description="Model executor (auto-initialized if None)"
     )
@@ -92,7 +92,7 @@ class ConduitLlamaIndexLLM(CustomLLM):
         """Initialize Conduit LlamaIndex LLM wrapper.
 
         Args:
-            router: Conduit Router instance (required)
+            router: Conduit instance (required)
             executor: Model executor (optional, auto-initialized if None)
             context_window: Maximum context window size
             num_output: Maximum output tokens
