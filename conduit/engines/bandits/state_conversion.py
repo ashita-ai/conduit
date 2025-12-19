@@ -21,6 +21,7 @@ Example:
 """
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -28,6 +29,9 @@ import numpy as np
 from conduit.core.state_store import BanditState
 
 logger = logging.getLogger(__name__)
+
+# Type alias for converter functions
+StateConverter = Callable[[BanditState, int], BanditState]
 
 
 def convert_bandit_state(
@@ -75,7 +79,7 @@ def convert_bandit_state(
     # Route to specific conversion function
     conversion_key = (source_algo, target_algo)
 
-    conversion_map = {
+    conversion_map: dict[tuple[str, str], StateConverter] = {
         # Non-contextual ↔ Non-contextual
         ("ucb1", "thompson_sampling"): _ucb1_to_thompson,
         ("thompson_sampling", "ucb1"): _thompson_to_ucb1,
@@ -347,9 +351,13 @@ def _noncontextual_to_linucb(
         # Initialize LinUCB with neutral A and biased b
         A = np.identity(feature_dim)
 
-        # Set first dimension of b to mean_reward (scaled by pull count for confidence)
+        # Set first dimension of b to mean_reward (scaled by exploration proportion)
         pulls = state.arm_pulls.get(arm_id, 0)
-        scaling_factor = min(10.0, pulls / 100.0) if pulls > 0 else 0.0
+        total_pulls = sum(state.arm_pulls.values())
+        # Scale by proportion of exploration, not absolute count
+        # This prevents bias toward randomly-explored arms with low switch thresholds
+        proportion = pulls / max(1, total_pulls)
+        scaling_factor = min(10.0, proportion * 20.0) if pulls > 0 else 0.0
 
         b = np.zeros((feature_dim, 1))
         b[0] = mean_reward * scaling_factor  # Warm start from non-contextual estimate
@@ -402,7 +410,10 @@ def _noncontextual_to_contextual_thompson(
 
         # Initialize contextual Thompson with neutral Sigma and biased mu
         pulls = state.arm_pulls.get(arm_id, 0)
-        scaling_factor = min(10.0, pulls / 100.0) if pulls > 0 else 0.0
+        total_pulls = sum(state.arm_pulls.values())
+        # Scale by proportion of exploration, not absolute count
+        proportion = pulls / max(1, total_pulls)
+        scaling_factor = min(10.0, proportion * 20.0) if pulls > 0 else 0.0
 
         mu = np.zeros((feature_dim, 1))
         mu[0] = mean_reward * scaling_factor  # Warm start
@@ -463,7 +474,7 @@ def _contextual_to_ucb1(
         arm_pulls=state.arm_pulls.copy(),
         arm_successes=state.arm_successes.copy(),
         total_queries=state.total_queries,
-        mean_rewards=mean_rewards,
+        mean_reward=mean_rewards,
         window_size=state.window_size,
         updated_at=state.updated_at,
     )

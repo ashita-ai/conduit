@@ -89,7 +89,6 @@ async def test_feedback_loop_improves_routing():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Flaky test: depends on non-deterministic bandit exploration. See issue #182")
 async def test_hybrid_routing_feedback_loop():
     """Test feedback loop works across Thompson Sampling → LinUCB transition.
 
@@ -97,11 +96,17 @@ async def test_hybrid_routing_feedback_loop():
     - Phase 1 (Thompson Sampling): Bayesian exploration
     - Phase 2 (LinUCB): Contextual learning with real features
 
-    Note: This test is skipped because it's inherently non-deterministic.
-    The state transfer from Thompson to LinUCB depends on random sampling,
-    making it unreliable in CI environments. The test_feedback_loop_improves_routing
-    test provides coverage for the core feedback loop functionality.
+    Note: Uses fixed random seed for deterministic CI behavior. The underlying
+    algorithms work correctly on average; seed ensures reproducible tests.
+    See issue #182.
     """
+    import numpy as np
+    import random
+
+    # Fixed seed for reproducible test behavior
+    np.random.seed(42)
+    random.seed(42)
+
     # Create router with low switch threshold to test phase transition
     from conduit.engines.hybrid_router import HybridRouter
     from conduit.engines.analyzer import QueryAnalyzer
@@ -164,6 +169,6 @@ async def test_hybrid_routing_feedback_loop():
 
     # After learning across both phases, cheap model should be preferred
     assert cheap_rate > 0.70, (
-        f"After learning across UCB1→LinUCB, cheap model should be selected >70%. "
+        f"After learning across Thompson→LinUCB, cheap model should be selected >70%. "
         f"Got: {cheap_rate:.0%}"
     )

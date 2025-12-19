@@ -128,7 +128,15 @@ warn_no_return = true
 
 # Ignore missing stubs for third-party libraries without type hints
 [[tool.mypy.overrides]]
-module = ["fastapi.*", "uvicorn.*", "sentence_transformers.*", "sklearn.*", "openai.*"]
+module = [
+    "fastapi.*",
+    "uvicorn.*",
+    "sentence_transformers.*",
+    "sklearn.*",
+    "openai.*",
+    "joblib.*",
+    "fastembed.*",
+]
 ignore_missing_imports = true
 disallow_untyped_decorators = false
 
@@ -160,4 +168,6 @@ dev = [
     "matplotlib>=3.10.0",
     "pillow>=12.0.0",
     "pyparsing>=3.2.0",
+    "msgpack-types>=0.5.0",
+    "asyncpg-stubs>=0.30.2",
 ]

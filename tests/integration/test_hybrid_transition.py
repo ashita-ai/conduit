@@ -166,12 +166,14 @@ async def test_knowledge_transfer_from_ucb1_to_linucb(test_arms, test_features, 
 
             # Verify that knowledge was transferred (b[0] is non-zero)
             # Note: Exact values depend on conversion path (UCB1→Thompson→LinUCB)
-            # so we just verify the transfer happened and has reasonable magnitude
+            # and proportion-based scaling (max 10.0 * mean_reward)
             actual_b0 = router.linucb.b[model_id][0]
 
-            # Knowledge transfer should scale with pulls (more pulls = larger b[0])
-            # Expect b[0] in range [0.01, 1.0] for typical scenarios
-            assert 0.01 <= abs(actual_b0) <= 1.0, (
+            # Knowledge transfer uses proportion-based scaling:
+            # scaling_factor = min(10.0, proportion * 20.0)
+            # b[0] = mean_reward * scaling_factor
+            # With proportion ~0.5 and mean_reward ~0.8, expect b[0] up to ~8.0
+            assert 0.01 <= abs(actual_b0) <= 10.0, (
                 f"LinUCB b[0] out of expected range for {model_id}: {actual_b0}"
             )
 

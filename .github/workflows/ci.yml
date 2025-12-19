@@ -136,6 +136,4 @@ jobs:
         run: uv sync --all-extras
 
       - name: Run mypy
-        run: uv run mypy conduit/ --no-error-summary || true
-        # Note: Currently allows type errors (|| true) until existing errors are fixed
-        # Remove '|| true' once type checking is clean
+        run: uv run mypy conduit/ --no-error-summary
