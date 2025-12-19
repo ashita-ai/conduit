@@ -15,7 +15,7 @@ import asyncio
 import json
 import logging
 import random
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from conduit.core.state_store import (
@@ -125,9 +125,9 @@ class PostgresStateStore(StateStore):
             Delay in seconds
         """
         # Exponential backoff: BASE_DELAY * 2^attempt
-        delay_ms = min(BASE_DELAY_MS * (2**attempt), MAX_DELAY_MS)
+        delay_ms: float = min(BASE_DELAY_MS * (2**attempt), MAX_DELAY_MS)
         # Add jitter (0-50% of delay) to prevent thundering herd
-        jitter_ms = random.uniform(0, delay_ms * 0.5)
+        jitter_ms: float = random.uniform(0, delay_ms * 0.5)
         return (delay_ms + jitter_ms) / 1000.0
 
     async def _ensure_table_exists(self) -> None:
@@ -175,7 +175,7 @@ class PostgresStateStore(StateStore):
         await self._ensure_table_exists()
 
         # Update timestamp
-        state.updated_at = datetime.now(UTC)
+        state.updated_at = datetime.now(timezone.utc)
 
         # Serialize to JSON
         state_json = state.model_dump_json()
@@ -310,7 +310,7 @@ class PostgresStateStore(StateStore):
         await self._ensure_table_exists()
 
         # Update timestamp
-        state.updated_at = datetime.now(UTC)
+        state.updated_at = datetime.now(timezone.utc)
 
         # Serialize to JSON
         state_json = state.model_dump_json()

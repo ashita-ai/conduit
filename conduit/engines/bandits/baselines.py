@@ -10,8 +10,8 @@ These baselines provide reference points for evaluating bandit performance:
 from __future__ import annotations
 
 import random
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
 
 from conduit.core.models import QueryFeatures
 
@@ -77,7 +77,7 @@ class RandomBaseline(BanditAlgorithm):
         self.arm_pulls = {arm.model_id: 0 for arm in self.arm_list}
         self.total_queries = 0
 
-    def get_stats(self) -> dict[str, any]:  # type: ignore
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics."""
         base_stats = super().get_stats()
         return {**base_stats, "arm_pulls": self.arm_pulls}
@@ -91,7 +91,7 @@ class RandomBaseline(BanditAlgorithm):
             arm_ids=list(self.arms.keys()),
             arm_pulls=self.arm_pulls.copy(),
             total_queries=self.total_queries,
-            updated_at=datetime.now(UTC),
+            updated_at=datetime.now(timezone.utc),
         )
 
     def from_state(self, state: BanditState) -> None:
@@ -201,7 +201,7 @@ class OracleBaseline(BanditAlgorithm):
         self.arm_pulls = {arm.model_id: 0 for arm in self.arm_list}
         self.total_queries = 0
 
-    def get_stats(self) -> dict[str, any]:  # type: ignore
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics."""
         base_stats = super().get_stats()
         return {
@@ -225,7 +225,7 @@ class OracleBaseline(BanditAlgorithm):
             arm_pulls=self.arm_pulls.copy(),
             total_queries=self.total_queries,
             oracle_rewards=oracle_rewards_serialized,
-            updated_at=datetime.now(UTC),
+            updated_at=datetime.now(timezone.utc),
         )
 
     def from_state(self, state: BanditState) -> None:
@@ -300,7 +300,7 @@ class AlwaysBestBaseline(BanditAlgorithm):
         self.arm_pulls = {arm.model_id: 0 for arm in self.arm_list}
         self.total_queries = 0
 
-    def get_stats(self) -> dict[str, any]:  # type: ignore
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics."""
         base_stats = super().get_stats()
         return {
@@ -319,7 +319,7 @@ class AlwaysBestBaseline(BanditAlgorithm):
             arm_ids=list(self.arms.keys()),
             arm_pulls=self.arm_pulls.copy(),
             total_queries=self.total_queries,
-            updated_at=datetime.now(UTC),
+            updated_at=datetime.now(timezone.utc),
         )
 
     def from_state(self, state: BanditState) -> None:
@@ -390,7 +390,7 @@ class AlwaysCheapestBaseline(BanditAlgorithm):
         self.arm_pulls = {arm.model_id: 0 for arm in self.arm_list}
         self.total_queries = 0
 
-    def get_stats(self) -> dict[str, any]:  # type: ignore
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics."""
         base_stats = super().get_stats()
         avg_cost = (
@@ -413,7 +413,7 @@ class AlwaysCheapestBaseline(BanditAlgorithm):
             arm_ids=list(self.arms.keys()),
             arm_pulls=self.arm_pulls.copy(),
             total_queries=self.total_queries,
-            updated_at=datetime.now(UTC),
+            updated_at=datetime.now(timezone.utc),
         )
 
     def from_state(self, state: BanditState) -> None:

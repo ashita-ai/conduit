@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from conduit.engines.embeddings.base import EmbeddingProvider
 
 if TYPE_CHECKING:
-    from fastembed import TextEmbedding  # type: ignore[import-untyped]
+    from fastembed import TextEmbedding
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class FastEmbedProvider(EmbeddingProvider):
             384
         """
         try:
-            from fastembed import TextEmbedding  # type: ignore[import-untyped]
+            from fastembed import TextEmbedding
         except ImportError as e:
             raise ImportError(
                 "fastembed not installed. Install with: pip install fastembed"

@@ -39,7 +39,7 @@ class ModelArm(BaseModel):
     expected_quality: float = 0.5
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def full_name(self) -> str:
         """Get full model name for PydanticAI."""
@@ -55,12 +55,21 @@ class BanditFeedback(BaseModel):
         quality_score: Quality score from evaluation (0-1 scale)
         latency: Response latency in seconds
         success: Whether execution succeeded
+        confidence: How confident we are in this feedback (0-1 scale).
+            Used for weighted bandit updates. 1.0 = full weight,
+            0.5 = half weight (softer update). Default: 1.0
         metadata: Additional feedback data (token counts, etc.)
 
     Multi-Objective Reward Function (Phase 3):
         Composite reward combines quality, cost, and latency using configurable weights.
         Default weights: 70% quality, 20% cost, 10% latency
         All metrics normalized to [0, 1] range where higher is better.
+
+    Confidence-Weighted Updates:
+        When confidence < 1.0, bandit algorithms apply softer updates:
+        - Thompson Sampling: Partial observation (alpha += confidence * reward)
+        - LinUCB: Weighted matrix updates (A += confidence * x @ x.T)
+        Use lower confidence for implicit signals (regeneration, time-based).
     """
 
     model_id: str
@@ -68,6 +77,7 @@ class BanditFeedback(BaseModel):
     quality_score: float = Field(..., ge=0.0, le=1.0)
     latency: float = Field(..., ge=0.0)
     success: bool = True
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     def calculate_reward(

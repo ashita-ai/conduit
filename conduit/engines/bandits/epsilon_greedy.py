@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import random
 from collections import deque
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -297,7 +297,7 @@ class EpsilonGreedyBandit(BanditAlgorithm):
 
         self.total_queries = 0
 
-    def get_stats(self) -> dict[str, any]:  # type: ignore
+    def get_stats(self) -> dict[str, Any]:
         """Get algorithm statistics.
 
         Returns:
@@ -377,7 +377,7 @@ class EpsilonGreedyBandit(BanditAlgorithm):
             reward_history=reward_history_serialized,
             epsilon=self.epsilon,
             window_size=self.window_size if self.window_size > 0 else None,
-            updated_at=datetime.now(UTC),
+            updated_at=datetime.now(timezone.utc),
         )
 
     def from_state(self, state: BanditState) -> None:

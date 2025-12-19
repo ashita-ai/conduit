@@ -269,11 +269,22 @@ class Router:
 
         config = algorithm_config[algorithm]
 
+        # Type narrowing for config values (mypy can't infer from literal dict)
+        switch_threshold_val = config["switch_threshold"]
+        phase1_algo = config["phase1_algorithm"]
+        phase2_algo = config["phase2_algorithm"]
+
+        # Handle int, float (inf), or any numeric type
+        if isinstance(switch_threshold_val, float) and switch_threshold_val == float("inf"):
+            switch_threshold_int = 999999999
+        else:
+            switch_threshold_int = int(switch_threshold_val)  # type: ignore[call-overload]
+
         self.hybrid_router = HybridRouter(
             models=models,
-            switch_threshold=config["switch_threshold"],
-            phase1_algorithm=config["phase1_algorithm"],
-            phase2_algorithm=config["phase2_algorithm"],
+            switch_threshold=switch_threshold_int,
+            phase1_algorithm=str(phase1_algo),
+            phase2_algorithm=str(phase2_algo),
             analyzer=self.analyzer,
             feature_dim=feature_dim,
             ucb1_c=settings.hybrid_ucb1_c,
@@ -448,6 +459,7 @@ class Router:
         quality_score: float,
         latency: float,
         features: QueryFeatures,
+        confidence: float = 1.0,
     ) -> None:
         """Update bandit weights with feedback from model execution.
 
@@ -460,33 +472,58 @@ class Router:
         - Never lose more than 1 query of learning if crash occurs
         - Async write doesn't block routing
 
+        Confidence-Weighted Updates:
+            The confidence parameter controls how strongly this feedback affects
+            the bandit's learned weights:
+            - 1.0: Full weight (explicit user feedback like thumbs up/down)
+            - 0.7-0.9: High confidence implicit signal (regeneration, task failure)
+            - 0.5: Uncertain signal (time-based proxies)
+
+            Lower confidence causes softer updates, appropriate for signals where
+            we're less certain about user intent.
+
         Args:
             model_id: The model that was used
             cost: Total cost of the query execution
             quality_score: Quality assessment (0.0-1.0)
             latency: Response time in seconds
             features: Query features from the routing decision (required for contextual learning)
+            confidence: Confidence in this feedback (0.0-1.0). Default: 1.0.
+                Lower values cause softer bandit updates.
 
         Example:
             >>> decision = await router.route(query)
             >>> response = await execute_llm_call(decision.selected_model, query)
+            >>>
+            >>> # Explicit feedback (full confidence)
             >>> await router.update(
             ...     model_id=decision.selected_model,
             ...     cost=response.cost,
             ...     quality_score=0.95,  # From arbiter evaluation
             ...     latency=response.latency,
-            ...     features=decision.features,  # Use real features from routing decision
+            ...     features=decision.features,
+            ...     confidence=1.0,  # Explicit signal
             ... )
-            >>> # State automatically saved to database
+            >>>
+            >>> # Implicit feedback (partial confidence)
+            >>> await router.update(
+            ...     model_id=decision.selected_model,
+            ...     cost=response.cost,
+            ...     quality_score=0.0,  # User regenerated
+            ...     latency=response.latency,
+            ...     features=decision.features,
+            ...     confidence=0.8,  # Implicit signal, less certain
+            ... )
         """
         from conduit.engines.bandits.base import BanditFeedback
 
-        # Create feedback object
+        # Create feedback object with confidence
         feedback = BanditFeedback(
             model_id=model_id,
             cost=cost,
             quality_score=quality_score,
             latency=latency,
+            confidence=confidence,
         )
 
         # Update hybrid router with real features (critical for contextual learning)

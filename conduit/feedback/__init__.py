@@ -1,18 +1,26 @@
-"""Implicit feedback system for behavior-based learning.
+"""Feedback system for behavior-based and explicit learning.
 
-This module implements the "Observability Trinity" of implicit signals:
-- Error detection: Capture model failures and quality issues
-- Latency tracking: Monitor response times and user patience
-- Retry detection: Identify repeated/refined queries indicating dissatisfaction
+This module implements both implicit and explicit feedback collection:
+
+Implicit Feedback (behavior-based):
+    - Error detection: Capture model failures and quality issues
+    - Latency tracking: Monitor response times and user patience
+    - Retry detection: Identify repeated queries indicating dissatisfaction
+
+Explicit Feedback (user-provided):
+    - Thumbs up/down: Binary approval signals
+    - Ratings: Numeric quality scores (1-5 stars, etc.)
+    - Task success: Objective completion indicators
+    - Quality score: Direct scores from human reviewers or evaluators (Arbiter)
 
 Strategic Rationale:
-    Reduces dependency on explicit user feedback (antifragile design),
-    captures real behavior signals, and strengthens the data moat through
-    continuous learning from usage patterns.
+    Dual feedback approach reduces dependency on explicit user feedback
+    (antifragile design), captures real behavior signals, and strengthens
+    the data moat through continuous learning from usage patterns.
 
     See: notes/2025-11-18_business_panel_analysis.md (Meadows + Taleb analysis)
 
-Usage:
+Usage - Implicit Feedback:
     >>> from conduit.feedback import (
     ...     ImplicitFeedbackDetector,
     ...     QueryHistoryTracker,
@@ -37,13 +45,57 @@ Usage:
     ...     response_complete_time=end_time,
     ...     user_id="user_abc"
     ... )
+
+Usage - Explicit Feedback:
+    >>> from conduit.feedback import (
+    ...     FeedbackCollector,
+    ...     FeedbackEvent,
+    ...     InMemoryFeedbackStore,
+    ... )
+    >>> from conduit.engines.router import Router
     >>>
-    >>> # Feedback can be used directly with HybridRouter.update()
-    >>> # See conduit_litellm.feedback for automatic bandit updates
+    >>> # Setup
+    >>> router = Router()
+    >>> collector = FeedbackCollector(router)
+    >>>
+    >>> # Route query
+    >>> decision = await router.route(query)
+    >>>
+    >>> # Track for delayed feedback
+    >>> await collector.track(decision, cost=0.001, latency=0.5)
+    >>>
+    >>> # Later: Record user feedback
+    >>> await collector.record(FeedbackEvent(
+    ...     query_id=decision.query_id,
+    ...     signal_type="thumbs",
+    ...     payload={"value": "up"}
+    ... ))
 """
 
+# Implicit feedback (behavior-based)
+# Feedback adapters
+from conduit.feedback.adapters import (
+    CompletionTimeAdapter,
+    FeedbackAdapter,
+    QualityScoreAdapter,
+    RatingAdapter,
+    RegenerationAdapter,
+    TaskSuccessAdapter,
+    ThumbsAdapter,
+)
+
+# Feedback collector
+from conduit.feedback.collector import FeedbackCollector
 from conduit.feedback.detector import ImplicitFeedbackDetector
 from conduit.feedback.history import QueryHistoryEntry, QueryHistoryTracker
+
+# Explicit feedback models
+from conduit.feedback.models import (
+    FeedbackEvent,
+    PendingQuery,
+    RewardMapping,
+    SessionFeedback,
+)
 from conduit.feedback.signals import (
     ErrorSignal,
     LatencySignal,
@@ -51,15 +103,41 @@ from conduit.feedback.signals import (
     SignalDetector,
 )
 
+# Feedback stores
+from conduit.feedback.stores import (
+    FeedbackStore,
+    InMemoryFeedbackStore,
+    PostgresFeedbackStore,
+    RedisFeedbackStore,
+)
+
 __all__ = [
-    # Core Components
+    # Implicit Feedback
     "ImplicitFeedbackDetector",
     "QueryHistoryTracker",
-    # History Models
     "QueryHistoryEntry",
-    # Signal Models
     "RetrySignal",
     "LatencySignal",
     "ErrorSignal",
     "SignalDetector",
+    # Explicit Feedback Models
+    "FeedbackEvent",
+    "RewardMapping",
+    "PendingQuery",
+    "SessionFeedback",
+    # Feedback Adapters
+    "FeedbackAdapter",
+    "ThumbsAdapter",
+    "RatingAdapter",
+    "TaskSuccessAdapter",
+    "QualityScoreAdapter",
+    "CompletionTimeAdapter",
+    "RegenerationAdapter",
+    # Feedback Collector
+    "FeedbackCollector",
+    # Feedback Stores
+    "FeedbackStore",
+    "InMemoryFeedbackStore",
+    "RedisFeedbackStore",
+    "PostgresFeedbackStore",
 ]

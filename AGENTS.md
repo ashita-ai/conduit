@@ -13,7 +13,7 @@ last_updated: 2025-11-29
 **Design Philosophy**: Simplicity wins, use good defaults, YAML config where needed, no hardcoded assumptions.
 
 **Current Phase**: Pre-1.0 preparation (version 0.1.0)
-**Test Health**: 100% passing (950 tests), 91% coverage
+**Test Health**: 100% passing (1000+ tests), 91% coverage
 **Latest**: Example file fixes (PR #184), Pydantic @computed_field improvements (PR #180), test coverage at 91% (PR #175)
 
 ---
@@ -144,8 +144,8 @@ uv run ruff check conduit/    # Linting
 uv run black conduit/         # Code formatting
 
 # Examples
-uv run python examples/01_quickstart/hello_world.py
-uv run python examples/02_routing/basic_routing.py
+uv run python examples/hello_world.py
+uv run python examples/basic_routing.py
 ```
 
 ---
@@ -196,12 +196,12 @@ conduit/
 │   ├── integration/            # Integration tests (DB, Redis, API)
 │   └── regression/             # Example file regression tests
 ├── examples/                   # Usage examples (READ ONLY)
-│   ├── 01_quickstart/          # hello_world.py, simple_router.py
-│   ├── 02_routing/             # basic_routing.py, with_constraints.py
-│   ├── 03_optimization/        # caching.py, feedback examples
-│   ├── 04_litellm/             # LiteLLM integration examples
-│   ├── 05_personalization/     # User preference examples
-│   └── 06_integrations/        # langchain_integration.py
+│   ├── hello_world.py          # Minimal 5-line example
+│   ├── basic_routing.py        # Core routing patterns
+│   ├── feedback_loop.py        # Implicit feedback (errors, latency)
+│   ├── production_feedback.py  # Explicit feedback (thumbs, ratings)
+│   ├── litellm_integration.py  # 100+ providers via LiteLLM
+│   └── integrations/           # LangChain, FastAPI, Gradio
 ├── docs/                       # Technical documentation
 └── notes/                      # Strategic decisions (dated, READ ONLY)
 ```

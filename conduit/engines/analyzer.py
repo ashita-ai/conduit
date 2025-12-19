@@ -1,10 +1,11 @@
 """Query analysis and feature extraction for routing decisions."""
 
 import logging
-import pickle
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+import joblib
 
 from conduit.cache import CacheService
 from conduit.core.models import QueryFeatures
@@ -12,7 +13,7 @@ from conduit.engines.embeddings.base import EmbeddingProvider
 from conduit.engines.embeddings.factory import create_embedding_provider
 
 if TYPE_CHECKING:
-    from sklearn.decomposition import PCA  # type: ignore[import-untyped,unused-ignore]
+    from sklearn.decomposition import PCA
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,7 @@ class QueryAnalyzer:
 
         if use_pca:
             # Lazy load sklearn.decomposition.PCA only when needed
-            from sklearn.decomposition import PCA  # type: ignore[import-untyped]
+            from sklearn.decomposition import PCA
 
             # Try to load pre-fitted PCA model
             # Note: PCA models are provider-specific (different variance for different embedding dims)
@@ -332,18 +333,17 @@ class QueryAnalyzer:
         Returns:
             Fitted PCA model or None if file doesn't exist
         """
-        from sklearn.decomposition import PCA  # type: ignore[import-untyped]
+        from sklearn.decomposition import PCA
 
         pca_path = Path(self.pca_model_path)
         if not pca_path.exists():
             return None
 
         try:
-            with open(pca_path, "rb") as f:
-                pca = pickle.load(f)
-                if not isinstance(pca, PCA):
-                    raise ValueError("Loaded object is not a PCA model")
-                return pca
+            pca = joblib.load(pca_path)
+            if not isinstance(pca, PCA):
+                raise ValueError("Loaded object is not a PCA model")
+            return pca
         except Exception as e:
             # Log warning but don't fail - will create new PCA
             logger.warning(f"Failed to load PCA model from {pca_path}: {e}")
@@ -357,8 +357,7 @@ class QueryAnalyzer:
         pca_path = Path(self.pca_model_path)
         pca_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(pca_path, "wb") as f:
-            pickle.dump(self.pca, f)
+        joblib.dump(self.pca, pca_path)
 
     @property
     def feature_dim(self) -> int:

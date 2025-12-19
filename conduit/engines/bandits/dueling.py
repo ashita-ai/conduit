@@ -15,8 +15,8 @@ with Gaussian Processes"
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from pydantic import BaseModel, Field
@@ -46,7 +46,7 @@ class DuelingFeedback(BaseModel):
     model_b_id: str
     preference: float = Field(..., ge=-1.0, le=1.0)
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
-    metadata: dict = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class DuelingBandit(BanditAlgorithm):
@@ -100,9 +100,9 @@ class DuelingBandit(BanditAlgorithm):
         # Auto-detect feature dimension from config if not provided
         if feature_dim is None:
             feature_config = load_feature_dimensions()
-            feature_dim = feature_config["full_dim"]
+            feature_dim = int(feature_config["full_dim"])
 
-        self.feature_dim = feature_dim
+        self.feature_dim: int = feature_dim
         self.exploration_weight = exploration_weight
         self.learning_rate = learning_rate
 
@@ -116,7 +116,8 @@ class DuelingBandit(BanditAlgorithm):
         self.preference_counts: dict[tuple[str, str], int] = {}
         for i, arm_a in enumerate(arms):
             for arm_b in arms[i + 1 :]:
-                pair_key = tuple(sorted([arm_a.model_id, arm_b.model_id]))
+                sorted_ids = sorted([arm_a.model_id, arm_b.model_id])
+                pair_key: tuple[str, str] = (sorted_ids[0], sorted_ids[1])
                 self.preference_counts[pair_key] = 0
 
         # Set random seed for reproducibility
@@ -270,7 +271,8 @@ class DuelingBandit(BanditAlgorithm):
         self.preference_weights[model_b_id] -= self.learning_rate * gradient_scale * x
 
         # Track comparison count (always use sorted tuple for consistency)
-        pair_key = tuple(sorted([model_a_id, model_b_id]))
+        sorted_ids = sorted([model_a_id, model_b_id])
+        pair_key: tuple[str, str] = (sorted_ids[0], sorted_ids[1])
         # Always increment (pair should exist from init, but handle gracefully)
         self.preference_counts[pair_key] = self.preference_counts.get(pair_key, 0) + 1
 
@@ -289,7 +291,7 @@ class DuelingBandit(BanditAlgorithm):
 
         self.total_queries = 0
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> dict[str, Any]:
         """Get algorithm statistics.
 
         Returns:
@@ -376,7 +378,7 @@ class DuelingBandit(BanditAlgorithm):
             exploration_weight=self.exploration_weight,
             learning_rate=self.learning_rate,
             feature_dim=self.feature_dim,
-            updated_at=datetime.now(UTC),
+            updated_at=datetime.now(timezone.utc),
         )
 
     def from_state(self, state: BanditState) -> None:

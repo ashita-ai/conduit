@@ -17,7 +17,7 @@ Tutorial: https://kfoofw.github.io/contextual-bandits-linear-ucb-disjoint/
 from __future__ import annotations
 
 from collections import deque
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -106,10 +106,10 @@ class LinUCBBandit(BanditAlgorithm):
 
         if feature_dim is None:
             feature_config = load_feature_dimensions()
-            feature_dim = feature_config["full_dim"]
+            feature_dim = int(feature_config["full_dim"])
 
         self.alpha = alpha
-        self.feature_dim = feature_dim
+        self.feature_dim: int = feature_dim
         self.window_size = window_size
         self.success_threshold = success_threshold
 
@@ -435,7 +435,7 @@ class LinUCBBandit(BanditAlgorithm):
             alpha=self.alpha,
             feature_dim=self.feature_dim,
             window_size=self.window_size if self.window_size > 0 else None,
-            updated_at=datetime.now(UTC),
+            updated_at=datetime.now(timezone.utc),
         )
 
     def from_state(self, state: BanditState) -> None:
@@ -499,7 +499,11 @@ class LinUCBBandit(BanditAlgorithm):
         self.A, self.b = deserialize_bandit_matrices(state.A_matrices, state.b_vectors)
 
         # Recompute A_inv from A (not stored to save space)
-        self.A_inv = {arm_id: np.linalg.inv(A_mat) for arm_id, A_mat in self.A.items()}
+        # numpy stubs dtype mismatch for np.linalg.inv - functionally correct
+        self.A_inv = {
+            arm_id: np.linalg.inv(A_mat)  # type: ignore[misc]
+            for arm_id, A_mat in self.A.items()
+        }
 
         # Restore observation history
         for arm_id in self.arms:

@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.warning(f"Failed to load model prices, using fallback pricing: {e}")
         model_prices = {}
 
-    executor = ModelExecutor(pricing=model_prices)
+    executor = ModelExecutor()
 
     # Create service
     _service = RoutingService(

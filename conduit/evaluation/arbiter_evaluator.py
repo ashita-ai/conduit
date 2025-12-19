@@ -194,6 +194,7 @@ class ArbiterEvaluator:
             feedback = Feedback(
                 response_id=response.id,
                 quality_score=overall_score,
+                user_rating=None,  # Arbiter doesn't collect user ratings
                 met_expectations=(overall_score >= 0.7),  # Threshold for expectations
                 comments=f"Arbiter eval: ${cost_str} (semantic + factuality)",
             )

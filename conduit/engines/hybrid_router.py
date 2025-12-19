@@ -26,7 +26,7 @@ from conduit.engines.bandits import (
     OracleBaseline,
     UCB1Bandit,
 )
-from conduit.engines.bandits.base import BanditFeedback, ModelArm
+from conduit.engines.bandits.base import BanditAlgorithm, BanditFeedback, ModelArm
 
 if TYPE_CHECKING:
     from conduit.core.state_store import StateStore
@@ -216,6 +216,10 @@ class HybridRouter:
             RandomBaseline,
             ThompsonSamplingBandit,
         )
+
+        # Declare bandit types (mypy can't infer union from conditional assignments)
+        self.phase1_bandit: BanditAlgorithm
+        self.phase2_bandit: BanditAlgorithm
 
         # Phase 1: Initialize based on phase1_algorithm
         if phase1_algorithm == "ucb1":
@@ -411,6 +415,7 @@ class HybridRouter:
                 embedding=[0.0] * 384,
                 token_count=len(query.text.split()),
                 complexity_score=0.5,
+                query_text=query.text,
             )
             arm = await self.phase1_bandit.select_arm(dummy_features)
 
@@ -491,6 +496,7 @@ class HybridRouter:
                 embedding=[0.0] * 384,
                 token_count=0,
                 complexity_score=0.5,
+                query_text=None,
             )
             await self.phase1_bandit.update(feedback, dummy_features)
         else:
@@ -531,10 +537,11 @@ class HybridRouter:
         phase1_state = self.phase1_bandit.to_state()
 
         # Convert to phase2 state
+        # Note: feature_dim is only available on contextual bandits (LinUCB, etc.)
         phase2_state = convert_bandit_state(
             phase1_state,
             target_algorithm=self.phase2_algorithm,
-            feature_dim=self.phase2_bandit.feature_dim,
+            feature_dim=getattr(self.phase2_bandit, "feature_dim", self.feature_dim),
         )
 
         # Load converted state into phase2 bandit
@@ -608,7 +615,7 @@ class HybridRouter:
         }
 
     @property
-    def ucb1(self):
+    def ucb1(self) -> Any:
         """Backward compatibility: Access phase1 bandit as 'ucb1'.
 
         Deprecated: Use phase1_bandit instead.
@@ -616,7 +623,7 @@ class HybridRouter:
         return self.phase1_bandit
 
     @property
-    def linucb(self):
+    def linucb(self) -> Any:
         """Backward compatibility: Access phase2 bandit as 'linucb'.
 
         Deprecated: Use phase2_bandit instead.
@@ -823,7 +830,7 @@ class HybridRouter:
                 phase2_converted = convert_bandit_state(
                     state.phase2_state,
                     target_algorithm=self.phase2_algorithm,
-                    feature_dim=self.phase2_bandit.feature_dim,
+                    feature_dim=getattr(self.phase2_bandit, "feature_dim", self.feature_dim),
                 )
                 self.phase2_bandit.from_state(phase2_converted)
                 logger.info(
@@ -834,7 +841,7 @@ class HybridRouter:
                 phase2_converted = convert_bandit_state(
                     state.linucb_state,
                     target_algorithm=self.phase2_algorithm,
-                    feature_dim=self.phase2_bandit.feature_dim,
+                    feature_dim=getattr(self.phase2_bandit, "feature_dim", self.feature_dim),
                 )
                 self.phase2_bandit.from_state(phase2_converted)
                 logger.info(

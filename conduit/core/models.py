@@ -261,13 +261,13 @@ class ModelState(BaseModel):
         description="Last update timestamp",
     )
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def mean_success_rate(self) -> float:
         """Expected success rate (mean of Beta distribution)."""
         return self.alpha / (self.alpha + self.beta)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def variance(self) -> float:
         """Variance of Beta distribution."""

@@ -15,7 +15,7 @@ Tutorial: http://proceedings.mlr.press/v28/agrawal13.pdf
 from __future__ import annotations
 
 from collections import deque
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -108,10 +108,10 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
 
         if feature_dim is None:
             feature_config = load_feature_dimensions()
-            feature_dim = feature_config["full_dim"]
+            feature_dim = int(feature_config["full_dim"])
 
         self.lambda_reg = lambda_reg
-        self.feature_dim = feature_dim
+        self.feature_dim: int = feature_dim
         self.window_size = window_size
         self.success_threshold = success_threshold
 
@@ -384,7 +384,7 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
             observation_history=observation_history_serialized,
             feature_dim=self.feature_dim,
             window_size=self.window_size if self.window_size > 0 else None,
-            updated_at=datetime.now(UTC),
+            updated_at=datetime.now(timezone.utc),
         )
 
     def from_state(self, state: BanditState) -> None:

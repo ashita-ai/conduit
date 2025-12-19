@@ -47,16 +47,14 @@ class CohereEmbeddingProvider(EmbeddingProvider):
         self.timeout = timeout
 
         # Get API key from parameter or environment
-        if api_key:
-            self.api_key = api_key
-        else:
-            import os
+        import os
 
-            self.api_key = os.getenv("COHERE_API_KEY")
-            if not self.api_key:
-                raise ValueError(
-                    "Cohere API key required. Set COHERE_API_KEY env var or pass api_key parameter."
-                )
+        resolved_key = api_key or os.getenv("COHERE_API_KEY")
+        if not resolved_key:
+            raise ValueError(
+                "Cohere API key required. Set COHERE_API_KEY env var or pass api_key parameter."
+            )
+        self.api_key: str = resolved_key
 
         # API endpoint
         self.api_url = "https://api.cohere.ai/v1/embed"

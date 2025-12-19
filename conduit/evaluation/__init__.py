@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 __all__ = ["ArbiterEvaluator"]
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> type:
     """Lazy import ArbiterEvaluator only when accessed."""
     if name == "ArbiterEvaluator":
         try:

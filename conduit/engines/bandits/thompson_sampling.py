@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import random
 from collections import deque
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import numpy as np  # type: ignore[import-untyped,unused-ignore]
@@ -94,9 +94,10 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         else:
             self.reward_weights = reward_weights
 
-        # Sliding window: Store recent rewards per arm (Phase 3 - Non-stationarity)
+        # Sliding window: Store recent (reward, confidence) pairs per arm
         # If window_size > 0, use deque with maxlen. Otherwise, use list (unlimited).
-        self.reward_history: dict[str, deque[float]]
+        # Confidence enables weighted updates for uncertain feedback signals.
+        self.reward_history: dict[str, deque[tuple[float, float]]]
         if window_size > 0:
             self.reward_history = {
                 arm.model_id: deque(maxlen=window_size) for arm in arms
@@ -160,26 +161,45 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         """Update Beta distribution with feedback.
 
         Uses multi-objective reward (quality + cost + latency) as success probability.
+        Supports confidence-weighted updates for uncertain feedback signals.
+
+        Confidence-Weighted Updates:
+            When confidence < 1.0, the observation is treated as a partial observation.
+            - confidence=1.0: Full update (equivalent to observing one sample)
+            - confidence=0.5: Half update (like observing half a sample)
+            This enables softer learning from implicit signals like regeneration.
 
         With sliding window (window_size > 0):
-        - Stores reward in history deque (automatically drops oldest when full)
-        - Recalculates α, β from all rewards in current window + prior
+        - Stores (reward, confidence) pairs in history deque
+        - Recalculates α, β from confidence-weighted rewards in window + prior
 
         Without window (window_size = 0):
-        - Incremental update: α += r, β += (1 - r)
+        - Incremental update with weighting: α += c*r, β += c*(1-r)
 
         Args:
-            feedback: Feedback from model execution
+            feedback: Feedback from model execution (includes confidence)
             features: Original query features (not used)
 
         Example:
+            >>> # Full confidence (explicit feedback)
             >>> feedback = BanditFeedback(
             ...     model_id="openai:gpt-4o-mini",
             ...     cost=0.0001,
             ...     quality_score=0.95,
-            ...     latency=1.2
+            ...     latency=1.2,
+            ...     confidence=1.0,
             ... )
             >>> await bandit.update(feedback, features)
+            >>>
+            >>> # Partial confidence (implicit signal like regeneration)
+            >>> implicit_feedback = BanditFeedback(
+            ...     model_id="openai:gpt-4o-mini",
+            ...     cost=0.0001,
+            ...     quality_score=0.0,  # User regenerated
+            ...     latency=1.2,
+            ...     confidence=0.8,  # Implicit signal, less certain
+            ... )
+            >>> await bandit.update(implicit_feedback, features)
         """
         model_id = feedback.model_id
 
@@ -197,17 +217,21 @@ class ThompsonSamplingBandit(BanditAlgorithm):
             latency_weight=self.reward_weights["latency"],
         )
 
-        # Add reward to history
-        self.reward_history[model_id].append(reward)
+        # Get confidence from feedback (defaults to 1.0 for full weight)
+        confidence = feedback.confidence
 
-        # Recalculate alpha/beta from windowed history
-        # α = prior_alpha + sum(rewards in window)
-        # β = prior_beta + sum(1 - reward for reward in window)
-        window_rewards = list(self.reward_history[model_id])
-        self.alpha[model_id] = self.prior_alpha + sum(window_rewards)
-        self.beta[model_id] = self.prior_beta + sum(1.0 - r for r in window_rewards)
+        # Add (reward, confidence) pair to history
+        self.reward_history[model_id].append((reward, confidence))
 
-        # Track statistics
+        # Recalculate alpha/beta from confidence-weighted windowed history
+        # α = prior_alpha + sum(confidence * reward for each observation)
+        # β = prior_beta + sum(confidence * (1 - reward) for each observation)
+        # This treats confidence as "fraction of an observation"
+        window_data = list(self.reward_history[model_id])
+        self.alpha[model_id] = self.prior_alpha + sum(c * r for r, c in window_data)
+        self.beta[model_id] = self.prior_beta + sum(c * (1.0 - r) for r, c in window_data)
+
+        # Track statistics (unweighted for interpretability)
         self.arm_pulls[model_id] += 1  # Always increment for feedback count
         if reward >= self.success_threshold:
             self.arm_successes[model_id] += 1
@@ -293,10 +317,15 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         from conduit.core.state_store import BanditState
 
         # Convert reward history deques to list of dicts for serialization
+        # Each entry is (reward, confidence) tuple
         reward_history_serialized = []
-        for arm_id, rewards in self.reward_history.items():
-            for reward in rewards:
-                reward_history_serialized.append({"arm_id": arm_id, "reward": reward})
+        for arm_id, reward_conf_pairs in self.reward_history.items():
+            for reward, confidence in reward_conf_pairs:
+                reward_history_serialized.append({
+                    "arm_id": arm_id,
+                    "reward": reward,
+                    "confidence": confidence,
+                })
 
         return BanditState(
             algorithm="thompson_sampling",
@@ -308,11 +337,14 @@ class ThompsonSamplingBandit(BanditAlgorithm):
             beta_params=self.beta.copy(),
             reward_history=reward_history_serialized,
             window_size=self.window_size if self.window_size > 0 else None,
-            updated_at=datetime.now(UTC),
+            updated_at=datetime.now(timezone.utc),
         )
 
     def from_state(self, state: BanditState) -> None:
         """Restore Thompson Sampling state from persisted data.
+
+        Backwards compatible: handles both old format (reward only) and
+        new format (reward + confidence).
 
         Args:
             state: BanditState object with serialized state
@@ -351,5 +383,7 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         for entry in state.reward_history:
             arm_id = entry["arm_id"]
             reward = entry["reward"]
+            # Backwards compatibility: default confidence to 1.0 if not present
+            confidence = entry.get("confidence", 1.0)
             if arm_id in self.reward_history:
-                self.reward_history[arm_id].append(reward)
+                self.reward_history[arm_id].append((reward, confidence))

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import math
 from collections import deque
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -337,7 +337,7 @@ class UCB1Bandit(BanditAlgorithm):
             explored_arms=list(self.explored_arms),
             reward_history=reward_history_serialized,
             window_size=self.window_size if self.window_size > 0 else None,
-            updated_at=datetime.now(UTC),
+            updated_at=datetime.now(timezone.utc),
         )
 
     def from_state(self, state: BanditState) -> None:

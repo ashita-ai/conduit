@@ -182,7 +182,7 @@ export OPENAI_API_KEY=sk-...
 export ANTHROPIC_API_KEY=sk-...
 
 # Run example
-python examples/01_quickstart/hello_world.py
+python examples/hello_world.py
 ```
 
 ### Full Setup
@@ -232,17 +232,20 @@ query = Query(
 # - speed:    Minimize latency (40% quality, 10% cost, 50% latency)
 ```
 
-Customize weights in `conduit.yaml` - see `examples/05_personalization/explicit_preferences.py`.
+Customize weights in `conduit.yaml` - see `examples/explicit_preferences.py`.
 
 ## Examples
 
 ```
 examples/
-├── 01_quickstart/       # hello_world.py (5 lines), simple_router.py
-├── 02_routing/          # basic_routing.py, hybrid_routing.py, with_constraints.py
-├── 03_optimization/     # caching.py, explicit_feedback.py
-├── 04_litellm/          # LiteLLM integration (100+ providers)
-└── 05_personalization/  # User preferences for optimization control
+├── hello_world.py           # 5-line minimal example
+├── quickstart.py            # Getting started guide
+├── basic_routing.py         # Core routing patterns
+├── feedback_loop.py         # Implicit feedback (errors, latency)
+├── production_feedback.py   # Explicit feedback (thumbs, ratings)
+├── litellm_integration.py   # 100+ providers via LiteLLM
+├── explicit_preferences.py  # Per-query optimization control
+└── integrations/            # LangChain, LlamaIndex, FastAPI, Gradio
 ```
 
 ## Documentation
@@ -269,7 +272,7 @@ examples/
 **Not Competitors, We Integrate**:
 - **LiteLLM**: Provider abstraction layer. Conduit uses LiteLLM to access 100+ providers, adds ML routing on top.
 - **Portkey**: Enterprise gateway (teams, SSO, observability). Could run Conduit behind Portkey for ML routing + enterprise features.
-- **LangChain**: LLM orchestration framework. Conduit integrates as a routing component (see `examples/06_integrations/`).
+- **LangChain**: LLM orchestration framework. Conduit integrates as a routing component (see `examples/integrations/`).
 
 Think of it this way: LiteLLM/Portkey are the roads, Conduit is the GPS that picks the best route.
 
@@ -301,15 +304,17 @@ Think of it this way: LiteLLM/Portkey are the roads, Conduit is the GPS that pic
 ## Status
 
 **Version**: 0.1.0 (Pre-1.0)
-**Test Status**: 100% passing (565/565 tests), 81% coverage
+**Test Status**: 100% passing (1000+ tests), 91% coverage
 **CI/CD**: GitHub Actions with automated testing
 
 ### Recent Additions
+- ✅ **Production feedback system** (pluggable adapters, idempotent, session-aware)
 - ✅ Thompson Sampling default (superior cold-start quality)
 - ✅ Lightweight API-based embeddings (HuggingFace default, no heavy dependencies)
 - ✅ Arbiter LLM-as-Judge (automatic quality evaluation)
 - ✅ LiteLLM feedback loop (zero-config learning)
 - ✅ 12 configurable algorithms (Thompson, LinUCB, UCB1, baselines, hybrid)
+- ✅ Confidence-weighted learning (partial observations, calibrated rewards)
 - ✅ Multi-objective rewards (quality + cost + latency)
 - ✅ User preferences (per-query optimization control)
 - ✅ Dynamic pricing (71+ models auto-updated)
@@ -327,8 +332,11 @@ Think of it this way: LiteLLM/Portkey are the roads, Conduit is the GPS that pic
 Conduit learns which models work best for different query types through continuous feedback. The system optimizes a multi-objective reward balancing quality, cost, and latency.
 
 **Feedback system**:
-- Explicit feedback (user ratings, task success)
+- Explicit feedback (thumbs, ratings, task success) via pluggable adapters
 - Implicit feedback (errors, retries, latency) weighted at 30%
+- Confidence-weighted updates for partial observations
+- Idempotent recording (safe retries, no double-counting)
+- Session-level feedback propagation for multi-turn conversations
 - Composite rewards balancing quality (70%), cost (20%), latency (10%) by default
 
 You can adjust these weights per query using UserPreferences to prioritize quality over cost or vice versa.
@@ -369,7 +377,7 @@ Or use the built-in Arbiter (LLM-as-judge) for automatic evaluation.
 
 ### Is this production-ready?
 
-**Pre-1.0 status**: Core routing is stable and tested (565/565 tests passing), but:
+**Pre-1.0 status**: Core routing is stable and tested (1000+ tests passing, 91% coverage), but:
 - APIs may change before 1.0
 - Some features are experimental (PCA reduction, Arbiter evaluation)
 - Production use recommended with monitoring and fallbacks

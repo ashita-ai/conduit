@@ -5,7 +5,7 @@ import logging
 import re
 import time
 
-import msgpack  # type: ignore[import-untyped]
+import msgpack
 from redis.asyncio import Redis
 from redis.exceptions import ConnectionError, TimeoutError
 
@@ -113,7 +113,7 @@ class CacheService:
             config: Cache configuration
         """
         self.config = config
-        self.redis: Redis | None = None
+        self.redis: Redis[bytes] | None = None
         self.circuit_breaker = CacheCircuitBreaker(
             failure_threshold=config.circuit_breaker_threshold,
             timeout=config.circuit_breaker_timeout,

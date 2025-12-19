@@ -197,14 +197,17 @@ Look for issues labeled `good first issue` or `difficulty: beginner`:
 ### Running Examples
 
 ```bash
+# Hello world
+uv run python examples/hello_world.py
+
 # Basic routing
-uv run python examples/01_quickstart/hello_world.py
+uv run python examples/basic_routing.py
 
 # With constraints
-uv run python examples/02_routing/with_constraints.py
+uv run python examples/with_constraints.py
 
 # Caching
-uv run python examples/03_optimization/caching.py
+uv run python examples/caching.py
 ```
 
 ## Getting Help

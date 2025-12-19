@@ -63,7 +63,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.redis_url = redis_url or settings.redis_url
         self.rate_limit = rate_limit or settings.api_rate_limit
         self.window_seconds = window_seconds
-        self.redis: Redis | None = None
+        self.redis: Redis[bytes] | None = None
 
         # Initialize Redis client
         try:

@@ -148,6 +148,18 @@ def test_litellm_integration():
     assert "LITELLM" in stdout.upper() or "Conduit" in stdout
 
 
+@pytest.mark.regression
+@requires_api_key("OPENAI_API_KEY")
+def test_production_feedback():
+    """Test examples/production_feedback.py runs successfully."""
+    example = EXAMPLES_DIR / "production_feedback.py"
+    exit_code, stdout, stderr = run_example(example, timeout=120)
+
+    assert exit_code == 0, f"Example failed with stderr: {stderr}"
+    # Check for key sections of the output
+    assert "PRODUCTION FEEDBACK" in stdout or "DELAYED FEEDBACK" in stdout
+
+
 # ============================================================
 # Quickstart Examples (at root level)
 # ============================================================

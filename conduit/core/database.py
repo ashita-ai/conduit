@@ -458,3 +458,40 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to get response: {e}")
             raise DatabaseError(f"Failed to get response: {e}") from e
+
+    async def get_query_by_id(self, query_id: str) -> Query | None:
+        """Get query by ID.
+
+        Args:
+            query_id: Query ID
+
+        Returns:
+            Query if found, None otherwise
+
+        Raises:
+            DatabaseError: If query fails
+        """
+        if not self.pool:
+            raise DatabaseError("Database not connected")
+
+        try:
+            async with self.pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT * FROM queries WHERE id = $1", query_id
+                )
+
+            if not row:
+                return None
+
+            return Query(
+                id=row["id"],
+                text=row["text"],
+                user_id=row.get("user_id"),
+                context=json.loads(row["context"]) if row.get("context") else None,
+                constraints=None,  # Constraints not stored in DB
+                created_at=row["created_at"],
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to get query: {e}")
+            raise DatabaseError(f"Failed to get query: {e}") from e

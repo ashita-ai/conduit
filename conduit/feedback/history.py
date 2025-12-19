@@ -5,6 +5,8 @@ retry detection. Stores query metadata (embeddings, timestamps, IDs)
 with automatic expiration for memory efficiency.
 """
 
+from __future__ import annotations
+
 import time
 
 from pydantic import BaseModel, Field
@@ -61,7 +63,7 @@ class QueryHistoryTracker:
 
     def __init__(
         self,
-        redis: Redis | None = None,
+        redis: Redis[bytes] | None = None,
         ttl_seconds: int = 300,  # 5 minutes
     ):
         """Initialize query history tracker.

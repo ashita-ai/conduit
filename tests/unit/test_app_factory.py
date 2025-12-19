@@ -108,10 +108,8 @@ class TestLifespan:
                                 async with lifespan(mock_app):
                                     # Verify model prices were loaded
                                     mock_db.get_model_prices.assert_called_once()
-                                    # Verify executor received prices
-                                    MockExecutor.assert_called_once_with(
-                                        pricing={"model-a": 0.01}
-                                    )
+                                    # Verify executor was created (pricing handled by LiteLLM)
+                                    MockExecutor.assert_called_once_with()
 
     @pytest.mark.asyncio
     async def test_lifespan_handles_price_loading_error(self):
@@ -137,9 +135,9 @@ class TestLifespan:
                                 mock_settings.embedding_model = None
                                 mock_settings.embedding_api_key = None
 
-                                # Should not raise, uses empty dict as fallback
+                                # Should not raise, gracefully handles error
                                 async with lifespan(mock_app):
-                                    MockExecutor.assert_called_once_with(pricing={})
+                                    MockExecutor.assert_called_once_with()
 
 
 class TestExceptionHandler:

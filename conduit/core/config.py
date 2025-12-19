@@ -43,7 +43,7 @@ def load_default_models() -> list[str]:
                         continue
 
                     # Extract all unique model IDs from all contexts
-                    model_ids = set()
+                    model_ids: set[str] = set()
                     for context_priors in priors_section.values():
                         if isinstance(context_priors, dict):
                             model_ids.update(context_priors.keys())
@@ -138,11 +138,13 @@ def load_embeddings_config() -> dict[str, Any]:
                 continue
 
     # Try environment variables as fallback
-    env_overrides = {}
+    env_overrides: dict[str, str | bool | int] = {}
     if os.getenv("EMBEDDING_PROVIDER"):
         env_overrides["provider"] = os.getenv("EMBEDDING_PROVIDER", "auto")
     if os.getenv("EMBEDDING_MODEL"):
-        env_overrides["model"] = os.getenv("EMBEDDING_MODEL")
+        env_val = os.getenv("EMBEDDING_MODEL")
+        if env_val is not None:
+            env_overrides["model"] = env_val
     if os.getenv("USE_PCA"):
         env_overrides["pca_enabled"] = os.getenv("USE_PCA", "false").lower() == "true"
     if os.getenv("PCA_COMPONENTS"):
@@ -608,10 +610,13 @@ def load_routing_config() -> dict[str, Any]:
                                 "default_optimization"
                             ]
                         if "presets" in routing_config:
-                            result["presets"] = {
-                                **defaults["presets"],
-                                **routing_config["presets"],
-                            }
+                            # Type-safe dict merge (mypy can't narrow through indexing)
+                            default_presets = defaults["presets"]
+                            config_presets = routing_config["presets"]
+                            if isinstance(default_presets, dict) and isinstance(
+                                config_presets, dict
+                            ):
+                                result["presets"] = {**default_presets, **config_presets}
                         return result
         except Exception:
             pass
@@ -859,12 +864,9 @@ def load_quality_estimation_config() -> dict[str, Any]:
                         # Merge nested dicts
                         result = defaults.copy()
                         for key, value in quality_config.items():
-                            if (
-                                isinstance(value, dict)
-                                and key in result
-                                and isinstance(result[key], dict)
-                            ):
-                                result[key] = {**result[key], **value}
+                            existing = result.get(key)
+                            if isinstance(value, dict) and isinstance(existing, dict):
+                                result[key] = {**existing, **value}
                             else:
                                 result[key] = value
                         return result
@@ -958,12 +960,9 @@ def load_feedback_config() -> dict[str, Any]:
                         # Deep merge nested dicts
                         result = defaults.copy()
                         for key, value in feedback_config.items():
-                            if (
-                                isinstance(value, dict)
-                                and key in result
-                                and isinstance(result[key], dict)
-                            ):
-                                result[key] = {**result[key], **value}
+                            existing = result.get(key)
+                            if isinstance(value, dict) and isinstance(existing, dict):
+                                result[key] = {**existing, **value}
                             else:
                                 result[key] = value
                         return result
@@ -1128,12 +1127,9 @@ def load_cache_config() -> dict[str, Any]:
                         # Deep merge circuit_breaker
                         result = defaults.copy()
                         for key, value in cache_config.items():
-                            if (
-                                isinstance(value, dict)
-                                and key in result
-                                and isinstance(result[key], dict)
-                            ):
-                                result[key] = {**result[key], **value}
+                            existing = result.get(key)
+                            if isinstance(value, dict) and isinstance(existing, dict):
+                                result[key] = {**existing, **value}
                             else:
                                 result[key] = value
                         return result

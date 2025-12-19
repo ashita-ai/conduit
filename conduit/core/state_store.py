@@ -6,7 +6,7 @@ numpy arrays and complex state structures to JSON for PostgreSQL storage.
 """
 
 from abc import ABC, abstractmethod
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -108,8 +108,8 @@ class BanditState(BaseModel):
     )
 
     # Metadata
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     version: int = 1
 
     model_config = {"arbitrary_types_allowed": True}
@@ -147,8 +147,8 @@ class HybridRouterState(BaseModel):
     linucb_state: BanditState | None = None
 
     # Metadata
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     version: int = 2  # Increment version for new fields
 
 
@@ -265,7 +265,8 @@ def numpy_to_list(arr: np.ndarray) -> list[Any]:
     Returns:
         Nested list representation
     """
-    return arr.tolist()
+    result: list[Any] = arr.tolist()
+    return result
 
 
 def list_to_numpy(data: list[Any], dtype: type = float) -> np.ndarray:

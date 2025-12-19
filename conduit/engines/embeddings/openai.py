@@ -1,6 +1,7 @@
 """OpenAI embedding provider (recommended for production)."""
 
 import logging
+from typing import Any
 
 from conduit.engines.embeddings.base import EmbeddingProvider
 
@@ -57,16 +58,14 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         self.timeout = timeout
 
         # Get API key from parameter or environment
-        if api_key:
-            self.api_key = api_key
-        else:
-            import os
+        import os
 
-            self.api_key = os.getenv("OPENAI_API_KEY")
-            if not self.api_key:
-                raise ValueError(
-                    "OpenAI API key required. Set OPENAI_API_KEY env var or pass api_key parameter."
-                )
+        resolved_key = api_key or os.getenv("OPENAI_API_KEY")
+        if not resolved_key:
+            raise ValueError(
+                "OpenAI API key required. Set OPENAI_API_KEY env var or pass api_key parameter."
+            )
+        self.api_key: str = resolved_key
 
         # Initialize client
         self.client = AsyncOpenAI(api_key=self.api_key, timeout=self.timeout)
@@ -113,7 +112,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
 
         try:
             # Build request parameters
-            params: dict[str, any] = {
+            params: dict[str, Any] = {
                 "model": self.model,
                 "input": texts,
             }
