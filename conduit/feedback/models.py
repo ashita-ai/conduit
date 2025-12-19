@@ -120,9 +120,7 @@ class RewardMapping(BaseModel):
         >>> mapping = RewardMapping(reward=0.0, confidence=0.8)  # Regeneration
     """
 
-    reward: float = Field(
-        ..., description="Reward value (0.0-1.0)", ge=0.0, le=1.0
-    )
+    reward: float = Field(..., description="Reward value (0.0-1.0)", ge=0.0, le=1.0)
     confidence: float = Field(
         default=1.0, description="Signal confidence (0.0-1.0)", ge=0.0, le=1.0
     )
@@ -160,14 +158,14 @@ class PendingQuery(BaseModel):
         ..., description="QueryFeatures serialized as dict"
     )
     cost: float = Field(default=0.0, description="Query cost in dollars", ge=0.0)
-    latency: float = Field(default=0.0, description="Response latency in seconds", ge=0.0)
+    latency: float = Field(
+        default=0.0, description="Response latency in seconds", ge=0.0
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         description="When query was tracked",
     )
-    ttl_seconds: int = Field(
-        default=3600, description="Time-to-live in seconds", gt=0
-    )
+    ttl_seconds: int = Field(default=3600, description="Time-to-live in seconds", gt=0)
     session_id: str | None = Field(
         default=None, description="Optional session ID for multi-turn tracking"
     )

@@ -170,7 +170,9 @@ class FeedbackStore(ABC):
         pass
 
     @abstractmethod
-    async def mark_processed(self, idempotency_key: str, ttl_seconds: int = 3600) -> None:
+    async def mark_processed(
+        self, idempotency_key: str, ttl_seconds: int = 3600
+    ) -> None:
         """Mark feedback as processed to prevent future duplicates.
 
         Args:
@@ -273,8 +275,7 @@ class InMemoryFeedbackStore(FeedbackStore):
         """Remove all expired pending queries."""
         async with self._lock:
             expired_ids = [
-                qid for qid, pending in self._pending.items()
-                if pending.is_expired()
+                qid for qid, pending in self._pending.items() if pending.is_expired()
             ]
 
             for qid in expired_ids:
@@ -313,7 +314,9 @@ class InMemoryFeedbackStore(FeedbackStore):
             for query_id in to_delete:
                 del self._pending[query_id]
 
-            logger.debug(f"Retrieved and deleted {len(queries)} queries for session: {session_id}")
+            logger.debug(
+                f"Retrieved and deleted {len(queries)} queries for session: {session_id}"
+            )
             return queries
 
     async def was_processed(self, idempotency_key: str) -> bool:
@@ -330,7 +333,9 @@ class InMemoryFeedbackStore(FeedbackStore):
 
             return True
 
-    async def mark_processed(self, idempotency_key: str, ttl_seconds: int = 3600) -> None:
+    async def mark_processed(
+        self, idempotency_key: str, ttl_seconds: int = 3600
+    ) -> None:
         """Mark feedback as processed to prevent future duplicates."""
         async with self._lock:
             expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
@@ -559,7 +564,9 @@ class RedisFeedbackStore(FeedbackStore):
         for pending in queries:
             await self.redis.delete(self._key(pending.query_id))
 
-        logger.debug(f"Retrieved and deleted {len(queries)} queries for session: {session_id}")
+        logger.debug(
+            f"Retrieved and deleted {len(queries)} queries for session: {session_id}"
+        )
         return queries
 
     def _processed_key(self, idempotency_key: str) -> str:
@@ -572,7 +579,9 @@ class RedisFeedbackStore(FeedbackStore):
         exists = await self.redis.exists(key)
         return bool(exists)
 
-    async def mark_processed(self, idempotency_key: str, ttl_seconds: int = 3600) -> None:
+    async def mark_processed(
+        self, idempotency_key: str, ttl_seconds: int = 3600
+    ) -> None:
         """Mark feedback as processed to prevent future duplicates."""
         key = self._processed_key(idempotency_key)
         # Use SETEX to set with TTL - value is just a marker
@@ -676,11 +685,17 @@ class PostgresFeedbackStore(FeedbackStore):
         return PendingQuery(
             query_id=row["query_id"],
             model_id=row["model_id"],
-            features=json.loads(row["features"]) if isinstance(row["features"], str) else row["features"],
+            features=(
+                json.loads(row["features"])
+                if isinstance(row["features"], str)
+                else row["features"]
+            ),
             cost=row["cost"],
             latency=row["latency"],
             created_at=row["created_at"],
-            ttl_seconds=int((row["expires_at"] - datetime.now(timezone.utc)).total_seconds()),
+            ttl_seconds=int(
+                (row["expires_at"] - datetime.now(timezone.utc)).total_seconds()
+            ),
         )
 
     async def get_and_delete_pending(self, query_id: str) -> PendingQuery | None:
@@ -704,11 +719,17 @@ class PostgresFeedbackStore(FeedbackStore):
         return PendingQuery(
             query_id=row["query_id"],
             model_id=row["model_id"],
-            features=json.loads(row["features"]) if isinstance(row["features"], str) else row["features"],
+            features=(
+                json.loads(row["features"])
+                if isinstance(row["features"], str)
+                else row["features"]
+            ),
             cost=row["cost"],
             latency=row["latency"],
             created_at=row["created_at"],
-            ttl_seconds=int((row["expires_at"] - datetime.now(timezone.utc)).total_seconds()),
+            ttl_seconds=int(
+                (row["expires_at"] - datetime.now(timezone.utc)).total_seconds()
+            ),
         )
 
     async def update_pending(
@@ -806,16 +827,24 @@ class PostgresFeedbackStore(FeedbackStore):
 
         queries = []
         for row in rows:
-            queries.append(PendingQuery(
-                query_id=row["query_id"],
-                model_id=row["model_id"],
-                features=json.loads(row["features"]) if isinstance(row["features"], str) else row["features"],
-                cost=row["cost"],
-                latency=row["latency"],
-                created_at=row["created_at"],
-                ttl_seconds=int((row["expires_at"] - datetime.now(timezone.utc)).total_seconds()),
-                session_id=row["session_id"],
-            ))
+            queries.append(
+                PendingQuery(
+                    query_id=row["query_id"],
+                    model_id=row["model_id"],
+                    features=(
+                        json.loads(row["features"])
+                        if isinstance(row["features"], str)
+                        else row["features"]
+                    ),
+                    cost=row["cost"],
+                    latency=row["latency"],
+                    created_at=row["created_at"],
+                    ttl_seconds=int(
+                        (row["expires_at"] - datetime.now(timezone.utc)).total_seconds()
+                    ),
+                    session_id=row["session_id"],
+                )
+            )
 
         return queries
 
@@ -835,18 +864,28 @@ class PostgresFeedbackStore(FeedbackStore):
 
         queries = []
         for row in rows:
-            queries.append(PendingQuery(
-                query_id=row["query_id"],
-                model_id=row["model_id"],
-                features=json.loads(row["features"]) if isinstance(row["features"], str) else row["features"],
-                cost=row["cost"],
-                latency=row["latency"],
-                created_at=row["created_at"],
-                ttl_seconds=int((row["expires_at"] - datetime.now(timezone.utc)).total_seconds()),
-                session_id=row["session_id"],
-            ))
+            queries.append(
+                PendingQuery(
+                    query_id=row["query_id"],
+                    model_id=row["model_id"],
+                    features=(
+                        json.loads(row["features"])
+                        if isinstance(row["features"], str)
+                        else row["features"]
+                    ),
+                    cost=row["cost"],
+                    latency=row["latency"],
+                    created_at=row["created_at"],
+                    ttl_seconds=int(
+                        (row["expires_at"] - datetime.now(timezone.utc)).total_seconds()
+                    ),
+                    session_id=row["session_id"],
+                )
+            )
 
-        logger.debug(f"Retrieved and deleted {len(queries)} queries for session: {session_id}")
+        logger.debug(
+            f"Retrieved and deleted {len(queries)} queries for session: {session_id}"
+        )
         return queries
 
     async def was_processed(self, idempotency_key: str) -> bool:
@@ -870,7 +909,9 @@ class PostgresFeedbackStore(FeedbackStore):
             )
         return row is not None
 
-    async def mark_processed(self, idempotency_key: str, ttl_seconds: int = 3600) -> None:
+    async def mark_processed(
+        self, idempotency_key: str, ttl_seconds: int = 3600
+    ) -> None:
         """Mark feedback as processed to prevent future duplicates."""
         expires_at = datetime.now(timezone.utc).timestamp() + ttl_seconds
 

@@ -830,7 +830,9 @@ class HybridRouter:
                 phase2_converted = convert_bandit_state(
                     state.phase2_state,
                     target_algorithm=self.phase2_algorithm,
-                    feature_dim=getattr(self.phase2_bandit, "feature_dim", self.feature_dim),
+                    feature_dim=getattr(
+                        self.phase2_bandit, "feature_dim", self.feature_dim
+                    ),
                 )
                 self.phase2_bandit.from_state(phase2_converted)
                 logger.info(
@@ -841,7 +843,9 @@ class HybridRouter:
                 phase2_converted = convert_bandit_state(
                     state.linucb_state,
                     target_algorithm=self.phase2_algorithm,
-                    feature_dim=getattr(self.phase2_bandit, "feature_dim", self.feature_dim),
+                    feature_dim=getattr(
+                        self.phase2_bandit, "feature_dim", self.feature_dim
+                    ),
                 )
                 self.phase2_bandit.from_state(phase2_converted)
                 logger.info(

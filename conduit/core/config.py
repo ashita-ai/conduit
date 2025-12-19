@@ -616,7 +616,10 @@ def load_routing_config() -> dict[str, Any]:
                             if isinstance(default_presets, dict) and isinstance(
                                 config_presets, dict
                             ):
-                                result["presets"] = {**default_presets, **config_presets}
+                                result["presets"] = {
+                                    **default_presets,
+                                    **config_presets,
+                                }
                         return result
         except Exception:
             pass

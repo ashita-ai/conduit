@@ -275,7 +275,9 @@ class Router:
         phase2_algo = config["phase2_algorithm"]
 
         # Handle int, float (inf), or any numeric type
-        if isinstance(switch_threshold_val, float) and switch_threshold_val == float("inf"):
+        if isinstance(switch_threshold_val, float) and switch_threshold_val == float(
+            "inf"
+        ):
             switch_threshold_int = 999999999
         else:
             switch_threshold_int = int(switch_threshold_val)  # type: ignore[call-overload]

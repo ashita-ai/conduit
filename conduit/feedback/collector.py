@@ -215,7 +215,9 @@ class FeedbackCollector:
 
         await self.store.save_pending(pending)
         session_info = f", session={session_id[:8]}..." if session_id else ""
-        logger.debug(f"Tracking query for feedback: {decision.query_id[:8]}...{session_info}")
+        logger.debug(
+            f"Tracking query for feedback: {decision.query_id[:8]}...{session_info}"
+        )
 
     async def record(self, event: FeedbackEvent) -> bool:
         """Record feedback for a tracked query.
@@ -470,7 +472,9 @@ class FeedbackCollector:
         for event in events:
             adapter = self._adapters.get(event.signal_type)
             if not adapter:
-                logger.warning(f"No adapter for signal type: {event.signal_type}, skipping")
+                logger.warning(
+                    f"No adapter for signal type: {event.signal_type}, skipping"
+                )
                 continue
             mappings.append(adapter.to_reward(event))
 
@@ -516,7 +520,9 @@ class FeedbackCollector:
         # Mark as processed for idempotency
         await self.store.mark_processed(idempotency_key, ttl_seconds=self.default_ttl)
 
-        signal_types = [e.signal_type for e in events if self._adapters.get(e.signal_type)]
+        signal_types = [
+            e.signal_type for e in events if self._adapters.get(e.signal_type)
+        ]
         logger.info(
             f"Aggregated feedback recorded: query={query_id[:8]}..., "
             f"signals={signal_types}, "
@@ -679,7 +685,9 @@ class FeedbackCollector:
                 )
                 results[pending.query_id] = True
             except Exception as e:
-                logger.error(f"Failed to update router for query {pending.query_id}: {e}")
+                logger.error(
+                    f"Failed to update router for query {pending.query_id}: {e}"
+                )
                 results[pending.query_id] = False
 
         # Mark as processed for idempotency

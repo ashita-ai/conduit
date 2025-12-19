@@ -229,7 +229,9 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         # This treats confidence as "fraction of an observation"
         window_data = list(self.reward_history[model_id])
         self.alpha[model_id] = self.prior_alpha + sum(c * r for r, c in window_data)
-        self.beta[model_id] = self.prior_beta + sum(c * (1.0 - r) for r, c in window_data)
+        self.beta[model_id] = self.prior_beta + sum(
+            c * (1.0 - r) for r, c in window_data
+        )
 
         # Track statistics (unweighted for interpretability)
         self.arm_pulls[model_id] += 1  # Always increment for feedback count
@@ -321,11 +323,13 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         reward_history_serialized = []
         for arm_id, reward_conf_pairs in self.reward_history.items():
             for reward, confidence in reward_conf_pairs:
-                reward_history_serialized.append({
-                    "arm_id": arm_id,
-                    "reward": reward,
-                    "confidence": confidence,
-                })
+                reward_history_serialized.append(
+                    {
+                        "arm_id": arm_id,
+                        "reward": reward,
+                        "confidence": confidence,
+                    }
+                )
 
         return BanditState(
             algorithm="thompson_sampling",

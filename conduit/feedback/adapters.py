@@ -174,7 +174,9 @@ class RatingAdapter(FeedbackAdapter):
         if self.max_rating == self.min_rating:
             normalized = 0.5
         else:
-            normalized = (rating - self.min_rating) / (self.max_rating - self.min_rating)
+            normalized = (rating - self.min_rating) / (
+                self.max_rating - self.min_rating
+            )
 
         normalized = max(0.0, min(1.0, normalized))
 
@@ -381,10 +383,16 @@ class RegenerationAdapter(FeedbackAdapter):
 
         if not regenerated:
             # User accepted without regenerating
-            return RewardMapping(reward=self.acceptance_reward, confidence=self.confidence)
+            return RewardMapping(
+                reward=self.acceptance_reward, confidence=self.confidence
+            )
         elif accepted_after:
             # User regenerated but eventually accepted
-            return RewardMapping(reward=self.partial_acceptance_reward, confidence=self.confidence)
+            return RewardMapping(
+                reward=self.partial_acceptance_reward, confidence=self.confidence
+            )
         else:
             # User regenerated (implicit negative)
-            return RewardMapping(reward=self.regeneration_reward, confidence=self.confidence)
+            return RewardMapping(
+                reward=self.regeneration_reward, confidence=self.confidence
+            )
