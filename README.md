@@ -32,6 +32,13 @@ There's a better way.
 
 ## Quick Start
 
+**Try it without API keys first:**
+```bash
+python examples/00_demo/zero_config_demo.py
+```
+This demo shows Conduit's learning in action with simulated LLM responses. No setup required.
+
+**With real LLMs (5 lines):**
 ```python
 # Just 5 lines to start saving money
 import asyncio

@@ -99,6 +99,30 @@ def requires_langchain(func):
 
 
 # ============================================================
+# Zero-Config Demo (no API keys required)
+# ============================================================
+
+
+@pytest.mark.regression
+def test_zero_config_demo():
+    """Test examples/00_demo/zero_config_demo.py runs successfully.
+
+    This demo requires NO API keys and demonstrates bandit learning
+    with simulated LLM responses.
+    """
+    example = EXAMPLES_DIR / "00_demo" / "zero_config_demo.py"
+    exit_code, stdout, stderr = run_example(example, timeout=30)
+
+    assert exit_code == 0, f"Example failed with stderr: {stderr}"
+
+    # Verify key output sections
+    assert "CONDUIT ZERO-CONFIG DEMO" in stdout
+    assert "PHASE 1" in stdout
+    assert "PHASE 2" in stdout
+    assert "Improvement" in stdout or "improvement" in stdout
+
+
+# ============================================================
 # Core Examples (4 main files at root level)
 # ============================================================
 
@@ -551,11 +575,17 @@ def test_examples_directory_exists():
     example_files = list(EXAMPLES_DIR.rglob("*.py"))
     assert len(example_files) > 0, "No example files found in examples/"
 
-    # Verify flat structure with integrations subdirectory
+    # Verify subdirectories exist
     integrations_dir = EXAMPLES_DIR / "integrations"
     assert integrations_dir.exists(), "Expected integrations/ directory"
+
+    demo_dir = EXAMPLES_DIR / "00_demo"
+    assert demo_dir.exists(), "Expected 00_demo/ directory for zero-config demo"
 
     # Verify some core examples exist at root level
     core_examples = ["quickstart.py", "routing_options.py", "feedback_loop.py"]
     for example in core_examples:
         assert (EXAMPLES_DIR / example).exists(), f"Core example {example} not found at root level"
+
+    # Verify zero-config demo exists
+    assert (demo_dir / "zero_config_demo.py").exists(), "Zero-config demo not found"
