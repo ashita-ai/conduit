@@ -15,6 +15,7 @@ Run:
 
 import asyncio
 import hashlib
+import logging
 import os
 import time
 from datetime import UTC, datetime
@@ -29,6 +30,8 @@ from conduit.engines.embeddings.base import EmbeddingProvider
 from conduit.engines.hybrid_router import HybridRouter
 from conduit.engines.router import Router
 
+logger = logging.getLogger(__name__)
+
 # =============================================================================
 # Part 1: Caching
 # =============================================================================
@@ -36,9 +39,9 @@ from conduit.engines.router import Router
 
 async def demo_caching() -> None:
     """Demonstrate Redis caching for query features."""
-    print("\n" + "=" * 70)
-    print("CACHING - 10-40x Speedup with Redis")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("CACHING - 10-40x Speedup with Redis")
+    logger.info("=" * 70)
 
     # Check Redis availability
     redis_available = False
@@ -49,9 +52,9 @@ async def demo_caching() -> None:
         await redis.ping()
         await redis.aclose()
         redis_available = True
-        print("Redis: Connected")
+        logger.info("Redis: Connected")
     except Exception as e:
-        print(f"Redis: Unavailable ({e})")
+        logger.info(f"Redis: Unavailable ({e})")
 
     queries = [
         "What is Python?",
@@ -60,7 +63,7 @@ async def demo_caching() -> None:
     ]
 
     # Without cache
-    print("\n[Without Cache]")
+    logger.info("\n[Without Cache]")
     router = Router(cache_enabled=False)
     times = []
     for i, text in enumerate(queries, 1):
@@ -68,14 +71,14 @@ async def demo_caching() -> None:
         await router.route(Query(text=text))
         elapsed = (time.time() - start) * 1000
         times.append(elapsed)
-        print(f"  Query {i}: {elapsed:.1f}ms")
+        logger.info(f"  Query {i}: {elapsed:.1f}ms")
     avg_no_cache = sum(times) / len(times)
-    print(f"  Average: {avg_no_cache:.1f}ms")
+    logger.info(f"  Average: {avg_no_cache:.1f}ms")
     await router.close()
 
     # With cache
     if redis_available:
-        print("\n[With Redis Cache]")
+        logger.info("\n[With Redis Cache]")
         router = Router(cache_enabled=True)
         times = []
         for i, text in enumerate(queries, 1):
@@ -84,18 +87,18 @@ async def demo_caching() -> None:
             elapsed = (time.time() - start) * 1000
             times.append(elapsed)
             hit = " (CACHE HIT)" if i == 3 else ""
-            print(f"  Query {i}: {elapsed:.1f}ms{hit}")
+            logger.info(f"  Query {i}: {elapsed:.1f}ms{hit}")
         avg_with_cache = sum(times) / len(times)
-        print(f"  Average: {avg_with_cache:.1f}ms")
-        print(f"  Speedup: {avg_no_cache / avg_with_cache:.1f}x faster")
+        logger.info(f"  Average: {avg_with_cache:.1f}ms")
+        logger.info(f"  Speedup: {avg_no_cache / avg_with_cache:.1f}x faster")
 
         stats = router.get_cache_stats()
-        print(
+        logger.info(
             f"  Stats: {stats['hits']} hits, {stats['misses']} misses ({stats['hit_rate']:.0f}% hit rate)"
         )
         await router.close()
     else:
-        print("\nInstall Redis for caching: brew install redis && redis-server")
+        logger.info("\nInstall Redis for caching: brew install redis && redis-server")
 
 
 # =============================================================================
@@ -105,12 +108,12 @@ async def demo_caching() -> None:
 
 async def demo_learning() -> None:
     """Demonstrate learning from feedback."""
-    print("\n" + "=" * 70)
-    print("LEARNING - Bandit Algorithms Improve Routing")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("LEARNING - Bandit Algorithms Improve Routing")
+    logger.info("=" * 70)
 
     router = Router(cache_enabled=False)
-    print("\nSimulating queries with feedback...")
+    logger.info("\nSimulating queries with feedback...")
 
     queries = [
         ("What is 2+2?", "simple"),
@@ -123,8 +126,8 @@ async def demo_learning() -> None:
     # Track model usage
     model_usage: dict[str, int] = {}
 
-    print("\nQuery | Selected Model | Confidence")
-    print("-" * 50)
+    logger.info("\nQuery | Selected Model | Confidence")
+    logger.info("-" * 50)
 
     for query_text, query_type in queries:
         decision = await router.route(Query(text=query_text))
@@ -133,7 +136,7 @@ async def demo_learning() -> None:
 
         # Display routing decision
         short_query = query_text[:30] + "..." if len(query_text) > 30 else query_text
-        print(f"{short_query:35} | {model:15} | {decision.confidence:.2f}")
+        logger.info(f"{short_query:35} | {model:15} | {decision.confidence:.2f}")
 
         # Simulate feedback (in production this comes from actual usage)
         feedback = BanditFeedback(
@@ -144,10 +147,12 @@ async def demo_learning() -> None:
         )
         await router.hybrid_router.update(feedback, decision.features)
 
-    print(f"\nModel Usage: {model_usage}")
+    logger.info(f"\nModel Usage: {model_usage}")
     stats = router.hybrid_router.get_stats()
-    print(f"Total queries processed: {stats.get('total_queries', 0)}")
-    print(f"Current phase: {stats.get('current_phase', 'exploration')}")
+    logger.info(f"Total queries processed: {stats.get('total_queries', 0)}")
+    logger.info(f"Current phase: {stats.get('current_phase', 'exploration')}")
+
+    await router.close()
 
     await router.close()
 
@@ -226,9 +231,9 @@ class InMemoryStateStore(StateStore):
 
 async def demo_persistence() -> None:
     """Demonstrate state persistence across restarts."""
-    print("\n" + "=" * 70)
-    print("PERSISTENCE - Save/Restore State Across Restarts")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("PERSISTENCE - Save/Restore State Across Restarts")
+    logger.info("=" * 70)
 
     store = InMemoryStateStore()
     router_id = "demo-router"
@@ -245,7 +250,7 @@ async def demo_persistence() -> None:
     )
 
     # Process some queries
-    print("\n[1] Processing 20 queries...")
+    logger.info("\n[1] Processing 20 queries...")
     sample_queries = [
         "What is Python?",
         "Explain machine learning",
@@ -264,15 +269,15 @@ async def demo_persistence() -> None:
         )
         await router.update(feedback, decision.features)
 
-    print(f"    Query count: {router.query_count}")
-    print(f"    Phase: {router.current_phase}")
+    logger.info(f"    Query count: {router.query_count}")
+    logger.info(f"    Phase: {router.current_phase}")
 
     # Save state
     await router.save_state(store, router_id)
-    print("\n[2] State saved to store")
+    logger.info("\n[2] State saved to store")
 
     # Simulate restart by creating new router
-    print("\n[3] Simulating restart...")
+    logger.info("\n[3] Simulating restart...")
     del router
 
     # Create new router and restore state
@@ -286,12 +291,12 @@ async def demo_persistence() -> None:
     )
 
     loaded = await new_router.load_state(store, router_id)
-    print(f"\n[4] State restored: {loaded}")
-    print(f"    Query count: {new_router.query_count}")
-    print(f"    Phase: {new_router.current_phase}")
+    logger.info(f"\n[4] State restored: {loaded}")
+    logger.info(f"    Query count: {new_router.query_count}")
+    logger.info(f"    Phase: {new_router.current_phase}")
 
     # Continue processing
-    print("\n[5] Continuing with 10 more queries...")
+    logger.info("\n[5] Continuing with 10 more queries...")
     for i in range(10):
         query = Query(text=sample_queries[i % len(sample_queries)])
         decision = await new_router.route(query)
@@ -303,12 +308,12 @@ async def demo_persistence() -> None:
         )
         await new_router.update(feedback, decision.features)
 
-    print(f"    Total query count: {new_router.query_count}")
+    logger.info(f"    Total query count: {new_router.query_count}")
 
-    print("\nProduction Usage:")
-    print("  Replace InMemoryStateStore with PostgresStateStore:")
-    print("    from conduit.core.postgres_state_store import PostgresStateStore")
-    print("    store = PostgresStateStore(pool)")
+    logger.info("\nProduction Usage:")
+    logger.info("  Replace InMemoryStateStore with PostgresStateStore:")
+    logger.info("    from conduit.core.postgres_state_store import PostgresStateStore")
+    logger.info("    store = PostgresStateStore(pool)")
 
 
 # =============================================================================
@@ -319,25 +324,25 @@ async def demo_persistence() -> None:
 async def main() -> None:
     """Run all feedback loop demos."""
     if not os.getenv("OPENAI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"):
-        print("Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY")
+        logger.error("Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY")
         return
 
-    print("=" * 70)
-    print("CONDUIT FEEDBACK LOOP")
-    print("=" * 70)
-    print("\nConduit improves over time through:")
-    print("  1. Caching - Faster repeated queries with Redis")
-    print("  2. Learning - Bandit algorithms optimize model selection")
-    print("  3. Persistence - State survives restarts")
+    logger.info("=" * 70)
+    logger.info("CONDUIT FEEDBACK LOOP")
+    logger.info("=" * 70)
+    logger.info("\nConduit improves over time through:")
+    logger.info("  1. Caching - Faster repeated queries with Redis")
+    logger.info("  2. Learning - Bandit algorithms optimize model selection")
+    logger.info("  3. Persistence - State survives restarts")
 
     await demo_caching()
     await demo_learning()
     await demo_persistence()
 
-    print("\n" + "=" * 70)
-    print("SUMMARY")
-    print("=" * 70)
-    print(
+    logger.info("\n" + "=" * 70)
+    logger.info("SUMMARY")
+    logger.info("=" * 70)
+    logger.info(
         """
 Key Concepts:
 

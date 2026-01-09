@@ -19,6 +19,8 @@ Example usage in your code:
     >>> from conduit.engines.router import Router
     >>> from langchain.chains import LLMChain
     >>> from langchain.prompts import PromptTemplate
+    >>> import logging
+    >>> logger = logging.getLogger(__name__)
     >>>
     >>> router = Router()
     >>> llm = ConduitLangChainLLM(router)
@@ -27,13 +29,16 @@ Example usage in your code:
     >>> chain = LLMChain(llm=llm, prompt=prompt)
     >>>
     >>> result = await chain.ainvoke({"topic": "quantum computing"})
-    >>> print(result["text"])
+    >>> logger.info(result["text"])
 """
 
 import asyncio
+import logging
 import sys
 from collections.abc import AsyncIterator
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # Check for langchain_core dependency
 try:
@@ -44,8 +49,8 @@ try:
     from langchain_core.language_models.llms import BaseLLM
     from langchain_core.outputs import Generation, LLMResult
 except ImportError:
-    print("LangChain integration requires langchain-core.")
-    print("Install with: pip install langchain langchain-core")
+    logger.warning("LangChain integration requires langchain-core.")
+    logger.info("Install with: pip install langchain langchain-core")
     sys.exit(0)
 
 from pydantic import Field
@@ -262,10 +267,10 @@ class ConduitLangChainLLM(BaseLLM):
 
 async def example_basic_usage():
     """Direct LLM calls with automatic model selection."""
-    print("=" * 80)
-    print("1. Direct LLM Calls")
-    print("=" * 80)
-    print("\nConduit routes each query to the optimal model automatically.")
+    logger.info("=" * 80)
+    logger.info("1. Direct LLM Calls")
+    logger.info("=" * 80)
+    logger.info("\nConduit routes each query to the optimal model automatically.")
 
     router = Router()
     llm = ConduitLangChainLLM(router)
@@ -277,11 +282,11 @@ async def example_basic_usage():
     ]
 
     for query_text, complexity in queries:
-        print(f"\n[{complexity.upper()}] {query_text}")
+        logger.info(f"\n[{complexity.upper()}] {query_text}")
         response = await llm.ainvoke(query_text)
         decision = await router.route(Query(text=query_text))
-        print(f"Model: {decision.selected_model}")
-        print(f"Response: {response[:120]}{'...' if len(response) > 120 else ''}")
+        logger.info(f"Model: {decision.selected_model}")
+        logger.info(f"Response: {response[:120]}{'...' if len(response) > 120 else ''}")
 
 
 async def example_with_chains():
@@ -290,10 +295,10 @@ async def example_with_chains():
         from langchain.chains import LLMChain
         from langchain.prompts import PromptTemplate
 
-        print("\n" + "=" * 80)
-        print("2. LangChain Chains")
-        print("=" * 80)
-        print("\nConduit integrates seamlessly with LangChain chains and prompts.")
+        logger.info("\n" + "=" * 80)
+        logger.info("2. LangChain Chains")
+        logger.info("=" * 80)
+        logger.info("\nConduit integrates seamlessly with LangChain chains and prompts.")
 
         router = Router()
         llm = ConduitLangChainLLM(router)
@@ -311,22 +316,22 @@ async def example_with_chains():
         ]
 
         for example in examples:
-            print(f"\n[{example['audience'].upper()}] Explaining {example['topic']}")
+            logger.info(f"\n[{example['audience'].upper()}] Explaining {example['topic']}")
             result = await chain.ainvoke(example)
             text = result["text"]
-            print(f"Response: {text[:150]}{'...' if len(text) > 150 else ''}")
+            logger.info(f"Response: {text[:150]}{'...' if len(text) > 150 else ''}")
 
     except ImportError:
-        print("\nLangChain not installed. Install with: pip install langchain")
+        logger.warning("\nLangChain not installed. Install with: pip install langchain")
 
 
 async def example_with_preferences():
     """Watch Conduit learn and optimize routing over time."""
-    print("\n" + "=" * 80)
-    print("3. Learning Over Time")
-    print("=" * 80)
-    print("\nConduit uses bandit algorithms to learn which models work best.")
-    print("Watch the model selection adapt as more queries are processed.\n")
+    logger.info("\n" + "=" * 80)
+    logger.info("3. Learning Over Time")
+    logger.info("=" * 80)
+    logger.info("\nConduit uses bandit algorithms to learn which models work best.")
+    logger.info("Watch the model selection adapt as more queries are processed.\n")
 
     router = Router()
     llm = ConduitLangChainLLM(router)
@@ -340,43 +345,43 @@ async def example_with_preferences():
         ("Hello!", "greeting"),
     ]
 
-    print(f"{'Query':<45} {'Model':<30} {'Length'}")
-    print("-" * 85)
+    logger.info(f"{'Query':<45} {'Model':<30} {'Length'}")
+    logger.info("-" * 85)
 
     for query_text, category in queries:
         response = await llm.ainvoke(query_text)
         decision = await router.route(Query(text=query_text))
         display_query = f"[{category}] {query_text[:35]}{'...' if len(query_text) > 35 else ''}"
-        print(f"{display_query:<45} {decision.selected_model:<30} {len(response):>5} chars")
+        logger.info(f"{display_query:<45} {decision.selected_model:<30} {len(response):>5} chars")
 
     # Show statistics
     stats = router.hybrid_router.get_stats()
-    print(f"\nTotal queries routed: {stats['total_queries']}")
+    logger.info(f"\nTotal queries routed: {stats['total_queries']}")
 
 
 async def main():
     """Run all examples."""
-    print("\n" + "=" * 80)
-    print("LangChain + Conduit Integration Demo")
-    print("=" * 80)
-    print("\nConduit provides intelligent model routing for LangChain applications.")
-    print("Each query is automatically routed to the optimal LLM based on:")
-    print("  - Query complexity and token count")
-    print("  - Historical performance data")
-    print("  - Cost/quality trade-offs")
+    logger.info("\n" + "=" * 80)
+    logger.info("LangChain + Conduit Integration Demo")
+    logger.info("=" * 80)
+    logger.info("\nConduit provides intelligent model routing for LangChain applications.")
+    logger.info("Each query is automatically routed to the optimal LLM based on:")
+    logger.info("  - Query complexity and token count")
+    logger.info("  - Historical performance data")
+    logger.info("  - Cost/quality trade-offs")
 
     await example_basic_usage()
     await example_with_chains()
     await example_with_preferences()
 
-    print("\n" + "=" * 80)
-    print("Demo Complete")
-    print("=" * 80)
-    print("\nKey takeaways:")
-    print("  1. ConduitLangChainLLM is a drop-in replacement for any LangChain LLM")
-    print("  2. Works with chains, agents, and all LangChain components")
-    print("  3. Use async methods (ainvoke, agenerate) for best performance")
-    print("  4. Conduit learns from each query to improve routing over time")
+    logger.info("\n" + "=" * 80)
+    logger.info("Demo Complete")
+    logger.info("=" * 80)
+    logger.info("\nKey takeaways:")
+    logger.info("  1. ConduitLangChainLLM is a drop-in replacement for any LangChain LLM")
+    logger.info("  2. Works with chains, agents, and all LangChain components")
+    logger.info("  3. Use async methods (ainvoke, agenerate) for best performance")
+    logger.info("  4. Conduit learns from each query to improve routing over time")
 
 
 if __name__ == "__main__":

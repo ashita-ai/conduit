@@ -8,34 +8,37 @@ query domain detection.
 """
 
 import asyncio
+import logging
 
 from conduit.core.config import load_context_priors
 from conduit.core.context_detector import ContextDetector
 from conduit.core.models import Query, QueryFeatures
 from conduit.engines.router import Router
 
+logger = logging.getLogger(__name__)
+
 
 async def main():
-    print("Context-Specific Priors Demo\n")
-    print("=" * 70)
+    logger.info("Context-Specific Priors Demo\n")
+    logger.info("=" * 70)
 
     # Initialize context detector
     detector = ContextDetector()
 
     # Show available contexts and their priors
-    print("\nAvailable Contexts and Priors:")
-    print("-" * 70)
+    logger.info("\nAvailable Contexts and Priors:")
+    logger.info("-" * 70)
 
     contexts = ["code", "creative", "analysis", "simple_qa", "general"]
     for context in contexts:
         priors = load_context_priors(context)
-        print(f"\n{context.upper()}:")
+        logger.info(f"\n{context.upper()}:")
         if priors:
             for model_id, (alpha, beta) in sorted(priors.items()):
                 quality = alpha / (alpha + beta)
-                print(f"  {model_id:30s} → Beta({alpha:6.0f}, {beta:6.0f}) = {quality:.1%} quality")
+                logger.info(f"  {model_id:30s} → Beta({alpha:6.0f}, {beta:6.0f}) = {quality:.1%} quality")
         else:
-            print("  (no priors configured)")
+            logger.info("  (no priors configured)")
 
     # Create router
     router = Router()
@@ -48,9 +51,9 @@ async def main():
         ("What is the capital of France?", "simple_qa"),
     ]
 
-    print("\n" + "=" * 70)
-    print("Context Detection Examples:")
-    print("-" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Context Detection Examples:")
+    logger.info("-" * 70)
 
     for query_text, expected_context in test_queries:
         # Detect context from text (fallback method)
@@ -62,17 +65,17 @@ async def main():
 
         # Show detected context vs expected
         match_indicator = "✅" if detected_context == expected_context else "⚠️"
-        print(f"\n{match_indicator} Query: {query_text[:50]}...")
-        print(f"   Expected context: {expected_context}")
-        print(f"   Detected context: {detected_context}")
-        print(f"   Selected model: {decision.selected_model}")
-        print(f"   Confidence: {decision.confidence:.0%}")
+        logger.info(f"\n{match_indicator} Query: {query_text[:50]}...")
+        logger.info(f"   Expected context: {expected_context}")
+        logger.info(f"   Detected context: {detected_context}")
+        logger.info(f"   Selected model: {decision.selected_model}")
+        logger.info(f"   Confidence: {decision.confidence:.0%}")
 
     # Show how priors affect model selection
-    print("\n" + "=" * 70)
-    print("How Context-Specific Priors Help:")
-    print("-" * 70)
-    print("""
+    logger.info("\n" + "=" * 70)
+    logger.info("How Context-Specific Priors Help:")
+    logger.info("-" * 70)
+    logger.info("""
 1. Code queries → Use code priors → Favor GPT-4o (excellent at code)
 2. Creative queries → Use creative priors → Favor Claude Opus (best creative)
 3. Analysis queries → Use analysis priors → Favor Claude Opus (best reasoning)

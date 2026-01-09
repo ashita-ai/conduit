@@ -10,13 +10,19 @@ Key concepts:
 - to_state() / from_state(): Serialize/deserialize algorithms
 
 Production usage:
-    from conduit.core.postgres_state_store import PostgresStateStore
-    store = PostgresStateStore(pool)  # asyncpg connection pool
-    await router.save_state(store, "production-router")
+    >>> from conduit.core.postgres_state_store import PostgresStateStore
+    >>> store = PostgresStateStore(pool)  # asyncpg connection pool
+    >>> await router.save_state(store, "production-router")
+
+Example usage:
+    >>> import logging
+    >>> logger = logging.getLogger(__name__)
+    >>> logger.info("State Persistence Demo")
 """
 
 import asyncio
 import hashlib
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -30,6 +36,8 @@ from conduit.engines.analyzer import QueryAnalyzer
 from conduit.engines.bandits.base import BanditFeedback
 from conduit.engines.embeddings.base import EmbeddingProvider
 from conduit.engines.hybrid_router import HybridRouter
+
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -215,9 +223,9 @@ async def train_router(router: HybridRouter, num_queries: int) -> dict[str, Any]
 
 async def main() -> None:
     """Demonstrate state persistence across simulated restarts."""
-    print("=" * 60)
-    print("State Persistence Demo")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("State Persistence Demo")
+    logger.info("=" * 60)
 
     # Initialize state store
     store = InMemoryStateStore()
@@ -228,7 +236,7 @@ async def main() -> None:
     # -------------------------------------------------------------------------
     # Phase 1: Initial training
     # -------------------------------------------------------------------------
-    print("\n--- Phase 1: Initial Training ---")
+    logger.info("\n--- Phase 1: Initial Training ---")
 
     # Create mock analyzer (for demo - production uses real embeddings)
     mock_provider = MockEmbeddingProvider()
@@ -242,31 +250,31 @@ async def main() -> None:
 
     # Train for 50 queries (still in UCB1 phase)
     results1 = await train_router(router1, num_queries=50)
-    print(f"Trained: {results1['queries_processed']} queries")
-    print(f"Phase: {results1['current_phase']}")
-    print(f"Model selections: {results1['model_selections']}")
+    logger.info(f"Trained: {results1['queries_processed']} queries")
+    logger.info(f"Phase: {results1['current_phase']}")
+    logger.info(f"Model selections: {results1['model_selections']}")
 
     # Save state
     await router1.save_state(store, router_id)
-    print("\nState saved to store")
+    logger.info("\nState saved to store")
 
     # Show saved state info
     state = router1.to_state()
-    print(f"  - Query count: {state.query_count}")
-    print(f"  - Phase: {state.current_phase.value}")
-    print(f"  - UCB1 state present: {state.ucb1_state is not None}")
-    print(f"  - LinUCB state present: {state.linucb_state is not None}")
+    logger.info(f"  - Query count: {state.query_count}")
+    logger.info(f"  - Phase: {state.current_phase.value}")
+    logger.info(f"  - UCB1 state present: {state.ucb1_state is not None}")
+    logger.info(f"  - LinUCB state present: {state.linucb_state is not None}")
 
     # -------------------------------------------------------------------------
     # Simulate server restart by creating new router
     # -------------------------------------------------------------------------
-    print("\n--- Simulating Server Restart ---")
+    logger.info("\n--- Simulating Server Restart ---")
     del router1  # "Restart"
 
     # -------------------------------------------------------------------------
     # Phase 2: Resume from saved state
     # -------------------------------------------------------------------------
-    print("\n--- Phase 2: Resume from Saved State ---")
+    logger.info("\n--- Phase 2: Resume from Saved State ---")
 
     # Create new router (simulating new process after restart)
     mock_provider2 = MockEmbeddingProvider()
@@ -280,25 +288,25 @@ async def main() -> None:
 
     # Load saved state
     loaded = await router2.load_state(store, router_id)
-    print(f"State loaded: {loaded}")
-    print(f"Resumed query count: {router2.query_count}")
-    print(f"Resumed phase: {router2.current_phase}")
+    logger.info(f"State loaded: {loaded}")
+    logger.info(f"Resumed query count: {router2.query_count}")
+    logger.info(f"Resumed phase: {router2.current_phase}")
 
     # Continue training (will transition to LinUCB during this phase)
     results2 = await train_router(router2, num_queries=100)
-    print(f"\nTrained additional: {results2['queries_processed']} queries")
-    print(f"Total queries: {router2.query_count}")
-    print(f"Phase: {results2['current_phase']}")
-    print(f"Model selections: {results2['model_selections']}")
+    logger.info(f"\nTrained additional: {results2['queries_processed']} queries")
+    logger.info(f"Total queries: {router2.query_count}")
+    logger.info(f"Phase: {results2['current_phase']}")
+    logger.info(f"Model selections: {results2['model_selections']}")
 
     # Save updated state
     await router2.save_state(store, router_id)
-    print("\nUpdated state saved")
+    logger.info("\nUpdated state saved")
 
     # -------------------------------------------------------------------------
     # Phase 3: Final verification
     # -------------------------------------------------------------------------
-    print("\n--- Phase 3: Final Verification ---")
+    logger.info("\n--- Phase 3: Final Verification ---")
 
     mock_provider3 = MockEmbeddingProvider()
     mock_analyzer3 = QueryAnalyzer(embedding_provider=mock_provider3)
@@ -310,19 +318,19 @@ async def main() -> None:
     )
     await router3.load_state(store, router_id)
 
-    print(f"Final query count: {router3.query_count}")
-    print(f"Final phase: {router3.current_phase}")
+    logger.info(f"Final query count: {router3.query_count}")
+    logger.info(f"Final phase: {router3.current_phase}")
 
     # Show bandit statistics
     stats = router3.get_stats()
-    print(f"\nBandit statistics:")
-    print(f"  - Total queries: {stats['total_queries']}")
-    print(f"  - Arm pulls: {stats.get('arm_pulls', {})}")
+    logger.info(f"\nBandit statistics:")
+    logger.info(f"  - Total queries: {stats['total_queries']}")
+    logger.info(f"  - Arm pulls: {stats.get('arm_pulls', {})}")
 
     # -------------------------------------------------------------------------
     # Demonstrate state serialization format
     # -------------------------------------------------------------------------
-    print("\n--- State Serialization Format ---")
+    logger.info("\n--- State Serialization Format ---")
 
     state = router3.to_state()
 
@@ -330,35 +338,35 @@ async def main() -> None:
     state_dict = state.model_dump()
 
     # Show top-level structure
-    print("HybridRouterState fields:")
+    logger.info("HybridRouterState fields:")
     for key in ["query_count", "current_phase", "transition_threshold"]:
-        print(f"  - {key}: {state_dict.get(key)}")
+        logger.info(f"  - {key}: {state_dict.get(key)}")
 
     if state_dict.get("ucb1_state"):
         ucb1 = state_dict["ucb1_state"]
-        print("\nUCB1 BanditState fields:")
-        print(f"  - algorithm: {ucb1.get('algorithm')}")
-        print(f"  - arm_ids: {ucb1.get('arm_ids')}")
-        print(f"  - total_queries: {ucb1.get('total_queries')}")
-        print(f"  - arm_pulls: {ucb1.get('arm_pulls')}")
+        logger.info("\nUCB1 BanditState fields:")
+        logger.info(f"  - algorithm: {ucb1.get('algorithm')}")
+        logger.info(f"  - arm_ids: {ucb1.get('arm_ids')}")
+        logger.info(f"  - total_queries: {ucb1.get('total_queries')}")
+        logger.info(f"  - arm_pulls: {ucb1.get('arm_pulls')}")
 
     if state_dict.get("linucb_state"):
         linucb = state_dict["linucb_state"]
-        print("\nLinUCB BanditState fields:")
-        print(f"  - algorithm: {linucb.get('algorithm')}")
-        print(f"  - feature_dim: {linucb.get('feature_dim')}")
-        print(f"  - alpha: {linucb.get('alpha')}")
-        print(f"  - A_matrices count: {len(linucb.get('A_matrices', {}))}")
-        print(f"  - b_vectors count: {len(linucb.get('b_vectors', {}))}")
+        logger.info("\nLinUCB BanditState fields:")
+        logger.info(f"  - algorithm: {linucb.get('algorithm')}")
+        logger.info(f"  - feature_dim: {linucb.get('feature_dim')}")
+        logger.info(f"  - alpha: {linucb.get('alpha')}")
+        logger.info(f"  - A_matrices count: {len(linucb.get('A_matrices', {}))}")
+        logger.info(f"  - b_vectors count: {len(linucb.get('b_vectors', {}))}")
 
-    print("\n" + "=" * 60)
-    print("Demo complete! State persisted and restored successfully.")
-    print("=" * 60)
+    logger.info("\n" + "=" * 60)
+    logger.info("Demo complete! State persisted and restored successfully.")
+    logger.info("=" * 60)
 
     # -------------------------------------------------------------------------
     # Production usage note
     # -------------------------------------------------------------------------
-    print(
+    logger.info(
         """
 Production Usage:
 -----------------
@@ -374,9 +382,9 @@ Replace InMemoryStateStore with PostgresStateStore:
 
     # On startup: Load existing state
     if await router.load_state(store, "production-router"):
-        print("Resumed from saved state")
+        logger.info("Resumed from saved state")
     else:
-        print("Starting fresh")
+        logger.info("Starting fresh")
 
     # Periodically or on shutdown: Save state
     await router.save_state(store, "production-router")

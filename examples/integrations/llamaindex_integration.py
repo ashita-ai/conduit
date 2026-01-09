@@ -17,6 +17,8 @@ Run:
 Example usage in your code:
     >>> from conduit.engines.router import Router
     >>> from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+    >>> import logging
+    >>> logger = logging.getLogger(__name__)
     >>>
     >>> router = Router()
     >>> llm = ConduitLlamaIndexLLM(router)
@@ -28,13 +30,16 @@ Example usage in your code:
     >>>
     >>> # Query with automatic model selection
     >>> response = await query_engine.aquery("What is the main topic?")
-    >>> print(response)
+    >>> logger.info(response)
 """
 
 import asyncio
+import logging
 import sys
 from collections.abc import Sequence
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # Check for llama_index dependency
 try:
@@ -48,8 +53,8 @@ try:
     from llama_index.core.llms import CustomLLM
     from llama_index.core.llms.callbacks import llm_completion_callback
 except ImportError:
-    print("LlamaIndex integration requires llama-index.")
-    print("Install with: pip install llama-index llama-index-llms-openai")
+    logger.warning("LlamaIndex integration requires llama-index.")
+    logger.info("Install with: pip install llama-index llama-index-llms-openai")
     sys.exit(0)
 
 from pydantic import Field
@@ -298,10 +303,10 @@ class ConduitLlamaIndexLLM(CustomLLM):
 
 async def example_basic_usage():
     """Basic completion with automatic model selection."""
-    print("=" * 80)
-    print("1. Basic Completion")
-    print("=" * 80)
-    print("\nConduit selects the optimal model for each query automatically.")
+    logger.info("=" * 80)
+    logger.info("1. Basic Completion")
+    logger.info("=" * 80)
+    logger.info("\nConduit selects the optimal model for each query automatically.")
 
     router = Router()
     llm = ConduitLlamaIndexLLM(router)
@@ -312,11 +317,11 @@ async def example_basic_usage():
     ]
 
     for query in queries:
-        print(f"\nQuery: {query}")
+        logger.info(f"\nQuery: {query}")
         response = await llm.acomplete(query)
-        print(f"Model: {response.additional_kwargs.get('model_used')}")
-        print(f"Response: {response.text[:150]}{'...' if len(response.text) > 150 else ''}")
-        print(f"Cost: ${response.additional_kwargs.get('cost', 0):.6f}")
+        logger.info(f"Model: {response.additional_kwargs.get('model_used')}")
+        logger.info(f"Response: {response.text[:150]}{'...' if len(response.text) > 150 else ''}")
+        logger.info(f"Cost: ${response.additional_kwargs.get('cost', 0):.6f}")
 
 
 async def example_with_rag():
@@ -325,14 +330,14 @@ async def example_with_rag():
         from llama_index.core import Document, Settings, VectorStoreIndex
         from llama_index.embeddings.openai import OpenAIEmbedding
     except ImportError:
-        print("\nSkipping RAG example - requires llama-index-embeddings-openai")
-        print("Install with: pip install llama-index-embeddings-openai")
+        logger.warning("\nSkipping RAG example - requires llama-index-embeddings-openai")
+        logger.info("Install with: pip install llama-index-embeddings-openai")
         return
 
-    print("\n" + "=" * 80)
-    print("2. RAG Pipeline (Retrieval-Augmented Generation)")
-    print("=" * 80)
-    print("\nConduit routes RAG queries to optimal models based on complexity.")
+    logger.info("\n" + "=" * 80)
+    logger.info("2. RAG Pipeline (Retrieval-Augmented Generation)")
+    logger.info("=" * 80)
+    logger.info("\nConduit routes RAG queries to optimal models based on complexity.")
 
     router = Router()
     llm = ConduitLlamaIndexLLM(router)
@@ -367,7 +372,7 @@ async def example_with_rag():
         ),
     ]
 
-    print("\nBuilding vector index from 4 documents...")
+    logger.info("\nBuilding vector index from 4 documents...")
     index = VectorStoreIndex.from_documents(documents)
     query_engine = index.as_query_engine()
 
@@ -379,21 +384,21 @@ async def example_with_rag():
     ]
 
     for query_text, query_type in queries:
-        print(f"\n[{query_type.upper()}] {query_text}")
+        logger.info(f"\n[{query_type.upper()}] {query_text}")
         try:
             # Use async query to avoid event loop conflicts
             response = await query_engine.aquery(query_text)
-            print(f"Response: {str(response)[:200]}...")
+            logger.info(f"Response: {str(response)[:200]}...")
         except Exception as e:
-            print(f"Error: {type(e).__name__}: {str(e)[:100]}")
+            logger.error(f"Error: {type(e).__name__}: {str(e)[:100]}")
 
 
 async def example_with_chat():
     """Multi-turn chat with context-aware routing."""
-    print("\n" + "=" * 80)
-    print("3. Multi-Turn Chat")
-    print("=" * 80)
-    print("\nConduit routes each turn independently based on complexity.")
+    logger.info("\n" + "=" * 80)
+    logger.info("3. Multi-Turn Chat")
+    logger.info("=" * 80)
+    logger.info("\nConduit routes each turn independently based on complexity.")
 
     router = Router()
     llm = ConduitLlamaIndexLLM(router)
@@ -422,38 +427,38 @@ async def example_with_chat():
     ]
 
     for conv in conversations:
-        print(f"\n[{conv['description'].upper()}]")
+        logger.info(f"\n[{conv['description'].upper()}]")
         user_msg = conv["messages"][-1].content
-        print(f"User: {user_msg[:80]}{'...' if len(user_msg) > 80 else ''}")
+        logger.info(f"User: {user_msg[:80]}{'...' if len(user_msg) > 80 else ''}")
 
         response = await llm.achat(conv["messages"])
-        print(f"Model: {response.additional_kwargs.get('model_used')}")
-        print(f"Response: {response.message.content[:150]}{'...' if len(response.message.content) > 150 else ''}")
+        logger.info(f"Model: {response.additional_kwargs.get('model_used')}")
+        logger.info(f"Response: {response.message.content[:150]}{'...' if len(response.message.content) > 150 else ''}")
 
 
 async def main():
     """Run all examples."""
-    print("\n" + "=" * 80)
-    print("LlamaIndex + Conduit Integration Demo")
-    print("=" * 80)
-    print("\nConduit provides intelligent model routing for LlamaIndex applications.")
-    print("Each query is automatically routed to the optimal LLM based on:")
-    print("  - Query complexity and token count")
-    print("  - Historical performance data")
-    print("  - Cost/quality trade-offs")
+    logger.info("\n" + "=" * 80)
+    logger.info("LlamaIndex + Conduit Integration Demo")
+    logger.info("=" * 80)
+    logger.info("\nConduit provides intelligent model routing for LlamaIndex applications.")
+    logger.info("Each query is automatically routed to the optimal LLM based on:")
+    logger.info("  - Query complexity and token count")
+    logger.info("  - Historical performance data")
+    logger.info("  - Cost/quality trade-offs")
 
     await example_basic_usage()
     await example_with_rag()
     await example_with_chat()
 
-    print("\n" + "=" * 80)
-    print("Demo Complete")
-    print("=" * 80)
-    print("\nKey takeaways:")
-    print("  1. Use ConduitLlamaIndexLLM as a drop-in LLM replacement")
-    print("  2. Use async methods (aquery, acomplete, achat) for best results")
-    print("  3. Conduit learns from each query to improve routing over time")
-    print("\nFor production, see: examples/integrations/fastapi_service.py")
+    logger.info("\n" + "=" * 80)
+    logger.info("Demo Complete")
+    logger.info("=" * 80)
+    logger.info("\nKey takeaways:")
+    logger.info("  1. Use ConduitLlamaIndexLLM as a drop-in LLM replacement")
+    logger.info("  2. Use async methods (aquery, acomplete, achat) for best results")
+    logger.info("  3. Conduit learns from each query to improve routing over time")
+    logger.info("\nFor production, see: examples/integrations/fastapi_service.py")
 
 
 if __name__ == "__main__":

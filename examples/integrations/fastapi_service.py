@@ -24,17 +24,20 @@ Endpoints:
 """
 
 import asyncio
+import logging
 import sys
 from contextlib import asynccontextmanager
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # Check for fastapi dependency
 try:
     from fastapi import FastAPI, HTTPException
     from fastapi.responses import JSONResponse
 except ImportError:
-    print("FastAPI integration requires fastapi.")
-    print("Install with: pip install fastapi uvicorn")
+    logger.error("FastAPI integration requires fastapi.")
+    logger.error("Install with: pip install fastapi uvicorn")
     sys.exit(0)
 
 from pydantic import BaseModel, Field
@@ -53,17 +56,17 @@ async def lifespan(app: FastAPI):
     """Initialize and cleanup resources."""
     global router, executor
 
-    print("Initializing Conduit router...")
+    logger.info("Initializing Conduit router...")
     router = Router()
     executor = ModelExecutor()
-    print("Conduit router ready")
+    logger.info("Conduit router ready")
 
     yield
 
     # Cleanup
     if router:
         await router.close()
-    print("Conduit router closed")
+    logger.info("Conduit router closed")
 
 
 app = FastAPI(
@@ -259,14 +262,14 @@ async def demo_requests():
     try:
         import httpx
     except ImportError:
-        print("Demo requires httpx. Install with: pip install httpx")
+        logger.error("Demo requires httpx. Install with: pip install httpx")
         return
 
     base_url = "http://127.0.0.1:8000"
 
     async with httpx.AsyncClient(timeout=120.0) as client:
         # Wait for server to start
-        print("Waiting for server to start...")
+        logger.info("Waiting for server to start...")
         for _ in range(10):
             try:
                 response = await client.get(f"{base_url}/health")
@@ -275,14 +278,14 @@ async def demo_requests():
             except httpx.ConnectError:
                 await asyncio.sleep(0.5)
 
-        print("\n" + "=" * 80)
-        print("FastAPI + Conduit Demo")
-        print("=" * 80)
+        logger.info("\n" + "=" * 80)
+        logger.info("FastAPI + Conduit Demo")
+        logger.info("=" * 80)
 
         # Health check
-        print("\n[1] Health Check")
+        logger.info("\n[1] Health Check")
         response = await client.get(f"{base_url}/health")
-        print(f"    Status: {response.json()}")
+        logger.info(f"    Status: {response.json()}")
 
         # Query examples (using simple queries for fast demo)
         queries = [
@@ -292,22 +295,22 @@ async def demo_requests():
         ]
 
         for i, query in enumerate(queries, 2):
-            print(f"\n[{i}] Query: {query['text'][:50]}...")
+            logger.info(f"\n[{i}] Query: {query['text'][:50]}...")
             response = await client.post(f"{base_url}/query", json=query)
 
             if response.status_code == 200:
                 data = response.json()
-                print(f"    Model: {data['model_used']}")
-                print(f"    Confidence: {data['confidence']:.2f}")
-                print(f"    Cost: ${data['cost']:.6f}")
-                print(f"    Response: {data['response'][:80]}...")
+                logger.info(f"    Model: {data['model_used']}")
+                logger.info(f"    Confidence: {data['confidence']:.2f}")
+                logger.info(f"    Cost: ${data['cost']:.6f}")
+                logger.info(f"    Response: {data['response'][:80]}...")
             else:
-                print(f"    Error: {response.text}")
+                logger.error(f"    Error: {response.text}")
 
         # Stats
-        print(f"\n[{len(queries) + 2}] Router Stats")
+        logger.info(f"\n[{len(queries) + 2}] Router Stats")
         response = await client.get(f"{base_url}/stats")
-        print(f"    Stats: {response.json()}")
+        logger.info(f"    Stats: {response.json()}")
 
 
 def run_demo():
@@ -315,7 +318,7 @@ def run_demo():
     import subprocess
     import time
 
-    print("Starting FastAPI server...")
+    logger.info("Starting FastAPI server...")
     server = subprocess.Popen(
         [
             sys.executable,
@@ -337,7 +340,7 @@ def run_demo():
     finally:
         server.terminate()
         server.wait()
-        print("\nServer stopped")
+        logger.info("\nServer stopped")
 
 
 if __name__ == "__main__":
@@ -355,18 +358,18 @@ if __name__ == "__main__":
     if args.demo:
         run_demo()
     else:
-        # Default: just print info about the service
-        print("=" * 80)
-        print("Conduit FastAPI Service")
-        print("=" * 80)
-        print("\nThis example demonstrates a production FastAPI service with Conduit.")
-        print("\nTo start the server:")
-        print("    uv run uvicorn examples.integrations.fastapi_service:app --reload")
-        print("\nOr run the demo (starts server + sample requests):")
-        print("    uv run python examples/integrations/fastapi_service.py --demo")
-        print("\nEndpoints:")
-        print("    POST /query    - Route and execute a query")
-        print("    POST /feedback - Submit feedback for learning")
-        print("    GET  /health   - Health check")
-        print("    GET  /stats    - Router statistics")
-        print("\nAPI docs available at: http://127.0.0.1:8000/docs")
+        # Default: just log info about the service
+        logger.info("=" * 80)
+        logger.info("Conduit FastAPI Service")
+        logger.info("=" * 80)
+        logger.info("\nThis example demonstrates a production FastAPI service with Conduit.")
+        logger.info("\nTo start the server:")
+        logger.info("    uv run uvicorn examples.integrations.fastapi_service:app --reload")
+        logger.info("\nOr run the demo (starts server + sample requests):")
+        logger.info("    uv run python examples/integrations/fastapi_service.py --demo")
+        logger.info("\nEndpoints:")
+        logger.info("    POST /query    - Route and execute a query")
+        logger.info("    POST /feedback - Submit feedback for learning")
+        logger.info("    GET  /health   - Health check")
+        logger.info("    GET  /stats    - Router statistics")
+        logger.info("\nAPI docs available at: http://127.0.0.1:8000/docs")

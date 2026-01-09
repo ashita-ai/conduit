@@ -19,19 +19,22 @@ Usage:
 """
 
 import asyncio
+import logging
 
 from conduit.core.models import Query
 from conduit.engines.bandits.base import BanditFeedback
 from conduit.engines.hybrid_router import HybridRouter
 
+logger = logging.getLogger(__name__)
+
 
 async def main():
     """Demonstrate hybrid routing with phase transition."""
 
-    print("=" * 80)
-    print("Hybrid Routing Demo: UCB1→LinUCB Warm Start")
-    print("=" * 80)
-    print()
+    logger.info("=" * 80)
+    logger.info("Hybrid Routing Demo: UCB1→LinUCB Warm Start")
+    logger.info("=" * 80)
+    logger.info("")
 
     # Initialize hybrid router with custom parameters for demo
     models = ["o4-mini", "gpt-5.1", "claude-sonnet-4.5"]
@@ -44,10 +47,10 @@ async def main():
         linucb_alpha=2.0,  # Higher exploration parameter for demo
     )
 
-    print(f"Initialized HybridRouter with {len(models)} models")
-    print(f"Switch threshold: {router.switch_threshold} queries")
-    print(f"Current phase: {router.current_phase}")
-    print()
+    logger.info(f"Initialized HybridRouter with {len(models)} models")
+    logger.info(f"Switch threshold: {router.switch_threshold} queries")
+    logger.info(f"Current phase: {router.current_phase}")
+    logger.info("")
 
     # Diverse test queries for UCB1 phase
     ucb1_queries = [
@@ -68,18 +71,18 @@ async def main():
         "What are REST APIs?",
     ]
 
-    print("Phase 1: UCB1 (Non-contextual, Fast Exploration)")
-    print("-" * 80)
+    logger.info("Phase 1: UCB1 (Non-contextual, Fast Exploration)")
+    logger.info("-" * 80)
 
     # Route first 15 queries in UCB1 phase
     for i, query_text in enumerate(ucb1_queries, 1):
         query = Query(text=query_text)
         decision = await router.route(query)
 
-        print(f"Query {i}: {query_text[:50]}...")
-        print(f"  → Selected: {decision.selected_model}")
-        print(f"  → Phase: {decision.metadata['phase']}")
-        print(f"  → Confidence: {decision.confidence:.2%}")
+        logger.info(f"Query {i}: {query_text[:50]}...")
+        logger.info(f"  → Selected: {decision.selected_model}")
+        logger.info(f"  → Phase: {decision.metadata['phase']}")
+        logger.info(f"  → Confidence: {decision.confidence:.2%}")
 
         # Simulate realistic feedback with model-specific quality
         import random
@@ -102,14 +105,14 @@ async def main():
 
         # Show transition
         if i == router.switch_threshold:
-            print()
-            print("🔄 TRANSITION: Switching from UCB1 to LinUCB")
-            print(f"   Knowledge transfer: UCB1 rewards → LinUCB priors")
-            print()
+            logger.info("")
+            logger.info("🔄 TRANSITION: Switching from UCB1 to LinUCB")
+            logger.info("   Knowledge transfer: UCB1 rewards → LinUCB priors")
+            logger.info("")
 
-    print()
-    print("Phase 2: LinUCB (Contextual, Smart Routing)")
-    print("-" * 80)
+    logger.info("")
+    logger.info("Phase 2: LinUCB (Contextual, Smart Routing)")
+    logger.info("-" * 80)
 
     # Route 10 more queries in LinUCB phase
     additional_queries = [
@@ -129,11 +132,11 @@ async def main():
         query = Query(text=query_text)
         decision = await router.route(query)
 
-        print(f"Query {i}: {query_text[:50]}...")
-        print(f"  → Selected: {decision.selected_model}")
-        print(f"  → Phase: {decision.metadata['phase']}")
-        print(f"  → Confidence: {decision.confidence:.2%}")
-        print(f"  → Queries since transition: {decision.metadata['queries_since_transition']}")
+        logger.info(f"Query {i}: {query_text[:50]}...")
+        logger.info(f"  → Selected: {decision.selected_model}")
+        logger.info(f"  → Phase: {decision.metadata['phase']}")
+        logger.info(f"  → Confidence: {decision.confidence:.2%}")
+        logger.info(f"  → Queries since transition: {decision.metadata['queries_since_transition']}")
 
         # Simulate realistic feedback with model-specific quality
         quality = base_quality.get(decision.selected_model, 0.85)
@@ -149,65 +152,65 @@ async def main():
         # Update with features from routing decision
         await router.update(feedback, decision.features)
 
-    print()
-    print("=" * 80)
-    print("Final Statistics")
-    print("=" * 80)
+    logger.info("")
+    logger.info("=" * 80)
+    logger.info("Final Statistics")
+    logger.info("=" * 80)
 
     # Get stats from both phases
     ucb1_stats = router.phase1_bandit.get_stats()
     linucb_stats = router.phase2_bandit.get_stats()
 
-    print(f"Current phase: {router.current_phase}")
-    print(f"Total queries: {router.query_count}")
-    print(f"Switch threshold: {router.switch_threshold}")
-    print()
+    logger.info(f"Current phase: {router.current_phase}")
+    logger.info(f"Total queries: {router.query_count}")
+    logger.info(f"Switch threshold: {router.switch_threshold}")
+    logger.info("")
 
-    print("UCB1 Phase (Queries 1-10):")
-    print(f"  Total pulls: {ucb1_stats['total_queries']}")
+    logger.info("UCB1 Phase (Queries 1-10):")
+    logger.info(f"  Total pulls: {ucb1_stats['total_queries']}")
     for model_id in models:
         ucb1_pulls = ucb1_stats["arm_pulls"].get(model_id, 0)
         mean_reward = ucb1_stats["arm_mean_reward"].get(model_id, 0.0)
-        print(f"  {model_id}:")
-        print(f"    - Pulls: {ucb1_pulls}")
-        print(f"    - Mean Reward: {mean_reward:.3f}")
+        logger.info(f"  {model_id}:")
+        logger.info(f"    - Pulls: {ucb1_pulls}")
+        logger.info(f"    - Mean Reward: {mean_reward:.3f}")
 
-    print()
-    print("LinUCB Phase (Queries 11-15):")
-    print(f"  Total pulls: {linucb_stats['total_queries']}")
+    logger.info("")
+    logger.info("LinUCB Phase (Queries 11-15):")
+    logger.info(f"  Total pulls: {linucb_stats['total_queries']}")
     for model_id in models:
         linucb_pulls = linucb_stats["arm_pulls"].get(model_id, 0)
         success_rate = linucb_stats["arm_success_rates"].get(model_id, 0.0)
-        print(f"  {model_id}:")
-        print(f"    - Pulls: {linucb_pulls}")
-        print(f"    - Success Rate: {success_rate:.1%}")
+        logger.info(f"  {model_id}:")
+        logger.info(f"    - Pulls: {linucb_pulls}")
+        logger.info(f"    - Success Rate: {success_rate:.1%}")
 
-    print()
-    print("Combined Statistics:")
+    logger.info("")
+    logger.info("Combined Statistics:")
     for model_id in models:
         total_pulls = ucb1_stats["arm_pulls"].get(model_id, 0) + linucb_stats["arm_pulls"].get(model_id, 0)
-        print(f"  {model_id}: {total_pulls} total pulls")
+        logger.info(f"  {model_id}: {total_pulls} total pulls")
 
-    print()
-    print("=" * 80)
-    print("Performance Benefits")
-    print("=" * 80)
-    print()
-    print("Sample Requirements Comparison:")
-    print(f"  Pure LinUCB (386 dims):      10,000-15,000 queries")
-    print(f"  Hybrid (386 dims):            2,000-3,000 queries  (30% faster)")
-    print(f"  Hybrid + PCA (67 dims):       1,500-2,500 queries  (75% + 30% reduction)")
-    print()
-    print("Cold Start Performance:")
-    print(f"  UCB1 converges:               ~500 queries")
-    print(f"  LinUCB converges:             ~2,000 queries")
-    print(f"  Hybrid best of both:          Fast start → Smart routing")
-    print()
-    print("Compute Cost:")
-    print(f"  UCB1 phase:                   No embedding computation (fast)")
-    print(f"  LinUCB phase:                 Full embeddings (high quality)")
-    print(f"  Hybrid savings:               ~10% compute reduction")
-    print()
+    logger.info("")
+    logger.info("=" * 80)
+    logger.info("Performance Benefits")
+    logger.info("=" * 80)
+    logger.info("")
+    logger.info("Sample Requirements Comparison:")
+    logger.info("  Pure LinUCB (386 dims):      10,000-15,000 queries")
+    logger.info("  Hybrid (386 dims):            2,000-3,000 queries  (30% faster)")
+    logger.info("  Hybrid + PCA (67 dims):       1,500-2,500 queries  (75% + 30% reduction)")
+    logger.info("")
+    logger.info("Cold Start Performance:")
+    logger.info("  UCB1 converges:               ~500 queries")
+    logger.info("  LinUCB converges:             ~2,000 queries")
+    logger.info("  Hybrid best of both:          Fast start → Smart routing")
+    logger.info("")
+    logger.info("Compute Cost:")
+    logger.info("  UCB1 phase:                   No embedding computation (fast)")
+    logger.info("  LinUCB phase:                 Full embeddings (high quality)")
+    logger.info("  Hybrid savings:               ~10% compute reduction")
+    logger.info("")
 
 
 if __name__ == "__main__":

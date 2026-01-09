@@ -6,10 +6,13 @@ Tests that the complete feedback loop is closed:
 This is the CORE VALUE PROPOSITION of Conduit. If this doesn't work, the system doesn't improve over time.
 """
 
+import logging
 import pytest
 
 from conduit.core.models import Query
 from conduit.engines.router import Router
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
@@ -63,7 +66,7 @@ async def test_feedback_loop_improves_routing():
     linucb = router.hybrid_router.phase2_bandit
     mini_pulls = linucb.arm_pulls["gpt-4o-mini"]
     gpt4_pulls = linucb.arm_pulls["gpt-4o"]
-    print(f"\nTraining phase: gpt-4o-mini={mini_pulls}, gpt-4o={gpt4_pulls}")
+    logger.info(f"Training phase: gpt-4o-mini={mini_pulls}, gpt-4o={gpt4_pulls}")
 
     # Phase 2: Route new queries after learning
     test_queries = 50
@@ -78,7 +81,7 @@ async def test_feedback_loop_improves_routing():
 
     await router.close()
 
-    print(f"\nTest phase: {cheap_count}/{test_queries} selected gpt-4o-mini ({cheap_rate:.0%})")
+    logger.info(f"Test phase: {cheap_count}/{test_queries} selected gpt-4o-mini ({cheap_rate:.0%})")
 
     # Verify: After learning, cheap model should be strongly preferred (>70%)
     # This proves the feedback loop is working
@@ -165,7 +168,7 @@ async def test_hybrid_routing_feedback_loop():
 
     await router.close()
 
-    print(f"\nHybrid routing learning: {cheap_count}/30 selected cheap model ({cheap_rate:.0%})")
+    logger.info(f"Hybrid routing learning: {cheap_count}/30 selected cheap model ({cheap_rate:.0%})")
 
     # After learning across both phases, cheap model should be preferred
     assert cheap_rate > 0.70, (

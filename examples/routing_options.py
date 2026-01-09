@@ -13,20 +13,23 @@ Run:
 """
 
 import asyncio
+import logging
 import os
 
 from conduit.core.models import Query, QueryConstraints, UserPreferences
 from conduit.engines.router import Router
 
+logger = logging.getLogger(__name__)
+
 
 async def demo_constraints(router: Router) -> None:
     """Demonstrate constraint-based routing."""
-    print("\n" + "=" * 70)
-    print("CONSTRAINTS - Control model selection limits")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("CONSTRAINTS - Control model selection limits")
+    logger.info("=" * 70)
 
     # Cost-constrained: prefer cheaper models
-    print("\n[1] Cost-Constrained (max $0.001, min quality 0.7)")
+    logger.info("\n[1] Cost-Constrained (max $0.001, min quality 0.7)")
     constraints = QueryConstraints(max_cost=0.001, min_quality=0.7)
     query = Query(
         text="Write a haiku about programming",
@@ -34,11 +37,11 @@ async def demo_constraints(router: Router) -> None:
         preferences=UserPreferences(optimize_for="cost"),
     )
     decision = await router.route(query)
-    print(f"    Model: {decision.selected_model}")
-    print(f"    Confidence: {decision.confidence:.2f}")
+    logger.info(f"    Model: {decision.selected_model}")
+    logger.info(f"    Confidence: {decision.confidence:.2f}")
 
     # Quality-constrained: require high quality models
-    print("\n[2] Quality-Constrained (min quality 0.95)")
+    logger.info("\n[2] Quality-Constrained (min quality 0.95)")
     constraints = QueryConstraints(min_quality=0.95, max_latency=10.0)
     query = Query(
         text="Explain quantum entanglement with mathematical formulations",
@@ -46,11 +49,11 @@ async def demo_constraints(router: Router) -> None:
         preferences=UserPreferences(optimize_for="quality"),
     )
     decision = await router.route(query)
-    print(f"    Model: {decision.selected_model}")
-    print(f"    Confidence: {decision.confidence:.2f}")
+    logger.info(f"    Model: {decision.selected_model}")
+    logger.info(f"    Confidence: {decision.confidence:.2f}")
 
     # Speed-constrained: require fast response
-    print("\n[3] Speed-Constrained (max 2s latency, prefer OpenAI)")
+    logger.info("\n[3] Speed-Constrained (max 2s latency, prefer OpenAI)")
     constraints = QueryConstraints(max_latency=2.0, preferred_provider="openai")
     query = Query(
         text="What is the capital of France?",
@@ -58,20 +61,20 @@ async def demo_constraints(router: Router) -> None:
         preferences=UserPreferences(optimize_for="speed"),
     )
     decision = await router.route(query)
-    print(f"    Model: {decision.selected_model}")
-    print(f"    Confidence: {decision.confidence:.2f}")
+    logger.info(f"    Model: {decision.selected_model}")
+    logger.info(f"    Confidence: {decision.confidence:.2f}")
 
 
 async def demo_preferences(router: Router) -> None:
     """Demonstrate preference-based routing."""
-    print("\n" + "=" * 70)
-    print("PREFERENCES - Adjust quality/cost/latency tradeoffs")
-    print("=" * 70)
-    print("\nPresets and their weights:")
-    print("  balanced: 70% quality, 20% cost, 10% latency (default)")
-    print("  quality:  80% quality, 10% cost, 10% latency")
-    print("  cost:     40% quality, 50% cost, 10% latency")
-    print("  speed:    40% quality, 10% cost, 50% latency")
+    logger.info("\n" + "=" * 70)
+    logger.info("PREFERENCES - Adjust quality/cost/latency tradeoffs")
+    logger.info("=" * 70)
+    logger.info("\nPresets and their weights:")
+    logger.info("  balanced: 70% quality, 20% cost, 10% latency (default)")
+    logger.info("  quality:  80% quality, 10% cost, 10% latency")
+    logger.info("  cost:     40% quality, 50% cost, 10% latency")
+    logger.info("  speed:    40% quality, 10% cost, 50% latency")
 
     test_query = "Explain machine learning in simple terms"
     presets = ["balanced", "quality", "cost", "speed"]
@@ -82,22 +85,22 @@ async def demo_preferences(router: Router) -> None:
             preferences=UserPreferences(optimize_for=preset),  # type: ignore[arg-type]
         )
         decision = await router.route(query)
-        print(
+        logger.info(
             f"\n[{preset}] Model: {decision.selected_model}, Confidence: {decision.confidence:.2f}"
         )
 
 
 async def demo_algorithms() -> None:
     """Demonstrate different routing algorithms."""
-    print("\n" + "=" * 70)
-    print("ALGORITHMS - Different learning strategies")
-    print("=" * 70)
-    print("\nAvailable algorithms:")
-    print("  thompson_sampling (default) - Bayesian bandit, best cold-start")
-    print("  linucb                      - Contextual linear bandit")
-    print("  ucb1                        - Upper confidence bound")
-    print("  epsilon_greedy              - Epsilon-greedy exploration")
-    print("  random                      - Random selection (baseline)")
+    logger.info("\n" + "=" * 70)
+    logger.info("ALGORITHMS - Different learning strategies")
+    logger.info("=" * 70)
+    logger.info("\nAvailable algorithms:")
+    logger.info("  thompson_sampling (default) - Bayesian bandit, best cold-start")
+    logger.info("  linucb                      - Contextual linear bandit")
+    logger.info("  ucb1                        - Upper confidence bound")
+    logger.info("  epsilon_greedy              - Epsilon-greedy exploration")
+    logger.info("  random                      - Random selection (baseline)")
 
     algorithms = ["thompson_sampling", "linucb", "ucb1"]
     query = Query(text="Write a function to sort a list")
@@ -105,7 +108,7 @@ async def demo_algorithms() -> None:
     for algo in algorithms:
         router = Router(algorithm=algo)
         decision = await router.route(query)
-        print(
+        logger.info(
             f"\n[{algo}] Model: {decision.selected_model}, Confidence: {decision.confidence:.2f}"
         )
         await router.close()
@@ -113,36 +116,36 @@ async def demo_algorithms() -> None:
 
 async def demo_model_selection() -> None:
     """Demonstrate custom model selection."""
-    print("\n" + "=" * 70)
-    print("MODEL SELECTION - Choose which models to route between")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("MODEL SELECTION - Choose which models to route between")
+    logger.info("=" * 70)
 
     # Default models (uses conduit.yaml configuration)
-    print("\n[1] Default models (from conduit.yaml)")
+    logger.info("\n[1] Default models (from conduit.yaml)")
     router = Router()
     decision = await router.route(Query(text="Hello world"))
-    print(f"    Available models: {len(router.hybrid_router.arms)}")
-    print(f"    Selected: {decision.selected_model}")
+    logger.info(f"    Available models: {len(router.hybrid_router.arms)}")
+    logger.info(f"    Selected: {decision.selected_model}")
     await router.close()
 
     # Custom model list
-    print("\n[2] Custom model list")
+    logger.info("\n[2] Custom model list")
     router = Router(models=["gpt-4o-mini", "gpt-4o", "claude-sonnet-4-20250514"])
     decision = await router.route(Query(text="Hello world"))
-    print("    Models: gpt-4o-mini, gpt-4o, claude-sonnet-4-20250514")
-    print(f"    Selected: {decision.selected_model}")
+    logger.info("    Models: gpt-4o-mini, gpt-4o, claude-sonnet-4-20250514")
+    logger.info(f"    Selected: {decision.selected_model}")
     await router.close()
 
 
 async def main() -> None:
     """Run all routing option demos."""
     if not os.getenv("OPENAI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"):
-        print("Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY")
+        logger.error("Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY")
         return
 
-    print("=" * 70)
-    print("CONDUIT ROUTING OPTIONS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CONDUIT ROUTING OPTIONS")
+    logger.info("=" * 70)
 
     router = Router()
 
@@ -154,10 +157,10 @@ async def main() -> None:
     await demo_model_selection()
 
     # Summary
-    print("\n" + "=" * 70)
-    print("SUMMARY - Configuration Reference")
-    print("=" * 70)
-    print(
+    logger.info("\n" + "=" * 70)
+    logger.info("SUMMARY - Configuration Reference")
+    logger.info("=" * 70)
+    logger.info(
         """
 QueryConstraints:
   max_cost: float        Maximum cost in dollars (e.g., 0.001)

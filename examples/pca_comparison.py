@@ -18,10 +18,13 @@ Usage:
 """
 
 import asyncio
+import logging
 import time
 
 from conduit.core.models import Query
 from conduit.engines.router import Router
+
+logger = logging.getLogger(__name__)
 
 
 async def measure_routing_speed(router: Router, query: str, iterations: int = 5) -> float:
@@ -38,30 +41,30 @@ async def measure_routing_speed(router: Router, query: str, iterations: int = 5)
 
 
 async def main():
-    print("=" * 80)
-    print("PCA Dimensionality Reduction Comparison")
-    print("=" * 80)
-    print()
+    logger.info("=" * 80)
+    logger.info("PCA Dimensionality Reduction Comparison")
+    logger.info("=" * 80)
+    logger.info("")
 
     # Test query
     query = "Explain how neural networks work in simple terms"
 
     # Router without PCA (384 dimensions)
-    print("Standard Router (384-dim embeddings):")
-    print("-" * 80)
+    logger.info("Standard Router (384-dim embeddings):")
+    logger.info("-" * 80)
     router_standard = Router()
 
     avg_time_standard = await measure_routing_speed(router_standard, query)
-    print(f"  Feature dimensions: 387 (384 embedding + 3 metadata)")
-    print(f"  Average routing time: {avg_time_standard:.1f}ms")
-    print(f"  Queries to convergence: ~10,000-15,000")
-    print()
+    logger.info("  Feature dimensions: 387 (384 embedding + 3 metadata)")
+    logger.info(f"  Average routing time: {avg_time_standard:.1f}ms")
+    logger.info("  Queries to convergence: ~10,000-15,000")
+    logger.info("")
 
     await router_standard.close()
 
     # Router with PCA (64 dimensions)
-    print("PCA-Optimized Router (64-dim embeddings):")
-    print("-" * 80)
+    logger.info("PCA-Optimized Router (64-dim embeddings):")
+    logger.info("-" * 80)
 
     try:
         from conduit.engines.analyzer import QueryAnalyzer
@@ -78,46 +81,46 @@ async def main():
 
         avg_time_pca = await measure_routing_speed(router_pca, query)
 
-        print(f"  Feature dimensions: 67 (64 PCA + 3 metadata)")
-        print(f"  Average routing time: {avg_time_pca:.1f}ms")
-        print(f"  Queries to convergence: ~2,500-3,750")
-        print(f"  Sample reduction: 75%")
-        print()
+        logger.info("  Feature dimensions: 67 (64 PCA + 3 metadata)")
+        logger.info(f"  Average routing time: {avg_time_pca:.1f}ms")
+        logger.info("  Queries to convergence: ~2,500-3,750")
+        logger.info("  Sample reduction: 75%")
+        logger.info("")
 
         # Calculate speedup
         speedup = avg_time_standard / avg_time_pca
-        print(f"  Routing speedup: {speedup:.2f}x faster")
+        logger.info(f"  Routing speedup: {speedup:.2f}x faster")
 
         await router_pca.close()
 
     except FileNotFoundError:
-        print("  ⚠️  PCA model not found!")
-        print("  Run: python examples/04_pca/pca_setup.py")
-        print()
+        logger.warning("  ⚠️  PCA model not found!")
+        logger.warning("  Run: python examples/04_pca/pca_setup.py")
+        logger.info("")
 
-    print()
-    print("=" * 80)
-    print("Why PCA Works for LLM Routing")
-    print("=" * 80)
-    print()
-    print("Sample Efficiency:")
-    print("  - LinUCB learns arm parameters: θ = A^(-1) @ b")
-    print("  - Matrix A is d×d (d = feature dimensions)")
-    print("  - Fewer dimensions → faster convergence")
-    print("  - 384→64 dims = 6x fewer parameters to learn")
-    print()
-    print("Information Preservation:")
-    print("  - PCA captures 95%+ variance in 64 dimensions")
-    print("  - Query semantics preserved (similar queries cluster)")
-    print("  - Domain patterns still detectable")
-    print()
-    print("Production Trade-offs:")
-    print("  - ✅ 75% faster convergence (fewer samples needed)")
-    print("  - ✅ Lower memory usage (smaller matrices)")
-    print("  - ✅ Faster routing (smaller matrix operations)")
-    print("  - ⚠️  One-time PCA training required")
-    print("  - ⚠️  Slight information loss (5% variance)")
-    print()
+    logger.info("")
+    logger.info("=" * 80)
+    logger.info("Why PCA Works for LLM Routing")
+    logger.info("=" * 80)
+    logger.info("")
+    logger.info("Sample Efficiency:")
+    logger.info("  - LinUCB learns arm parameters: θ = A^(-1) @ b")
+    logger.info("  - Matrix A is d×d (d = feature dimensions)")
+    logger.info("  - Fewer dimensions → faster convergence")
+    logger.info("  - 384→64 dims = 6x fewer parameters to learn")
+    logger.info("")
+    logger.info("Information Preservation:")
+    logger.info("  - PCA captures 95%+ variance in 64 dimensions")
+    logger.info("  - Query semantics preserved (similar queries cluster)")
+    logger.info("  - Domain patterns still detectable")
+    logger.info("")
+    logger.info("Production Trade-offs:")
+    logger.info("  - ✅ 75% faster convergence (fewer samples needed)")
+    logger.info("  - ✅ Lower memory usage (smaller matrices)")
+    logger.info("  - ✅ Faster routing (smaller matrix operations)")
+    logger.info("  - ⚠️  One-time PCA training required")
+    logger.info("  - ⚠️  Slight information loss (5% variance)")
+    logger.info("")
 
 
 if __name__ == "__main__":

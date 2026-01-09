@@ -10,23 +10,31 @@ Requirements:
 
 Run:
     python examples/04_litellm/custom_config.py
+
+Example usage:
+    >>> import logging
+    >>> logger = logging.getLogger(__name__)
+    >>> logger.info("🚀 Custom Conduit Configuration Example")
 """
 
 import asyncio
+import logging
 import os
 
 from litellm import Router
 from conduit_litellm import ConduitRoutingStrategy
+
+logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
     """Demonstrate custom Conduit configuration."""
 
     if not os.getenv("OPENAI_API_KEY"):
-        print("❌ OPENAI_API_KEY not set")
+        logger.error("❌ OPENAI_API_KEY not set")
         return
 
-    print("🚀 Custom Conduit Configuration Example\n")
+    logger.info("🚀 Custom Conduit Configuration Example\n")
 
     # Configure LiteLLM model list
     # KEY: Use same model_name "gpt" for both models so Conduit can route between them
@@ -53,12 +61,12 @@ async def main() -> None:
     router = Router(model_list=model_list)
 
     # Custom Conduit configuration
-    print("⚙️  Configuration:")
-    print("   - Hybrid routing: UCB1 → LinUCB (30% faster convergence)")
-    print("   - Redis caching: Enabled (if REDIS_URL set)")
-    print("   - Embedding model: all-MiniLM-L6-v2")
-    print("   - Models: gpt-4o-mini (cheap), gpt-4o (capable)")
-    print()
+    logger.info("⚙️  Configuration:")
+    logger.info("   - Hybrid routing: UCB1 → LinUCB (30% faster convergence)")
+    logger.info("   - Redis caching: Enabled (if REDIS_URL set)")
+    logger.info("   - Embedding model: all-MiniLM-L6-v2")
+    logger.info("   - Models: gpt-4o-mini (cheap), gpt-4o (capable)")
+    logger.info("")
 
     strategy = ConduitRoutingStrategy(
         cache_enabled=bool(os.getenv("REDIS_URL")),  # Enable Redis caching if URL present
@@ -68,7 +76,7 @@ async def main() -> None:
 
     ConduitRoutingStrategy.setup_strategy(router, strategy)
 
-    print("✅ Custom strategy activated\n")
+    logger.info("✅ Custom strategy activated\n")
 
     # Run test queries
     queries = [
@@ -79,7 +87,7 @@ async def main() -> None:
     ]
 
     for label, query in queries:
-        print(f"[{label}] {query}")
+        logger.info(f"[{label}] {query}")
 
         response = await router.acompletion(
             model="gpt",  # Conduit selects optimal model
@@ -87,14 +95,14 @@ async def main() -> None:
             temperature=0.7,
         )
 
-        print(f"   → Conduit selected: {response.model}")
-        print(f"   💰 Cost: ~${response._hidden_params.get('response_cost', 0.0):.6f}")
-        print(f"   📝 Response: {response.choices[0].message.content[:80]}...")
-        print()
+        logger.info(f"   → Conduit selected: {response.model}")
+        logger.info(f"   💰 Cost: ~${response._hidden_params.get('response_cost', 0.0):.6f}")
+        logger.info(f"   📝 Response: {response.choices[0].message.content[:80]}...")
+        logger.info("")
 
-    print("✨ Hybrid routing learns quickly from early queries!")
-    print("   First ~100 queries: UCB1 (fast exploration)")
-    print("   After ~100 queries: LinUCB (contextual optimization)")
+    logger.info("✨ Hybrid routing learns quickly from early queries!")
+    logger.info("   First ~100 queries: UCB1 (fast exploration)")
+    logger.info("   After ~100 queries: LinUCB (contextual optimization)")
 
 
 if __name__ == "__main__":

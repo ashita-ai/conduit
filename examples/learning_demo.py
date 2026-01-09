@@ -15,9 +15,15 @@ Environment variables (set at least one):
 - OPENAI_API_KEY
 - ANTHROPIC_API_KEY
 - GOOGLE_API_KEY
+
+Example usage:
+    >>> import logging
+    >>> logger = logging.getLogger(__name__)
+    >>> logger.info(f"Found {len(available_models)} available models:")
 """
 
 import asyncio
+import logging
 import os
 import time
 from typing import Any
@@ -28,6 +34,8 @@ from conduit.engines.bandits.linucb import LinUCBBandit
 from conduit.engines.bandits.base import ModelArm, BanditFeedback
 from conduit.core.models import QueryFeatures
 from conduit.core.pricing import get_model_pricing, compute_cost
+
+logger = logging.getLogger(__name__)
 
 # Check for available API keys
 def get_available_models() -> list[dict[str, Any]]:
@@ -184,29 +192,29 @@ def evaluate_response(response: str, expected: str) -> float:
 
 async def run_real_demo():
     """Run the real API learning demonstration."""
-    print("=" * 70)
-    print("CONDUIT LEARNING DEMO - Real API Calls")
-    print("=" * 70)
-    print()
+    logger.info("=" * 70)
+    logger.info("CONDUIT LEARNING DEMO - Real API Calls")
+    logger.info("=" * 70)
+    logger.info("")
 
     # Check for available models
     available_models = get_available_models()
 
     if not available_models:
-        print("ERROR: No API keys found!")
-        print()
-        print("Please set at least one of these environment variables:")
-        print("  export OPENAI_API_KEY=sk-...")
-        print("  export ANTHROPIC_API_KEY=sk-ant-...")
-        print("  export GOOGLE_API_KEY=...")
-        print()
-        print("Then run this demo again.")
+        logger.error("ERROR: No API keys found!")
+        logger.info("")
+        logger.info("Please set at least one of these environment variables:")
+        logger.info("  export OPENAI_API_KEY=sk-...")
+        logger.info("  export ANTHROPIC_API_KEY=sk-ant-...")
+        logger.info("  export GOOGLE_API_KEY=...")
+        logger.info("")
+        logger.info("Then run this demo again.")
         return
 
-    print(f"Found {len(available_models)} available models:")
+    logger.info(f"Found {len(available_models)} available models:")
     for m in available_models:
-        print(f"  - {m['model_id']} ({m['provider']}): {m['description']}")
-    print()
+        logger.info(f"  - {m['model_id']} ({m['provider']}): {m['description']}")
+    logger.info("")
 
     # Create model arms using LiteLLM pricing
     arms = []
@@ -226,12 +234,12 @@ async def run_real_demo():
     # Initialize bandit
     bandit = LinUCBBandit(arms=arms, alpha=1.5, feature_dim=386)
 
-    print(f"Initialized LinUCB bandit with {len(arms)} arms")
-    print()
-    print("-" * 70)
-    print("Running queries (this will make real API calls)...")
-    print("-" * 70)
-    print()
+    logger.info(f"Initialized LinUCB bandit with {len(arms)} arms")
+    logger.info("")
+    logger.info("-" * 70)
+    logger.info("Running queries (this will make real API calls)...")
+    logger.info("-" * 70)
+    logger.info("")
 
     # Track metrics
     total_cost = 0.0
@@ -245,9 +253,9 @@ async def run_real_demo():
         # Get bandit's selection
         selected_arm = await bandit.select_arm(features)
 
-        print(f"Query {i}: \"{query['text'][:50]}...\"")
-        print(f"  Domain: {query['domain']}")
-        print(f"  Selected: {selected_arm.model_id}")
+        logger.info(f"Query {i}: \"{query['text'][:50]}...\"")
+        logger.info(f"  Domain: {query['domain']}")
+        logger.info(f"  Selected: {selected_arm.model_id}")
 
         # Call the LLM
         response_text, cost, latency = await call_llm(
@@ -259,9 +267,9 @@ async def run_real_demo():
         # Evaluate quality
         quality = evaluate_response(response_text, query.get("expected_answer_contains", ""))
 
-        print(f"  Response: \"{response_text[:60]}...\"")
-        print(f"  Cost: ${cost:.6f} | Latency: {latency:.2f}s | Quality: {quality:.2f}")
-        print()
+        logger.info(f"  Response: \"{response_text[:60]}...\"")
+        logger.info(f"  Cost: ${cost:.6f} | Latency: {latency:.2f}s | Quality: {quality:.2f}")
+        logger.info("")
 
         # Update bandit with feedback
         feedback = BanditFeedback(
@@ -288,17 +296,17 @@ async def run_real_demo():
         await asyncio.sleep(0.5)
 
     # Print summary
-    print("-" * 70)
-    print("SUMMARY")
-    print("-" * 70)
-    print()
-    print(f"Total queries: {len(TEST_QUERIES)}")
-    print(f"Total cost: ${total_cost:.6f}")
-    print(f"Average quality: {total_quality/len(TEST_QUERIES):.2f}")
-    print()
+    logger.info("-" * 70)
+    logger.info("SUMMARY")
+    logger.info("-" * 70)
+    logger.info("")
+    logger.info(f"Total queries: {len(TEST_QUERIES)}")
+    logger.info(f"Total cost: ${total_cost:.6f}")
+    logger.info(f"Average quality: {total_quality/len(TEST_QUERIES):.2f}")
+    logger.info("")
 
     # Model distribution
-    print("Model Selection Distribution:")
+    logger.info("Model Selection Distribution:")
     model_counts: dict[str, int] = {}
     model_costs: dict[str, float] = {}
     for r in results:
@@ -309,23 +317,23 @@ async def run_real_demo():
     for model, count in sorted(model_counts.items(), key=lambda x: -x[1]):
         pct = count / len(results) * 100
         cost = model_costs[model]
-        print(f"  {model}: {count} queries ({pct:.0f}%), ${cost:.6f}")
+        logger.info(f"  {model}: {count} queries ({pct:.0f}%), ${cost:.6f}")
 
-    print()
-    print("Bandit Statistics:")
+    logger.info("")
+    logger.info("Bandit Statistics:")
     stats = bandit.get_stats()
     arm_pulls = stats.get("arm_pulls", {})
     arm_success_rates = stats.get("arm_success_rates", {})
     for arm_id in arm_pulls:
         pulls = arm_pulls.get(arm_id, 0)
         success_rate = arm_success_rates.get(arm_id, 0)
-        print(f"  {arm_id}: {pulls} pulls, success rate: {success_rate:.3f}")
+        logger.info(f"  {arm_id}: {pulls} pulls, success rate: {success_rate:.3f}")
 
-    print()
-    print("=" * 70)
-    print("Conduit learned from real feedback to optimize model selection!")
-    print("Run more queries to see the bandit converge to optimal routing.")
-    print("=" * 70)
+    logger.info("")
+    logger.info("=" * 70)
+    logger.info("Conduit learned from real feedback to optimize model selection!")
+    logger.info("Run more queries to see the bandit converge to optimal routing.")
+    logger.info("=" * 70)
 
 if __name__ == "__main__":
     asyncio.run(run_real_demo())

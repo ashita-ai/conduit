@@ -2,10 +2,13 @@
 """Truncate all database tables."""
 import asyncio
 import asyncpg
+import logging
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 async def truncate_all_tables():
@@ -13,12 +16,12 @@ async def truncate_all_tables():
     # Use direct connection for administrative tasks
     database_url = os.getenv("DIRECT_URL") or os.getenv("DATABASE_URL")
     if not database_url:
-        print("❌ No DATABASE_URL or DIRECT_URL found in environment")
+        logger.error("❌ No DATABASE_URL or DIRECT_URL found in environment")
         return
 
     try:
         conn = await asyncpg.connect(database_url)
-        print("✅ Connected to database")
+        logger.info("✅ Connected to database")
 
         # Truncate tables in reverse dependency order
         tables = [
@@ -36,15 +39,15 @@ async def truncate_all_tables():
         for table in tables:
             try:
                 await conn.execute(f"TRUNCATE TABLE {table} CASCADE")
-                print(f"✅ Truncated {table}")
+                logger.info(f"✅ Truncated {table}")
             except Exception as e:
-                print(f"⚠️  Skipped {table}: {e}")
+                logger.warning(f"⚠️  Skipped {table}: {e}")
 
         await conn.close()
-        print("\n✅ Database truncation complete")
+        logger.info("\n✅ Database truncation complete")
 
     except Exception as e:
-        print(f"❌ Failed to truncate database: {e}")
+        logger.error(f"❌ Failed to truncate database: {e}")
 
 
 if __name__ == "__main__":

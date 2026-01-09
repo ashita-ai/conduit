@@ -16,16 +16,24 @@ How it works:
     Uses Thompson Sampling, the same algorithm Conduit uses for cold-start
     routing in production. Simulates LLM responses where expensive models
     outperform cheap ones on complex queries.
+
+Example usage:
+    >>> import logging
+    >>> logger = logging.getLogger(__name__)
+    >>> logger.info("CONDUIT ZERO-CONFIG DEMO")
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 from typing import Any
 
 from conduit.core.models import QueryFeatures
 from conduit.engines.bandits import BanditFeedback, ModelArm, ThompsonSamplingBandit
+
+logger = logging.getLogger(__name__)
 
 # Simulated model definitions with realistic pricing
 SIMULATED_MODELS: list[dict[str, Any]] = [
@@ -143,18 +151,18 @@ def create_mock_features(complexity: float) -> QueryFeatures:
 
 async def run_demo() -> None:
     """Run the zero-config demo showing bandit learning in action."""
-    print("=" * 70)
-    print("CONDUIT ZERO-CONFIG DEMO")
-    print("=" * 70)
-    print()
-    print("This demo shows how Conduit learns to route queries optimally.")
-    print("No API keys, no database, no external dependencies required.")
-    print()
+    logger.info("=" * 70)
+    logger.info("CONDUIT ZERO-CONFIG DEMO")
+    logger.info("=" * 70)
+    logger.info("")
+    logger.info("This demo shows how Conduit learns to route queries optimally.")
+    logger.info("No API keys, no database, no external dependencies required.")
+    logger.info("")
 
     # Create model arms
-    print("-" * 70)
-    print("SETUP: Creating bandit with 3 models")
-    print("-" * 70)
+    logger.info("-" * 70)
+    logger.info("SETUP: Creating bandit with 3 models")
+    logger.info("-" * 70)
 
     arms = [
         ModelArm(
@@ -170,7 +178,7 @@ async def run_demo() -> None:
 
     for arm in arms:
         cost_per_1m = arm.cost_per_input_token * 1_000_000
-        print(f"  - {arm.model_id} ({arm.provider}): ${cost_per_1m:.2f}/1M tokens")
+        logger.info(f"  - {arm.model_id} ({arm.provider}): ${cost_per_1m:.2f}/1M tokens")
 
     # Initialize Thompson Sampling bandit
     bandit = ThompsonSamplingBandit(
@@ -180,14 +188,14 @@ async def run_demo() -> None:
         random_seed=42,  # Reproducible results
     )
 
-    print()
-    print("=" * 70)
-    print("PHASE 1: EXPLORATION (Learning from feedback)")
-    print("=" * 70)
-    print()
-    print("The bandit explores different models and learns from feedback.")
-    print("Early routing is more random as the system gathers data.")
-    print()
+    logger.info("")
+    logger.info("=" * 70)
+    logger.info("PHASE 1: EXPLORATION (Learning from feedback)")
+    logger.info("=" * 70)
+    logger.info("")
+    logger.info("The bandit explores different models and learns from feedback.")
+    logger.info("Early routing is more random as the system gathers data.")
+    logger.info("")
 
     # Phase 1: Exploration (30 queries)
     phase1_rewards: list[float] = []
@@ -227,25 +235,25 @@ async def run_demo() -> None:
         # Show progress every 10 queries
         if (i + 1) % 10 == 0:
             avg_reward = sum(phase1_rewards[-10:]) / 10
-            print(f"  Queries 1-{i+1}: Avg reward = {avg_reward:.3f}")
+            logger.info(f"  Queries 1-{i+1}: Avg reward = {avg_reward:.3f}")
 
     phase1_avg_reward = sum(phase1_rewards) / len(phase1_rewards)
     phase1_total_cost = sum(phase1_costs)
 
-    print()
-    print("Phase 1 Summary:")
-    print(f"  Average reward: {phase1_avg_reward:.3f}")
-    print(f"  Total cost: ${phase1_total_cost:.6f}")
-    print(f"  Model selections: {phase1_selections}")
+    logger.info("")
+    logger.info("Phase 1 Summary:")
+    logger.info(f"  Average reward: {phase1_avg_reward:.3f}")
+    logger.info(f"  Total cost: ${phase1_total_cost:.6f}")
+    logger.info(f"  Model selections: {phase1_selections}")
 
-    print()
-    print("=" * 70)
-    print("PHASE 2: EXPLOITATION (Using learned preferences)")
-    print("=" * 70)
-    print()
-    print("The bandit now exploits what it learned, making smarter selections.")
-    print("Watch for higher rewards as it picks better models.")
-    print()
+    logger.info("")
+    logger.info("=" * 70)
+    logger.info("PHASE 2: EXPLOITATION (Using learned preferences)")
+    logger.info("=" * 70)
+    logger.info("")
+    logger.info("The bandit now exploits what it learned, making smarter selections.")
+    logger.info("Watch for higher rewards as it picks better models.")
+    logger.info("")
 
     # Phase 2: Exploitation (30 queries)
     phase2_rewards: list[float] = []
@@ -283,61 +291,61 @@ async def run_demo() -> None:
         # Show progress every 10 queries
         if (i + 1) % 10 == 0:
             avg_reward = sum(phase2_rewards[-10:]) / 10
-            print(f"  Queries 31-{30+i+1}: Avg reward = {avg_reward:.3f}")
+            logger.info(f"  Queries 31-{30+i+1}: Avg reward = {avg_reward:.3f}")
 
     phase2_avg_reward = sum(phase2_rewards) / len(phase2_rewards)
     phase2_total_cost = sum(phase2_costs)
 
-    print()
-    print("Phase 2 Summary:")
-    print(f"  Average reward: {phase2_avg_reward:.3f}")
-    print(f"  Total cost: ${phase2_total_cost:.6f}")
-    print(f"  Model selections: {phase2_selections}")
+    logger.info("")
+    logger.info("Phase 2 Summary:")
+    logger.info(f"  Average reward: {phase2_avg_reward:.3f}")
+    logger.info(f"  Total cost: ${phase2_total_cost:.6f}")
+    logger.info(f"  Model selections: {phase2_selections}")
 
     # Final comparison
-    print()
-    print("=" * 70)
-    print("RESULTS: Learning Improvement")
-    print("=" * 70)
-    print()
+    logger.info("")
+    logger.info("=" * 70)
+    logger.info("RESULTS: Learning Improvement")
+    logger.info("=" * 70)
+    logger.info("")
 
     improvement = ((phase2_avg_reward - phase1_avg_reward) / phase1_avg_reward) * 100
     cost_change = ((phase2_total_cost - phase1_total_cost) / phase1_total_cost) * 100
 
-    print(f"  Phase 1 avg reward: {phase1_avg_reward:.3f}")
-    print(f"  Phase 2 avg reward: {phase2_avg_reward:.3f}")
-    print(f"  Improvement: {improvement:+.1f}%")
-    print()
-    print(f"  Phase 1 total cost: ${phase1_total_cost:.6f}")
-    print(f"  Phase 2 total cost: ${phase2_total_cost:.6f}")
-    print(f"  Cost change: {cost_change:+.1f}%")
-    print()
+    logger.info(f"  Phase 1 avg reward: {phase1_avg_reward:.3f}")
+    logger.info(f"  Phase 2 avg reward: {phase2_avg_reward:.3f}")
+    logger.info(f"  Improvement: {improvement:+.1f}%")
+    logger.info("")
+    logger.info(f"  Phase 1 total cost: ${phase1_total_cost:.6f}")
+    logger.info(f"  Phase 2 total cost: ${phase2_total_cost:.6f}")
+    logger.info(f"  Cost change: {cost_change:+.1f}%")
+    logger.info("")
 
     # Show learned model preferences
-    print("Learned Model Preferences (Beta distribution parameters):")
+    logger.info("Learned Model Preferences (Beta distribution parameters):")
     stats = bandit.get_stats()
     for model_id, dist in stats["arm_distributions"].items():
         mean = dist["mean"]
         alpha = dist["alpha"]
         beta = dist["beta"]
-        print(f"  {model_id}: mean={mean:.3f} (alpha={alpha:.1f}, beta={beta:.1f})")
+        logger.info(f"  {model_id}: mean={mean:.3f} (alpha={alpha:.1f}, beta={beta:.1f})")
 
-    print()
-    print("=" * 70)
-    print("WHAT THIS MEANS")
-    print("=" * 70)
-    print()
-    print("The bandit learned to prefer models that provide better rewards.")
-    print("This is how Conduit optimizes LLM routing in production:")
-    print("  1. Start with neutral priors (no assumptions)")
-    print("  2. Explore different models via Thompson Sampling")
-    print("  3. Learn from feedback (quality, cost, latency)")
-    print("  4. Converge to optimal routing policy")
-    print()
-    print("Next steps:")
-    print("  - See examples/quickstart.py for real LLM routing")
-    print("  - See examples/feedback_loop.py for production feedback patterns")
-    print()
+    logger.info("")
+    logger.info("=" * 70)
+    logger.info("WHAT THIS MEANS")
+    logger.info("=" * 70)
+    logger.info("")
+    logger.info("The bandit learned to prefer models that provide better rewards.")
+    logger.info("This is how Conduit optimizes LLM routing in production:")
+    logger.info("  1. Start with neutral priors (no assumptions)")
+    logger.info("  2. Explore different models via Thompson Sampling")
+    logger.info("  3. Learn from feedback (quality, cost, latency)")
+    logger.info("  4. Converge to optimal routing policy")
+    logger.info("")
+    logger.info("Next steps:")
+    logger.info("  - See examples/quickstart.py for real LLM routing")
+    logger.info("  - See examples/feedback_loop.py for production feedback patterns")
+    logger.info("")
 
 
 if __name__ == "__main__":

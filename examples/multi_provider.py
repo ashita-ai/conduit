@@ -12,16 +12,19 @@ Run:
 """
 
 import asyncio
+import logging
 import os
 
 from litellm import Router
 from conduit_litellm import ConduitRoutingStrategy
 
+logger = logging.getLogger(__name__)
+
 
 async def main() -> None:
     """Multi-provider routing example."""
 
-    print("🚀 Multi-Provider Routing with Conduit\n")
+    logger.info("🚀 Multi-Provider Routing with Conduit\n")
 
     # Check available API keys
     api_keys = {
@@ -34,15 +37,15 @@ async def main() -> None:
     available_providers = [k for k, v in api_keys.items() if v]
 
     if len(available_providers) < 2:
-        print("❌ Need at least 2 API keys for multi-provider demo")
-        print("   Set any combination of:")
-        print("   - OPENAI_API_KEY")
-        print("   - ANTHROPIC_API_KEY")
-        print("   - GOOGLE_API_KEY")
-        print("   - GROQ_API_KEY")
+        logger.error("❌ Need at least 2 API keys for multi-provider demo")
+        logger.info("   Set any combination of:")
+        logger.info("   - OPENAI_API_KEY")
+        logger.info("   - ANTHROPIC_API_KEY")
+        logger.info("   - GOOGLE_API_KEY")
+        logger.info("   - GROQ_API_KEY")
         return
 
-    print(f"✅ Found {len(available_providers)} providers: {', '.join(available_providers)}\n")
+    logger.info(f"✅ Found {len(available_providers)} providers: {', '.join(available_providers)}\n")
 
     # Configure models from available providers
     # KEY: Use same model_name "llm" for all models so Conduit can route between them
@@ -90,10 +93,10 @@ async def main() -> None:
             "model_info": {"id": "llama-3.1-70b-versatile"},  # No mapping, use LiteLLM ID
         })
 
-    print(f"📋 Configured {len(model_list)} models:")
+    logger.info(f"📋 Configured {len(model_list)} models:")
     for model in model_list:
-        print(f"   - {model['model_info']['id']}")
-    print()
+        logger.info(f"   - {model['model_info']['id']}")
+    logger.info("")
 
     # Initialize LiteLLM router
     router = Router(model_list=model_list)
@@ -102,9 +105,9 @@ async def main() -> None:
     strategy = ConduitRoutingStrategy()
     ConduitRoutingStrategy.setup_strategy(router, strategy)
 
-    print("✅ Conduit multi-provider routing activated")
-    print(f"🤖 Conduit will intelligently choose between {len(model_list)} models\n")
-    print("=" * 70)
+    logger.info("✅ Conduit multi-provider routing activated")
+    logger.info(f"🤖 Conduit will intelligently choose between {len(model_list)} models\n")
+    logger.info("=" * 70)
 
     # Test diverse queries
     queries = [
@@ -116,8 +119,8 @@ async def main() -> None:
     ]
 
     for category, query in queries:
-        print(f"\n[{category}] {query}")
-        print("-" * 70)
+        logger.info(f"\n[{category}] {query}")
+        logger.info("-" * 70)
 
         try:
             response = await router.acompletion(
@@ -130,23 +133,23 @@ async def main() -> None:
             cost = response._hidden_params.get("response_cost", 0.0)
             content = response.choices[0].message.content
 
-            print(f"✅ Conduit selected: {model_used}")
-            print(f"💰 Cost: ~${cost:.6f}")
-            print(f"📝 Response: {content[:150]}...")
+            logger.info(f"✅ Conduit selected: {model_used}")
+            logger.info(f"💰 Cost: ~${cost:.6f}")
+            logger.info(f"📝 Response: {content[:150]}...")
 
         except Exception as e:
-            print(f"❌ Error: {e}")
+            logger.error(f"❌ Error: {e}")
 
-    print("\n" + "=" * 70)
-    print("✨ Multi-Provider Routing Complete!")
-    print()
-    print("Key Benefits:")
-    print("  ✅ Automatic provider selection based on query type")
-    print("  ✅ Cost optimization across providers")
-    print("  ✅ Quality maximization through ML learning")
-    print("  ✅ No manual routing rules needed")
-    print()
-    print("Conduit learns which providers excel at which tasks!")
+    logger.info("\n" + "=" * 70)
+    logger.info("✨ Multi-Provider Routing Complete!")
+    logger.info("")
+    logger.info("Key Benefits:")
+    logger.info("  ✅ Automatic provider selection based on query type")
+    logger.info("  ✅ Cost optimization across providers")
+    logger.info("  ✅ Quality maximization through ML learning")
+    logger.info("  ✅ No manual routing rules needed")
+    logger.info("")
+    logger.info("Conduit learns which providers excel at which tasks!")
 
 
 if __name__ == "__main__":

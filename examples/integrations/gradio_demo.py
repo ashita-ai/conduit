@@ -14,18 +14,26 @@ Run:
     python examples/integrations/gradio_demo.py
 
 Then open: http://127.0.0.1:7860
+
+Example usage:
+    >>> import logging
+    >>> logger = logging.getLogger(__name__)
+    >>> logger.info("Conduit Gradio Demo")
 """
 
 import asyncio
+import logging
 import sys
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 # Check for gradio dependency
 try:
     import gradio as gr
 except ImportError:
-    print("Gradio integration requires gradio.")
-    print("Install with: pip install gradio")
+    logger.warning("Gradio integration requires gradio.")
+    logger.info("Install with: pip install gradio")
     sys.exit(0)
 
 from conduit.core.models import Query, QueryConstraints, UserPreferences
@@ -305,15 +313,15 @@ def create_demo():
 
 def main():
     """Run the Gradio demo."""
-    print("=" * 80)
-    print("Conduit Gradio Demo")
-    print("=" * 80)
-    print("\nInitializing router...")
+    logger.info("=" * 80)
+    logger.info("Conduit Gradio Demo")
+    logger.info("=" * 80)
+    logger.info("\nInitializing router...")
 
     initialize_router()
 
-    print("Starting Gradio interface...")
-    print("Open http://127.0.0.1:7860 in your browser\n")
+    logger.info("Starting Gradio interface...")
+    logger.info("Open http://127.0.0.1:7860 in your browser\n")
 
     demo = create_demo()
     demo.launch(

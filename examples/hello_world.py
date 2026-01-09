@@ -12,15 +12,18 @@ If you see an API key error, create a .env file with your key.
 """
 
 import asyncio
+import logging
 
 from conduit.core.models import Query
 from conduit.engines.router import Router
+
+logger = logging.getLogger(__name__)
 
 
 async def main():
     router = Router()
     decision = await router.route(Query(text="What is 2+2?"))
-    print(f"Route to: {decision.selected_model} (confidence: {decision.confidence:.0%})")
+    logger.info(f"Route to: {decision.selected_model} (confidence: {decision.confidence:.0%})")
 
 
 if __name__ == "__main__":

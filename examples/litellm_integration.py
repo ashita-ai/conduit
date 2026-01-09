@@ -29,12 +29,12 @@ logging.getLogger("conduit_litellm.feedback").setLevel(logging.ERROR)
 
 async def demo_basic_usage() -> ConduitRoutingStrategy | None:
     """Basic Conduit + LiteLLM integration."""
-    print("\n" + "=" * 70)
-    print("BASIC USAGE - Route Between Models")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("BASIC USAGE - Route Between Models")
+    logger.info("=" * 70)
 
     if not os.getenv("OPENAI_API_KEY"):
-        print("Skipping: OPENAI_API_KEY not set")
+        logger.info("Skipping: OPENAI_API_KEY not set")
         return None
 
     from litellm import Router
@@ -65,8 +65,8 @@ async def demo_basic_usage() -> ConduitRoutingStrategy | None:
     strategy = ConduitRoutingStrategy()
     ConduitRoutingStrategy.setup_strategy(router, strategy)
 
-    print("Conduit routing activated")
-    print("Models: gpt-4o-mini (cheap), gpt-4o (capable)")
+    logger.info("Conduit routing activated")
+    logger.info("Models: gpt-4o-mini (cheap), gpt-4o (capable)")
 
     queries = [
         ("What is 2+2?", "simple"),
@@ -74,8 +74,8 @@ async def demo_basic_usage() -> ConduitRoutingStrategy | None:
         ("Translate hello to Spanish", "simple"),
     ]
 
-    print("\nQuery | Selected Model")
-    print("-" * 50)
+    logger.info("\nQuery | Selected Model")
+    logger.info("-" * 50)
 
     for query, _query_type in queries:
         response = await router.acompletion(
@@ -83,16 +83,16 @@ async def demo_basic_usage() -> ConduitRoutingStrategy | None:
             messages=[{"role": "user", "content": query}],
         )
         short_query = query[:35] + "..." if len(query) > 35 else query
-        print(f"{short_query:40} | {response.model}")
+        logger.info(f"{short_query:40} | {response.model}")
 
     return strategy
 
 
 async def demo_multi_provider() -> ConduitRoutingStrategy | None:
     """Route across multiple providers."""
-    print("\n" + "=" * 70)
-    print("MULTI-PROVIDER - Route Across Providers")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("MULTI-PROVIDER - Route Across Providers")
+    logger.info("=" * 70)
 
     # Check available providers
     api_keys = {
@@ -105,8 +105,8 @@ async def demo_multi_provider() -> ConduitRoutingStrategy | None:
     available = [k for k, v in api_keys.items() if v]
 
     if len(available) < 2:
-        print(f"Skipping: Need 2+ providers (found: {', '.join(available) or 'none'})")
-        print("Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or GROQ_API_KEY")
+        logger.info(f"Skipping: Need 2+ providers (found: {', '.join(available) or 'none'})")
+        logger.info("Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or GROQ_API_KEY")
         return None
 
     from litellm import Router
@@ -184,16 +184,16 @@ async def demo_multi_provider() -> ConduitRoutingStrategy | None:
             }
         )
 
-    print(f"Found {len(available)} providers: {', '.join(available)}")
-    print(f"Configured {len(model_list)} models")
+    logger.info(f"Found {len(available)} providers: {', '.join(available)}")
+    logger.info(f"Configured {len(model_list)} models")
 
     router = Router(model_list=model_list)
     strategy = ConduitRoutingStrategy()
     ConduitRoutingStrategy.setup_strategy(router, strategy)
 
-    print("\nConduit multi-provider routing activated")
-    print("\nQuery | Selected Model")
-    print("-" * 50)
+    logger.info("\nConduit multi-provider routing activated")
+    logger.info("\nQuery | Selected Model")
+    logger.info("-" * 50)
 
     queries = [
         "What is 2+2?",
@@ -208,22 +208,22 @@ async def demo_multi_provider() -> ConduitRoutingStrategy | None:
                 messages=[{"role": "user", "content": query}],
             )
             short_query = query[:35] + "..." if len(query) > 35 else query
-            print(f"{short_query:40} | {response.model}")
+            logger.info(f"{short_query:40} | {response.model}")
         except Exception as e:
             short_query = query[:35] + "..." if len(query) > 35 else query
-            print(f"{short_query:40} | Error: {type(e).__name__}")
+            logger.error(f"{short_query:40} | Error: {type(e).__name__}")
 
     return strategy
 
 
 async def demo_custom_config() -> ConduitRoutingStrategy | None:
     """Custom Conduit configuration."""
-    print("\n" + "=" * 70)
-    print("CUSTOM CONFIG - Caching and Hybrid Routing")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("CUSTOM CONFIG - Caching and Hybrid Routing")
+    logger.info("=" * 70)
 
     if not os.getenv("OPENAI_API_KEY"):
-        print("Skipping: OPENAI_API_KEY not set")
+        logger.info("Skipping: OPENAI_API_KEY not set")
         return None
 
     from litellm import Router
@@ -257,19 +257,19 @@ async def demo_custom_config() -> ConduitRoutingStrategy | None:
     )
     ConduitRoutingStrategy.setup_strategy(router, strategy)
 
-    print("Configuration:")
-    print("  - Hybrid routing: UCB1 -> LinUCB (30% faster convergence)")
-    print(
+    logger.info("Configuration:")
+    logger.info("  - Hybrid routing: UCB1 -> LinUCB (30% faster convergence)")
+    logger.info(
         f"  - Redis caching: {'Enabled' if os.getenv('REDIS_URL') else 'Disabled (set REDIS_URL)'}"
     )
-    print("  - Learning: Automatic from usage patterns")
+    logger.info("  - Learning: Automatic from usage patterns")
 
-    print("\nHybrid Routing Phases:")
-    print("  Phase 1 (0-100 queries): UCB1 - Fast exploration")
-    print("  Phase 2 (100+ queries):  LinUCB - Contextual optimization")
+    logger.info("\nHybrid Routing Phases:")
+    logger.info("  Phase 1 (0-100 queries): UCB1 - Fast exploration")
+    logger.info("  Phase 2 (100+ queries):  LinUCB - Contextual optimization")
 
-    print("\nQuery | Model | Confidence")
-    print("-" * 50)
+    logger.info("\nQuery | Model | Confidence")
+    logger.info("-" * 50)
 
     queries = [
         "Simple question: What is 2+2?",
@@ -283,18 +283,18 @@ async def demo_custom_config() -> ConduitRoutingStrategy | None:
             messages=[{"role": "user", "content": query}],
         )
         short_query = query[:30] + "..." if len(query) > 30 else query
-        print(f"{short_query:35} | {response.model}")
+        logger.info(f"{short_query:35} | {response.model}")
 
     return strategy
 
 
 async def main() -> None:
     """Run all LiteLLM integration demos."""
-    print("=" * 70)
-    print("CONDUIT + LITELLM INTEGRATION")
-    print("=" * 70)
-    print("\nConduit provides ML-powered routing for LiteLLM.")
-    print("It learns which model works best for each query type.")
+    logger.info("=" * 70)
+    logger.info("CONDUIT + LITELLM INTEGRATION")
+    logger.info("=" * 70)
+    logger.info("\nConduit provides ML-powered routing for LiteLLM.")
+    logger.info("It learns which model works best for each query type.")
 
     # Run demos with proper cleanup between each
     # Each demo creates its own strategy with isolated model registry
@@ -310,10 +310,10 @@ async def main() -> None:
     if strategy3:
         strategy3.cleanup()
 
-    print("\n" + "=" * 70)
-    print("SUMMARY - LiteLLM Integration")
-    print("=" * 70)
-    print(
+    logger.info("\n" + "=" * 70)
+    logger.info("SUMMARY - LiteLLM Integration")
+    logger.info("=" * 70)
+    logger.info(
         """
 Setup:
     pip install conduit[litellm]

@@ -33,10 +33,13 @@ Expected output:
 """
 
 import asyncio
+import logging
 import os
 
 from litellm import Router
 from conduit_litellm import ConduitRoutingStrategy
+
+logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
@@ -44,10 +47,10 @@ async def main() -> None:
 
     # 1. Check API key
     if not os.getenv("OPENAI_API_KEY"):
-        print("❌ OPENAI_API_KEY not set")
+        logger.error("❌ OPENAI_API_KEY not set")
         return
 
-    print("🚀 Basic Conduit + LiteLLM Integration\n")
+    logger.info("🚀 Basic Conduit + LiteLLM Integration\n")
 
     # 2. Configure LiteLLM model list
     # KEY: Use same model_name for multiple deployments so Conduit can choose
@@ -77,9 +80,9 @@ async def main() -> None:
     strategy = ConduitRoutingStrategy()
     ConduitRoutingStrategy.setup_strategy(router, strategy)
 
-    print("✅ Conduit routing strategy activated")
-    print("📊 Available models: o4-mini (cheap), gpt-5 (capable)")
-    print("🤖 Conduit will learn which model is best for each query type\n")
+    logger.info("✅ Conduit routing strategy activated")
+    logger.info("📊 Available models: o4-mini (cheap), gpt-5 (capable)")
+    logger.info("🤖 Conduit will learn which model is best for each query type\n")
 
     # 5. Make requests - Conduit learns as it goes
     queries = [
@@ -91,7 +94,7 @@ async def main() -> None:
     ]
 
     for i, (query, query_type) in enumerate(queries, 1):
-        print(f"[{i}/5] Query ({query_type}): {query[:50]}...")
+        logger.info(f"[{i}/5] Query ({query_type}): {query[:50]}...")
 
         response = await router.acompletion(
             model="gpt",  # Conduit chooses between gpt-4o-mini and gpt-4o
@@ -100,13 +103,13 @@ async def main() -> None:
 
         # Show which model Conduit selected
         selected = response.model
-        print(f"      → Conduit selected: {selected}")
-        print(f"      → Response: {response.choices[0].message.content[:80]}...\n")
+        logger.info(f"      → Conduit selected: {selected}")
+        logger.info(f"      → Response: {response.choices[0].message.content[:80]}...\n")
 
-    print("✨ Done! Conduit learned from these requests and will:")
-    print("   • Route simple queries to o4-mini (cheaper)")
-    print("   • Route complex queries to gpt-5 (better quality)")
-    print("   • Continuously improve routing decisions over time")
+    logger.info("✨ Done! Conduit learned from these requests and will:")
+    logger.info("   • Route simple queries to o4-mini (cheaper)")
+    logger.info("   • Route complex queries to gpt-5 (better quality)")
+    logger.info("   • Continuously improve routing decisions over time")
 
 
 if __name__ == "__main__":
