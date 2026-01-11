@@ -56,12 +56,76 @@ class TestQueryValidation:
         assert decision.selected_model in router.hybrid_router.models
 
 
-# NOTE: Embedding failure tests removed due to global autouse mock in conftest.py
-# Issue: router.py:48-50 documents "Embedding failures: Use zero vector, route with UCB1"
-# but analyzer.py:184 has no try/except around embed() call.
-#
-# TODO: Add integration test for embedding failure handling when implemented
-# TODO: File issue for embedding fallback implementation gap
+class TestEmbeddingFailureHandling:
+    """Test embedding failure fallback behavior."""
+
+    @pytest.mark.asyncio
+    async def test_analyzer_returns_zero_vector_on_embedding_failure(self):
+        """Analyzer should return zero vector when embedding fails."""
+        from conduit.engines.analyzer import QueryAnalyzer
+        from conduit.engines.embeddings.base import EmbeddingProvider
+
+        # Create a mock embedding provider that fails
+        class FailingEmbeddingProvider(EmbeddingProvider):
+            provider_name = "failing"
+            dimension = 384
+
+            async def embed(self, text: str) -> list[float]:
+                raise RuntimeError("Embedding service unavailable")
+
+            async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+                raise RuntimeError("Embedding service unavailable")
+
+        analyzer = QueryAnalyzer(embedding_provider=FailingEmbeddingProvider())
+        features = await analyzer.analyze("Test query")
+
+        # Should return zero vector and set embedding_failed flag
+        assert features.embedding_failed is True
+        assert features.embedding == [0.0] * 384
+        assert features.token_count > 0
+        assert 0.0 <= features.complexity_score <= 1.0
+
+    @pytest.mark.asyncio
+    async def test_hybrid_router_uses_phase1_on_embedding_failure(self):
+        """Router should fall back to phase1 algorithm when embedding fails in phase2."""
+        from conduit.engines.hybrid_router import HybridRouter
+        from conduit.engines.analyzer import QueryAnalyzer
+        from conduit.engines.embeddings.base import EmbeddingProvider
+
+        # Create a mock embedding provider that fails
+        class FailingEmbeddingProvider(EmbeddingProvider):
+            provider_name = "failing"
+            dimension = 384
+
+            async def embed(self, text: str) -> list[float]:
+                raise RuntimeError("Embedding service unavailable")
+
+            async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+                raise RuntimeError("Embedding service unavailable")
+
+        analyzer = QueryAnalyzer(embedding_provider=FailingEmbeddingProvider())
+
+        # Create router in phase2 (switch_threshold=0 means start in phase2)
+        router = HybridRouter(
+            models=["gpt-4o-mini", "gpt-4o"],
+            switch_threshold=0,  # Start in phase2 immediately
+            analyzer=analyzer,
+            feature_dim=386,
+        )
+
+        query = Query(text="Test query for embedding failure")
+        decision = await router.route(query)
+
+        # Should still return a valid decision
+        assert decision is not None
+        assert decision.selected_model in ["gpt-4o-mini", "gpt-4o"]
+
+        # Should indicate embedding failure in metadata
+        assert decision.metadata.get("embedding_failed") is True
+        assert decision.metadata.get("fallback_reason") == "embedding_generation_failed"
+
+        # Features should have embedding_failed flag
+        assert decision.features.embedding_failed is True
 
 
 class TestFeedbackValidation:

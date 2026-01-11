@@ -448,6 +448,44 @@ class HybridRouter:
         else:
             # Phase 2: Contextual routing (LinUCB or Contextual Thompson Sampling)
             features = await self.analyzer.analyze(query.text)
+
+            # Fall back to phase1 (non-contextual) if embedding failed
+            if features.embedding_failed:
+                logger.warning(
+                    "Embedding failed, falling back to non-contextual routing"
+                )
+                dummy_features = QueryFeatures(
+                    embedding=[0.0] * 384,
+                    token_count=len(query.text.split()),
+                    complexity_score=0.5,
+                    query_text=query.text,
+                    embedding_failed=True,
+                )
+                arm = await self.phase1_bandit.select_arm(dummy_features)
+
+                # If selected arm not in available set, pick best available arm
+                if arm.model_id not in available_arm_ids:
+                    arm = self._select_best_available_arm(available_arms)
+
+                confidence = self._calculate_phase1_confidence(arm.model_id)
+
+                return RoutingDecision(
+                    query_id=query.id,
+                    selected_model=arm.model_id,
+                    fallback_chain=self._get_fallback_chain(
+                        arm.model_id, available_arm_ids=available_arm_ids
+                    ),
+                    confidence=confidence,
+                    features=features,
+                    reasoning=f"Hybrid routing (embedding failed, using {self.phase1_algorithm} fallback)",
+                    metadata={
+                        "phase": self.phase1_algorithm,
+                        "query_count": self.query_count,
+                        "embedding_failed": True,
+                        "fallback_reason": "embedding_generation_failed",
+                    },
+                )
+
             arm = await self.phase2_bandit.select_arm(features)
 
             # If selected arm not in available set, pick best available arm

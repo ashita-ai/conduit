@@ -180,8 +180,18 @@ class QueryAnalyzer:
                 return cached_features
 
         # Cache miss or no cache - compute features
-        # Generate embedding using provider
-        embedding_list = await self.embedding_provider.embed(query)
+        # Generate embedding using provider with fallback on failure
+        embedding_failed = False
+        try:
+            embedding_list = await self.embedding_provider.embed(query)
+        except Exception as e:
+            # Fallback to zero vector on embedding failure
+            # This allows routing to continue with non-contextual algorithms
+            logger.warning(
+                f"Embedding generation failed, using zero vector fallback: {e}"
+            )
+            embedding_list = [0.0] * self.embedding_provider.dimension
+            embedding_failed = True
 
         # Apply PCA if enabled
         if self.use_pca and self.pca is not None:
@@ -208,10 +218,11 @@ class QueryAnalyzer:
             token_count=token_count,
             complexity_score=complexity_score,
             query_text=query,
+            embedding_failed=embedding_failed,
         )
 
-        # Store in cache for future requests
-        if self.cache:
+        # Store in cache for future requests (skip if embedding failed)
+        if self.cache and not embedding_failed:
             await self.cache.set(query, features)
 
         return features

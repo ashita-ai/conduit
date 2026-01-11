@@ -100,6 +100,10 @@ class QueryFeatures(BaseModel):
     query_text: str | None = Field(
         None, description="Original query text (for context detection)"
     )
+    embedding_failed: bool = Field(
+        default=False,
+        description="True if embedding generation failed and zero vector fallback was used",
+    )
 
 
 class RoutingDecision(BaseModel):
