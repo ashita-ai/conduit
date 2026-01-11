@@ -56,6 +56,26 @@ class TestQueryValidation:
         assert decision.selected_model in router.hybrid_router.models
 
 
+class _ConfigurableEmbeddingProvider:
+    """Test helper: embedding provider that can be configured to fail or succeed."""
+
+    provider_name = "configurable"
+    dimension = 384
+
+    def __init__(self, should_fail: bool = True):
+        self.should_fail = should_fail
+        self.call_count = 0
+
+    async def embed(self, text: str) -> list[float]:
+        self.call_count += 1
+        if self.should_fail:
+            raise RuntimeError("Embedding service unavailable")
+        return [0.1] * self.dimension
+
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        return [await self.embed(t) for t in texts]
+
+
 class TestEmbeddingFailureHandling:
     """Test embedding failure fallback behavior."""
 
@@ -63,25 +83,15 @@ class TestEmbeddingFailureHandling:
     async def test_analyzer_returns_zero_vector_on_embedding_failure(self):
         """Analyzer should return zero vector when embedding fails."""
         from conduit.engines.analyzer import QueryAnalyzer
-        from conduit.engines.embeddings.base import EmbeddingProvider
 
-        # Create a mock embedding provider that fails
-        class FailingEmbeddingProvider(EmbeddingProvider):
-            provider_name = "failing"
-            dimension = 384
-
-            async def embed(self, text: str) -> list[float]:
-                raise RuntimeError("Embedding service unavailable")
-
-            async def embed_batch(self, texts: list[str]) -> list[list[float]]:
-                raise RuntimeError("Embedding service unavailable")
-
-        analyzer = QueryAnalyzer(embedding_provider=FailingEmbeddingProvider())
+        provider = _ConfigurableEmbeddingProvider(should_fail=True)
+        analyzer = QueryAnalyzer(embedding_provider=provider)  # type: ignore[arg-type]
         features = await analyzer.analyze("Test query")
 
         # Should return zero vector and set embedding_failed flag
         assert features.embedding_failed is True
-        assert features.embedding == [0.0] * 384
+        assert features.embedding == [0.0] * provider.dimension
+        assert len(features.embedding) == provider.dimension
         assert features.token_count > 0
         assert 0.0 <= features.complexity_score <= 1.0
 
@@ -90,27 +100,16 @@ class TestEmbeddingFailureHandling:
         """Router should fall back to phase1 algorithm when embedding fails in phase2."""
         from conduit.engines.hybrid_router import HybridRouter
         from conduit.engines.analyzer import QueryAnalyzer
-        from conduit.engines.embeddings.base import EmbeddingProvider
 
-        # Create a mock embedding provider that fails
-        class FailingEmbeddingProvider(EmbeddingProvider):
-            provider_name = "failing"
-            dimension = 384
-
-            async def embed(self, text: str) -> list[float]:
-                raise RuntimeError("Embedding service unavailable")
-
-            async def embed_batch(self, texts: list[str]) -> list[list[float]]:
-                raise RuntimeError("Embedding service unavailable")
-
-        analyzer = QueryAnalyzer(embedding_provider=FailingEmbeddingProvider())
+        provider = _ConfigurableEmbeddingProvider(should_fail=True)
+        analyzer = QueryAnalyzer(embedding_provider=provider)  # type: ignore[arg-type]
 
         # Create router in phase2 (switch_threshold=0 means start in phase2)
         router = HybridRouter(
             models=["gpt-4o-mini", "gpt-4o"],
             switch_threshold=0,  # Start in phase2 immediately
             analyzer=analyzer,
-            feature_dim=386,
+            feature_dim=provider.dimension + 2,  # embedding + token_count + complexity
         )
 
         query = Query(text="Test query for embedding failure")
@@ -126,6 +125,28 @@ class TestEmbeddingFailureHandling:
 
         # Features should have embedding_failed flag
         assert decision.features.embedding_failed is True
+
+    @pytest.mark.asyncio
+    async def test_failed_embeddings_not_cached(self):
+        """Failed embeddings should not be cached, allowing retry on recovery."""
+        from conduit.engines.analyzer import QueryAnalyzer
+
+        provider = _ConfigurableEmbeddingProvider(should_fail=True)
+        analyzer = QueryAnalyzer(embedding_provider=provider)  # type: ignore[arg-type]
+
+        # First call fails
+        features1 = await analyzer.analyze("Test query")
+        assert features1.embedding_failed is True
+        assert provider.call_count == 1
+
+        # Provider recovers
+        provider.should_fail = False
+
+        # Second call should retry (not use cached failure)
+        features2 = await analyzer.analyze("Test query")
+        assert features2.embedding_failed is False
+        assert features2.embedding == [0.1] * provider.dimension
+        assert provider.call_count == 2  # Called again, not cached
 
 
 class TestFeedbackValidation:

@@ -450,18 +450,13 @@ class HybridRouter:
             features = await self.analyzer.analyze(query.text)
 
             # Fall back to phase1 (non-contextual) if embedding failed
+            # The analyzer already returned features with zero vector fallback,
+            # so we can use them directly with the non-contextual algorithm
             if features.embedding_failed:
                 logger.warning(
                     "Embedding failed, falling back to non-contextual routing"
                 )
-                dummy_features = QueryFeatures(
-                    embedding=[0.0] * 384,
-                    token_count=len(query.text.split()),
-                    complexity_score=0.5,
-                    query_text=query.text,
-                    embedding_failed=True,
-                )
-                arm = await self.phase1_bandit.select_arm(dummy_features)
+                arm = await self.phase1_bandit.select_arm(features)
 
                 # If selected arm not in available set, pick best available arm
                 if arm.model_id not in available_arm_ids:
