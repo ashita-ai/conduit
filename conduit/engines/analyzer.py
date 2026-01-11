@@ -185,10 +185,11 @@ class QueryAnalyzer:
         try:
             embedding_list = await self.embedding_provider.embed(query)
         except Exception as e:
-            # Fallback to zero vector on embedding failure
-            # This allows routing to continue with non-contextual algorithms
+            # Catch embedding failures (API errors, timeouts, rate limits, etc.)
+            # Note: Exception (not BaseException) so KeyboardInterrupt/SystemExit propagate
+            # Fallback to zero vector so routing can continue with non-contextual algorithms
             logger.warning(
-                f"Embedding generation failed, using zero vector fallback: {e}"
+                f"Embedding generation failed, using zero vector fallback: {type(e).__name__}: {e}"
             )
             embedding_list = [0.0] * self.embedding_provider.dimension
             embedding_failed = True
