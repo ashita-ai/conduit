@@ -392,9 +392,15 @@ class InMemoryAuditStore:
                 continue
             if audit_query.query_id and entry.query_id != audit_query.query_id:
                 continue
-            if audit_query.selected_model and entry.selected_model != audit_query.selected_model:
+            if (
+                audit_query.selected_model
+                and entry.selected_model != audit_query.selected_model
+            ):
                 continue
-            if audit_query.algorithm_phase and entry.algorithm_phase != audit_query.algorithm_phase:
+            if (
+                audit_query.algorithm_phase
+                and entry.algorithm_phase != audit_query.algorithm_phase
+            ):
                 continue
             if audit_query.start_time and entry.created_at < audit_query.start_time:
                 continue
@@ -451,13 +457,10 @@ def create_audit_entry(
     feature_vector = None
     if decision.features and decision.features.embedding:
         # Include embedding + metadata features
-        feature_vector = (
-            decision.features.embedding
-            + [
-                decision.features.token_count / 1000.0,
-                decision.features.complexity_score,
-            ]
-        )
+        feature_vector = decision.features.embedding + [
+            decision.features.token_count / 1000.0,
+            decision.features.complexity_score,
+        ]
 
     return AuditEntry(
         decision_id=decision.id,

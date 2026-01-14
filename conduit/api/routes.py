@@ -321,7 +321,9 @@ def create_routes(service: RoutingService) -> APIRouter:
 
             return AuditListResponse(
                 entries=response_entries,
-                total=len(response_entries),  # Simplified - would need count query for true total
+                total=len(
+                    response_entries
+                ),  # Simplified - would need count query for true total
                 limit=query.limit,
                 offset=query.offset,
             )

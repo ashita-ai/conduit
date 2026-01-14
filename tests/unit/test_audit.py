@@ -64,7 +64,9 @@ class TestAuditEntry:
             confidence=0.85,
             algorithm_phase="linucb",
             query_count=5000,
-            arm_scores={"gpt-4o-mini": {"mean": 0.7, "uncertainty": 0.15, "total": 0.85}},
+            arm_scores={
+                "gpt-4o-mini": {"mean": 0.7, "uncertainty": 0.15, "total": 0.85}
+            },
             feature_vector=[0.1] * 386,
             constraints_applied={"max_cost": 0.01, "constraints_relaxed": True},
             reasoning="Selected for cost efficiency",
@@ -346,9 +348,7 @@ class TestInMemoryAuditStore:
         await store.log_decision(recent_entry)
 
         # Query for entries in last hour
-        results = await store.query(
-            AuditQuery(start_time=now - timedelta(hours=1))
-        )
+        results = await store.query(AuditQuery(start_time=now - timedelta(hours=1)))
 
         assert len(results) == 1
         assert results[0].decision_id == "recent-decision"
