@@ -305,6 +305,53 @@ class ThompsonSamplingBandit(BanditAlgorithm):
             "arm_distributions": distributions,
         }
 
+    def compute_scores(self, features: QueryFeatures) -> dict[str, dict[str, float]]:
+        """Compute Beta distribution parameters and mean for all arms.
+
+        For Thompson Sampling, we return the distribution parameters rather than
+        a single score, since selection is stochastic (sampling from Beta).
+
+        Note: This does NOT sample from the distributions, it returns the
+        distribution parameters. Use select_arm() for actual sampling.
+
+        Args:
+            features: Query features (not used in Thompson Sampling)
+
+        Returns:
+            Dictionary mapping arm_id to distribution info:
+            {
+                "arm_id": {
+                    "alpha": success count + prior,
+                    "beta": failure count + prior,
+                    "mean": expected value (alpha / (alpha + beta)),
+                    "variance": distribution variance,
+                    "total": mean (for consistency with other algorithms)
+                }
+            }
+
+        Example:
+            >>> scores = bandit.compute_scores(features)
+            >>> scores["gpt-4o-mini"]
+            {"alpha": 10.5, "beta": 2.3, "mean": 0.82, "variance": 0.01, "total": 0.82}
+        """
+        scores: dict[str, dict[str, float]] = {}
+
+        for model_id in self.arms:
+            alpha = self.alpha[model_id]
+            beta = self.beta[model_id]
+            mean = alpha / (alpha + beta)
+            variance = (alpha * beta) / ((alpha + beta) ** 2 * (alpha + beta + 1))
+
+            scores[model_id] = {
+                "alpha": alpha,
+                "beta": beta,
+                "mean": mean,
+                "variance": variance,
+                "total": mean,  # Use mean as comparable score
+            }
+
+        return scores
+
     def to_state(self) -> BanditState:
         """Serialize Thompson Sampling state for persistence.
 

@@ -375,6 +375,37 @@ class BanditAlgorithm(ABC):
             "n_arms": self.n_arms,
         }
 
+    def compute_scores(self, features: QueryFeatures) -> dict[str, dict[str, float]]:
+        """Compute selection scores for all arms without selecting.
+
+        This method exposes the internal scoring used by select_arm() for
+        audit logging and debugging purposes. The returned scores explain
+        why a particular arm would be selected.
+
+        Args:
+            features: Query features for context
+
+        Returns:
+            Dictionary mapping arm_id to score components. Structure varies by
+            algorithm but always includes 'total' score used for selection.
+
+            Example for LinUCB:
+            {
+                "gpt-4o-mini": {"mean": 0.7, "uncertainty": 0.15, "total": 0.85},
+                "claude-3-5-sonnet": {"mean": 0.65, "uncertainty": 0.2, "total": 0.85}
+            }
+
+            Example for Thompson Sampling:
+            {
+                "gpt-4o-mini": {"alpha": 10.5, "beta": 2.3, "mean": 0.82, "sample": 0.87},
+                "claude-3-5-sonnet": {"alpha": 8.0, "beta": 3.0, "mean": 0.73, "sample": 0.71}
+            }
+
+        Note:
+            Default implementation returns empty dict. Subclasses should override.
+        """
+        return {}
+
     def _extract_features(self, features: QueryFeatures) -> np.ndarray:
         """Extract feature vector from QueryFeatures.
 

@@ -390,6 +390,48 @@ class LinUCBBandit(BanditAlgorithm):
             "arm_theta_norms": theta_norms,
         }
 
+    def compute_scores(self, features: QueryFeatures) -> dict[str, dict[str, float]]:
+        """Compute UCB scores for all arms without selecting.
+
+        Exposes the internal UCB computation for audit logging:
+            UCB = theta^T @ x + alpha * sqrt(x^T @ A_inv @ x)
+
+        Args:
+            features: Query features for context
+
+        Returns:
+            Dictionary mapping arm_id to score components:
+            {
+                "arm_id": {
+                    "mean": expected reward (theta^T @ x),
+                    "uncertainty": exploration bonus (sqrt(x^T @ A_inv @ x)),
+                    "total": UCB score (mean + alpha * uncertainty)
+                }
+            }
+
+        Example:
+            >>> features = QueryFeatures(embedding=[0.1] * 384, ...)
+            >>> scores = bandit.compute_scores(features)
+            >>> scores["gpt-4o-mini"]
+            {"mean": 0.72, "uncertainty": 0.15, "total": 0.87}
+        """
+        x = self._extract_features(features)
+        scores: dict[str, dict[str, float]] = {}
+
+        for model_id in self.arms:
+            theta = self.A_inv[model_id] @ self.b[model_id]
+            mean_reward = float((theta.T @ x)[0, 0])
+            uncertainty = float(np.sqrt((x.T @ self.A_inv[model_id] @ x)[0, 0]))
+            ucb = mean_reward + self.alpha * uncertainty
+
+            scores[model_id] = {
+                "mean": mean_reward,
+                "uncertainty": uncertainty,
+                "total": ucb,
+            }
+
+        return scores
+
     def to_state(self) -> BanditState:
         """Serialize LinUCB state for persistence.
 
