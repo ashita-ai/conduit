@@ -79,10 +79,8 @@ Examples:
   conduit run --query "Explain quantum computing in simple terms"
   conduit run --query "Summarize this article" --max-cost 0.01
   conduit run --query "Draft a professional email" --min-quality 0.9 --provider anthropic
-  
 """
 )
-
 @click.option(
     "--query",
     "-q",
