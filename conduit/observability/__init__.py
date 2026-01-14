@@ -10,17 +10,34 @@ Instrumented Components:
     - Thompson Sampling confidence scores
     - Cache hit rates
     - Feedback integration rates
+    - Decision audit logging (compliance and debugging)
 """
 
+from conduit.observability.audit import (
+    AuditEntry,
+    AuditQuery,
+    AuditStore,
+    InMemoryAuditStore,
+    PostgresAuditStore,
+    create_audit_entry,
+)
 from conduit.observability.metrics import get_meter, record_routing_decision
 from conduit.observability.setup import setup_telemetry, shutdown_telemetry
 from conduit.observability.tracing import get_tracer, trace_operation
 
 __all__ = [
+    # Telemetry
     "setup_telemetry",
     "shutdown_telemetry",
     "get_tracer",
     "get_meter",
     "trace_operation",
     "record_routing_decision",
+    # Audit logging
+    "AuditEntry",
+    "AuditQuery",
+    "AuditStore",
+    "PostgresAuditStore",
+    "InMemoryAuditStore",
+    "create_audit_entry",
 ]

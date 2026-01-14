@@ -19,6 +19,7 @@ from conduit.engines.hybrid_router import HybridRouter
 if TYPE_CHECKING:
     from conduit.core.state_store import StateStore
     from conduit.engines.executor import ExecutionResult
+    from conduit.observability.audit import AuditStore
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,7 @@ class Router:
         router_id: str | None = None,
         auto_persist: bool = True,
         checkpoint_interval: int = 100,
+        audit_store: "AuditStore | None" = None,
     ):
         """Initialize router with default components.
 
@@ -122,6 +124,9 @@ class Router:
                 Only applies if state_store is provided. Default: True.
             checkpoint_interval: Save state every N queries as backup.
                 Default: 100. Only applies if state_store and auto_persist enabled.
+            audit_store: AuditStore for decision audit logging (PostgresAuditStore recommended).
+                If None, audit logging is disabled. Audit logs capture detailed decision
+                context for compliance, debugging, and analysis.
 
         Example with persistence:
             >>> from conduit.core.database import Database
@@ -327,6 +332,11 @@ class Router:
             fallback_on_empty=settings.cost_fallback_on_empty,
         )
 
+        # Audit logging (optional)
+        self.audit_store = audit_store
+        if audit_store:
+            logger.info("Decision audit logging enabled")
+
         logger.info(
             f"Router initialized with algorithm='{algorithm}' "
             f"(switch_threshold={config['switch_threshold']}, "
@@ -419,6 +429,10 @@ class Router:
             and self.hybrid_router.query_count % self.checkpoint_interval == 0
         ):
             await self._save_state()
+
+        # Audit logging (non-blocking, errors don't affect routing)
+        if self.audit_store:
+            await self._log_audit_entry(decision, query, constraints_relaxed)
 
         return decision
 
@@ -652,6 +666,59 @@ class Router:
                 f"Failed to save state for router '{self.router_id}': {e}. "
                 f"Routing continues normally."
             )
+
+    async def _log_audit_entry(
+        self, decision: RoutingDecision, query: Query, constraints_relaxed: bool
+    ) -> None:
+        """Log routing decision to audit trail.
+
+        Called automatically after every route() when audit_store is configured.
+        Errors are logged but don't affect routing.
+
+        Args:
+            decision: The routing decision made
+            query: Original query
+            constraints_relaxed: Whether cost constraints were relaxed
+        """
+        if not self.audit_store:
+            return
+
+        try:
+            from conduit.observability.audit import create_audit_entry
+
+            # Get the active bandit to compute scores
+            if self.hybrid_router.current_phase == self.hybrid_router.phase1_algorithm:
+                active_bandit = self.hybrid_router.phase1_bandit
+            else:
+                active_bandit = self.hybrid_router.phase2_bandit
+
+            # Compute arm scores for audit context
+            arm_scores = active_bandit.compute_scores(decision.features)
+
+            # Build constraints metadata
+            constraints_applied: dict[str, Any] = {}
+            if query.constraints:
+                if query.constraints.max_cost is not None:
+                    constraints_applied["max_cost"] = query.constraints.max_cost
+                if query.constraints.max_latency is not None:
+                    constraints_applied["max_latency"] = query.constraints.max_latency
+            if constraints_relaxed:
+                constraints_applied["constraints_relaxed"] = True
+
+            # Create and log audit entry
+            entry = create_audit_entry(
+                decision=decision,
+                algorithm_phase=self.hybrid_router.current_phase,
+                query_count=self.hybrid_router.query_count,
+                arm_scores=arm_scores,
+                constraints_applied=constraints_applied,
+            )
+
+            await self.audit_store.log_decision(entry)
+            logger.debug(f"Logged audit entry for decision {decision.id}")
+
+        except Exception as e:
+            logger.error(f"Failed to log audit entry: {e}. Routing continues normally.")
 
     async def close(self) -> None:
         """Close resources gracefully (Redis connection, etc.).

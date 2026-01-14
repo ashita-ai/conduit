@@ -109,3 +109,58 @@ class ErrorResponse(BaseModel):
     error: str = Field(..., description="Error message")
     detail: str | None = Field(None, description="Error details")
     code: str | None = Field(None, description="Error code")
+
+
+# Audit API schemas
+
+
+class AuditQueryRequest(BaseModel):
+    """Request schema for GET /v1/audit query parameters."""
+
+    decision_id: str | None = Field(None, description="Filter by decision ID")
+    query_id: str | None = Field(None, description="Filter by query ID")
+    selected_model: str | None = Field(None, description="Filter by selected model")
+    algorithm_phase: str | None = Field(None, description="Filter by algorithm phase")
+    start_time: str | None = Field(
+        None, description="Filter entries after this ISO timestamp"
+    )
+    end_time: str | None = Field(
+        None, description="Filter entries before this ISO timestamp"
+    )
+    limit: int = Field(
+        default=100, ge=1, le=1000, description="Maximum entries to return"
+    )
+    offset: int = Field(default=0, ge=0, description="Number of entries to skip")
+
+
+class AuditEntryResponse(BaseModel):
+    """Response schema for a single audit entry."""
+
+    id: int = Field(..., description="Audit entry ID")
+    decision_id: str = Field(..., description="Routing decision ID")
+    query_id: str = Field(..., description="Query ID")
+    selected_model: str = Field(..., description="Selected model")
+    fallback_chain: list[str] = Field(..., description="Fallback models")
+    confidence: float = Field(..., description="Decision confidence (0-1)")
+    algorithm_phase: str = Field(..., description="Algorithm phase at decision time")
+    query_count: int = Field(..., description="Router query count at decision time")
+    arm_scores: dict[str, dict[str, float]] = Field(
+        ..., description="Score breakdown for each model arm"
+    )
+    feature_vector: list[float] | None = Field(
+        None, description="Feature vector (for contextual algorithms)"
+    )
+    constraints_applied: dict[str, Any] = Field(
+        default_factory=dict, description="Constraints that affected the decision"
+    )
+    reasoning: str | None = Field(None, description="Decision reasoning")
+    created_at: str = Field(..., description="ISO timestamp of decision")
+
+
+class AuditListResponse(BaseModel):
+    """Response schema for GET /v1/audit list endpoint."""
+
+    entries: list[AuditEntryResponse] = Field(..., description="Audit entries")
+    total: int = Field(..., description="Total entries matching query (before limit)")
+    limit: int = Field(..., description="Limit applied")
+    offset: int = Field(..., description="Offset applied")

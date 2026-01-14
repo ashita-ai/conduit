@@ -6,6 +6,9 @@ from fastapi import APIRouter, HTTPException, status
 
 from conduit.api.service import RoutingService
 from conduit.api.validation import (
+    AuditEntryResponse,
+    AuditListResponse,
+    AuditQueryRequest,
     CompleteRequest,
     CompleteResponse,
     ErrorResponse,
@@ -234,5 +237,160 @@ def create_routes(service: RoutingService) -> APIRouter:
             status="healthy",
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
+
+    # GET /v1/audit - Query audit log
+    @api_router.get(
+        "/v1/audit",
+        response_model=AuditListResponse,
+        status_code=status.HTTP_200_OK,
+        responses={
+            404: {"model": ErrorResponse},
+            500: {"model": ErrorResponse},
+        },
+    )
+    async def audit_list(
+        decision_id: str | None = None,
+        query_id: str | None = None,
+        selected_model: str | None = None,
+        algorithm_phase: str | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> AuditListResponse:
+        """Query decision audit log.
+
+        Returns audit entries for routing decisions with optional filters.
+        Used for debugging, compliance, and analysis.
+        """
+        from datetime import datetime, timezone
+
+        from conduit.observability.audit import AuditQuery
+
+        try:
+            # Check if audit store is available (accessed via router)
+            audit_store = service.router.audit_store
+            if not audit_store:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Audit logging not enabled",
+                )
+
+            # Parse datetime filters
+            start_dt = None
+            end_dt = None
+            if start_time:
+                start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+            if end_time:
+                end_dt = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+
+            # Build query
+            query = AuditQuery(
+                decision_id=decision_id,
+                query_id=query_id,
+                selected_model=selected_model,
+                algorithm_phase=algorithm_phase,
+                start_time=start_dt,
+                end_time=end_dt,
+                limit=min(limit, 1000),
+                offset=offset,
+            )
+
+            # Execute query
+            entries = await audit_store.query(query)
+
+            # Convert to response format
+            response_entries = [
+                AuditEntryResponse(
+                    id=entry.id or 0,
+                    decision_id=entry.decision_id,
+                    query_id=entry.query_id,
+                    selected_model=entry.selected_model,
+                    fallback_chain=entry.fallback_chain,
+                    confidence=entry.confidence,
+                    algorithm_phase=entry.algorithm_phase,
+                    query_count=entry.query_count,
+                    arm_scores=entry.arm_scores,
+                    feature_vector=entry.feature_vector,
+                    constraints_applied=entry.constraints_applied,
+                    reasoning=entry.reasoning,
+                    created_at=entry.created_at.isoformat(),
+                )
+                for entry in entries
+            ]
+
+            return AuditListResponse(
+                entries=response_entries,
+                total=len(response_entries),  # Simplified - would need count query for true total
+                limit=query.limit,
+                offset=query.offset,
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.exception(f"Unexpected error in audit list: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error",
+            ) from e
+
+    # GET /v1/audit/{decision_id} - Get specific audit entry
+    @api_router.get(
+        "/v1/audit/{decision_id}",
+        response_model=AuditEntryResponse,
+        status_code=status.HTTP_200_OK,
+        responses={
+            404: {"model": ErrorResponse},
+            500: {"model": ErrorResponse},
+        },
+    )
+    async def audit_get(decision_id: str) -> AuditEntryResponse:
+        """Get audit entry for a specific routing decision.
+
+        Args:
+            decision_id: UUID of the routing decision
+        """
+        try:
+            # Check if audit store is available (accessed via router)
+            audit_store = service.router.audit_store
+            if not audit_store:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Audit logging not enabled",
+                )
+
+            entry = await audit_store.get_by_decision_id(decision_id)
+
+            if entry is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Audit entry not found for decision: {decision_id}",
+                )
+
+            return AuditEntryResponse(
+                id=entry.id or 0,
+                decision_id=entry.decision_id,
+                query_id=entry.query_id,
+                selected_model=entry.selected_model,
+                fallback_chain=entry.fallback_chain,
+                confidence=entry.confidence,
+                algorithm_phase=entry.algorithm_phase,
+                query_count=entry.query_count,
+                arm_scores=entry.arm_scores,
+                feature_vector=entry.feature_vector,
+                constraints_applied=entry.constraints_applied,
+                reasoning=entry.reasoning,
+                created_at=entry.created_at.isoformat(),
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.exception(f"Unexpected error in audit get: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error",
+            ) from e
 
     return api_router
