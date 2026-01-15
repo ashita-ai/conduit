@@ -75,6 +75,13 @@ class Router:
         >>> decision = await router.route(query)
         >>> print(f"Selected: {decision.selected_model}")
         >>> await router.close()  # Cleanup resources
+
+    Context Manager Example:
+        >>> async with Router() as router:
+        ...     query = Query(text="What is 2+2?")
+        ...     decision = await router.route(query)
+        ...     print(f"Selected: {decision.selected_model}")
+        ... # Resources automatically cleaned up on exit
     """
 
     def __init__(
@@ -342,6 +349,45 @@ class Router:
             f"(switch_threshold={config['switch_threshold']}, "
             f"feature_dim={feature_dim})"
         )
+
+    async def __aenter__(self) -> "Router":
+        """Enter async context manager.
+
+        Initializes resources and loads saved state if persistence is enabled.
+        This provides an alternative to manually calling close() for cleanup.
+
+        Returns:
+            Self for use in async with statement.
+
+        Example:
+            >>> async with Router(state_store=store) as router:
+            ...     decision = await router.route(query)
+            ...     # Use router...
+            ... # close() called automatically
+        """
+        # Load initial state if persistence is enabled
+        if self.auto_persist and not self._state_loaded:
+            await self._load_initial_state()
+
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
+        """Exit async context manager.
+
+        Saves final state and cleans up resources (cache connections, etc.).
+        Exceptions are not suppressed and will propagate after cleanup.
+
+        Args:
+            exc_type: Exception type if an exception was raised, None otherwise.
+            exc_val: Exception instance if an exception was raised, None otherwise.
+            exc_tb: Traceback if an exception was raised, None otherwise.
+        """
+        await self.close()
 
     async def route(self, query: Query) -> RoutingDecision:
         """Route a query to the optimal model using hybrid routing (UCB1→LinUCB).
