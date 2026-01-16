@@ -79,7 +79,7 @@ class Query(BaseModel):
 
 
 class QueryFeatures(BaseModel):
-    """Extracted features from query for routing decision.
+    """Immutable extracted feature vector from query for routing decisions.
 
     Feature vector structure (386 dims total):
     - embedding: 384 dimensions (semantic vector from sentence-transformers)
@@ -93,6 +93,8 @@ class QueryFeatures(BaseModel):
         If embedding generation fails, embedding_failed=True and embedding contains
         a zero vector. The router will fall back to non-contextual algorithms.
     """
+    
+    model_config = {"frozen": True}
 
     embedding: list[float] = Field(
         ..., description="Semantic embedding vector (dimension depends on model)"
@@ -111,7 +113,7 @@ class QueryFeatures(BaseModel):
 
 
 class RoutingDecision(BaseModel):
-    """ML-powered routing decision for a query.
+    """Immutable ML-powered routing decision for a query.
 
     Confidence Score Interpretation (Strategic Decision 2025-11-18):
     - Probabilistic guarantee: 95%+ of queries should have confidence >= 0.6
@@ -123,6 +125,8 @@ class RoutingDecision(BaseModel):
     Note: We provide probabilistic guarantees, not deterministic promises.
     See notes/2025-11-18_business_panel_analysis.md for strategic rationale.
     """
+
+    model_config = {"frozen": True}
 
     id: str = Field(default_factory=lambda: str(uuid4()), description="Decision ID")
     query_id: str = Field(..., description="Associated query ID")
