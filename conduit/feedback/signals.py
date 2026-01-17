@@ -12,7 +12,7 @@ from conduit.core.config import load_feedback_config
 
 
 class RetrySignal(BaseModel):
-    """Retry behavior detection signal.
+    """Immutable retry behavior detection signal.
 
     Detects when a user re-submits a semantically similar query,
     indicating dissatisfaction with the previous response.
@@ -23,6 +23,8 @@ class RetrySignal(BaseModel):
         similarity_score: Cosine similarity to previous query (0.0-1.0)
         original_query_id: ID of the query being retried
     """
+
+    model_config = {"frozen": True}
 
     detected: bool = Field(default=False, description="Retry detected")
     delay_seconds: float | None = Field(
@@ -35,7 +37,7 @@ class RetrySignal(BaseModel):
 
 
 class LatencySignal(BaseModel):
-    """Latency acceptance and tolerance signal.
+    """Immutable latency acceptance and tolerance signal.
 
     Tracks response time and whether the user demonstrated patience
     or exhibited signs of dissatisfaction with slow responses.
@@ -46,6 +48,8 @@ class LatencySignal(BaseModel):
         tolerance_level: Categorized patience (high/medium/low)
     """
 
+    model_config = {"frozen": True}
+
     accepted: bool = Field(default=True, description="User waited for response")
     actual_latency_seconds: float = Field(
         ..., description="Response time in seconds", ge=0.0
@@ -55,21 +59,23 @@ class LatencySignal(BaseModel):
         description="Latency tolerance (high/medium/low)",
     )
 
-    def categorize_tolerance(self) -> None:
-        """Categorize tolerance based on actual latency (from config)."""
+    def categorize_tolerance(self) -> "LatencySignal":
+        """Return a new LatencySignal with categorized tolerance."""
         config = load_feedback_config()
         thresholds = config["latency_detection"]
 
         if self.actual_latency_seconds > thresholds["medium_tolerance_max"]:
-            self.tolerance_level = "low"  # Very slow, user was patient
+            level = "low"  # Very slow, user was patient
         elif self.actual_latency_seconds > thresholds["high_tolerance_max"]:
-            self.tolerance_level = "medium"  # Somewhat slow
+            level = "medium"  # Somewhat slow
         else:
-            self.tolerance_level = "high"  # Fast, no patience needed
+            level = "high"  # Fast, no patience needed
+
+        return self.model_copy(update={"tolerance_level": level})
 
 
 class ErrorSignal(BaseModel):
-    """Error occurrence and type detection signal.
+    """Immutable error occurrence and type detection signal.
 
     Captures model failures, API errors, and quality issues
     like empty responses or error patterns in output.
@@ -79,6 +85,8 @@ class ErrorSignal(BaseModel):
         error_type: Classification of error (api_error, timeout, empty_response, etc.)
         model_id: Which model produced the error
     """
+
+    model_config = {"frozen": True}
 
     occurred: bool = Field(default=False, description="Error detected")
     error_type: str | None = Field(None, description="Error classification")
@@ -179,9 +187,8 @@ class SignalDetector:
             accepted=True,  # They received response, so they waited
             actual_latency_seconds=latency,
         )
-        signal.categorize_tolerance()
 
-        return signal
+        return signal.categorize_tolerance()
 
     @staticmethod
     def detect_retry_from_similarity(

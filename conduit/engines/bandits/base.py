@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 class ModelArm(BaseModel):
-    """Represents a model (arm) in the multi-armed bandit.
+    """Immutable representation of a model (arm) in the multi-armed bandit.
 
     Attributes:
         model_id: Unique identifier (e.g., "openai:gpt-4o-mini")
@@ -30,6 +30,8 @@ class ModelArm(BaseModel):
         expected_quality: Prior estimate of quality (0-1 scale)
         metadata: Additional model characteristics
     """
+
+    model_config = {"frozen": True}
 
     model_id: str
     provider: str
@@ -47,7 +49,7 @@ class ModelArm(BaseModel):
 
 
 class BanditFeedback(BaseModel):
-    """Feedback from executing a model selection.
+    """Immutable feedback from executing a model selection.
 
     Attributes:
         model_id: Which model was selected
@@ -71,6 +73,8 @@ class BanditFeedback(BaseModel):
         - LinUCB: Weighted matrix updates (A += confidence * x @ x.T)
         Use lower confidence for implicit signals (regeneration, time-based).
     """
+
+    model_config = {"frozen": True}
 
     model_id: str
     cost: float = Field(..., ge=0.0)

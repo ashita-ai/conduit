@@ -45,31 +45,31 @@ class TestLatencySignal:
     def test_categorize_tolerance_high(self):
         """Test high tolerance categorization (< 10s)."""
         signal = LatencySignal(actual_latency_seconds=5.0)
-        signal.categorize_tolerance()
+        signal = signal.categorize_tolerance()
         assert signal.tolerance_level == "high"
 
     def test_categorize_tolerance_medium(self):
         """Test medium tolerance categorization (10-30s)."""
         signal = LatencySignal(actual_latency_seconds=15.0)
-        signal.categorize_tolerance()
+        signal = signal.categorize_tolerance()
         assert signal.tolerance_level == "medium"
 
     def test_categorize_tolerance_low(self):
         """Test low tolerance categorization (> 30s)."""
         signal = LatencySignal(actual_latency_seconds=35.0)
-        signal.categorize_tolerance()
+        signal = signal.categorize_tolerance()
         assert signal.tolerance_level == "low"
 
     def test_categorize_tolerance_boundary_medium(self):
         """Test boundary at 10s (medium)."""
         signal = LatencySignal(actual_latency_seconds=10.1)
-        signal.categorize_tolerance()
+        signal = signal.categorize_tolerance()
         assert signal.tolerance_level == "medium"
 
     def test_categorize_tolerance_boundary_low(self):
         """Test boundary at 30s (low)."""
         signal = LatencySignal(actual_latency_seconds=30.1)
-        signal.categorize_tolerance()
+        signal = signal.categorize_tolerance()
         assert signal.tolerance_level == "low"
 
 
