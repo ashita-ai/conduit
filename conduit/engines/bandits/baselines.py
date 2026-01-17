@@ -55,7 +55,7 @@ class RandomBaseline(BanditAlgorithm):
         """Select random arm uniformly.
 
         Args:
-            context: Query context (ignored)
+            features: Query features (ignored by random selection)
 
         Returns:
             Randomly selected model arm
@@ -282,7 +282,7 @@ class AlwaysBestBaseline(BanditAlgorithm):
         """Always select highest quality arm.
 
         Args:
-            context: Query context (ignored)
+            features: Query features (ignored by static policy)
 
         Returns:
             Highest quality model arm
@@ -372,7 +372,7 @@ class AlwaysCheapestBaseline(BanditAlgorithm):
         """Always select cheapest arm.
 
         Args:
-            context: Query context (ignored)
+            features: Query features (ignored by static policy)
 
         Returns:
             Cheapest model arm

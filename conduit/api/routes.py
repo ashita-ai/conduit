@@ -8,7 +8,6 @@ from conduit.api.service import RoutingService
 from conduit.api.validation import (
     AuditEntryResponse,
     AuditListResponse,
-    AuditQueryRequest,
     CompleteRequest,
     CompleteResponse,
     ErrorResponse,
@@ -263,7 +262,7 @@ def create_routes(service: RoutingService) -> APIRouter:
         Returns audit entries for routing decisions with optional filters.
         Used for debugging, compliance, and analysis.
         """
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from conduit.observability.audit import AuditQuery
 

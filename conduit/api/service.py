@@ -80,8 +80,6 @@ class RoutingService:
 
         if result_type is None:
             # Create a simple default result type
-            from pydantic import BaseModel
-
             class DefaultResult(BaseModel):
                 """Default result type for unstructured responses."""
 
