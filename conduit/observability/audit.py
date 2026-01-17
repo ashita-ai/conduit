@@ -12,13 +12,12 @@ Use Cases:
 """
 
 import logging
-from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
-from conduit.core.models import QueryFeatures, RoutingDecision
+from conduit.core.models import RoutingDecision
 
 logger = logging.getLogger(__name__)
 

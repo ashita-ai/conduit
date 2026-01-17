@@ -13,12 +13,8 @@ Installation: pip install fastembed
 """
 
 import logging
-from typing import TYPE_CHECKING
 
 from conduit.engines.embeddings.base import EmbeddingProvider
-
-if TYPE_CHECKING:
-    from fastembed import TextEmbedding
 
 logger = logging.getLogger(__name__)
 

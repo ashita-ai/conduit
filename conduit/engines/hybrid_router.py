@@ -15,7 +15,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from conduit.core.config import load_context_priors
 from conduit.core.models import Query, QueryFeatures, RoutingDecision
 from conduit.core.state_store import HybridRouterState, RouterPhase
 from conduit.engines.analyzer import QueryAnalyzer

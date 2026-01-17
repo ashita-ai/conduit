@@ -12,8 +12,6 @@ Basic usage:
     "o4-mini"
 """
 
-import os
-
 from dotenv import load_dotenv
 
 load_dotenv()

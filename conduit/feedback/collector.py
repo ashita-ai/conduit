@@ -50,7 +50,6 @@ from conduit.feedback.models import (
     FeedbackEvent,
     PendingQuery,
     RewardMapping,
-    SessionFeedback,
 )
 from conduit.feedback.stores import FeedbackStore, InMemoryFeedbackStore
 
