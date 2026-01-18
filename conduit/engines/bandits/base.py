@@ -47,6 +47,10 @@ class ModelArm(BaseModel):
         """Get full model name for PydanticAI."""
         return f"{self.provider}:{self.model_name}"
 
+    def __repr__(self) -> str:
+        """Return concise repr for debugging."""
+        return f"ModelArm({self.model_id!r}, provider={self.provider!r})"
+
 
 class BanditFeedback(BaseModel):
     """Immutable feedback from executing a model selection.
@@ -122,6 +126,10 @@ class BanditFeedback(BaseModel):
             cost_weight=cost_weight,
             latency_weight=latency_weight,
         )
+
+    def __repr__(self) -> str:
+        """Return concise repr for debugging."""
+        return f"BanditFeedback({self.model_id!r}, q={self.quality_score:.2f})"
 
 
 class BanditAlgorithm(ABC):

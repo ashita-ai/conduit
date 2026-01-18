@@ -77,6 +77,11 @@ class Query(BaseModel):
             raise ValueError("Query text cannot be empty")
         return v.strip()
 
+    def __repr__(self) -> str:
+        """Return concise repr for debugging."""
+        text_preview = self.text[:30] + "..." if len(self.text) > 30 else self.text
+        return f"Query({self.id[:8]!r}, {text_preview!r})"
+
 
 class QueryFeatures(BaseModel):
     """Immutable extracted feature vector from query for routing decisions.
@@ -110,6 +115,10 @@ class QueryFeatures(BaseModel):
         default=False,
         description="True if embedding generation failed and zero vector fallback was used",
     )
+
+    def __repr__(self) -> str:
+        """Return concise repr for debugging."""
+        return f"QueryFeatures(dims={len(self.embedding)}, tokens={self.token_count})"
 
 
 class RoutingDecision(BaseModel):
@@ -152,6 +161,10 @@ class RoutingDecision(BaseModel):
         description="Decision timestamp",
     )
 
+    def __repr__(self) -> str:
+        """Return concise repr for debugging."""
+        return f"RoutingDecision({self.selected_model!r}, conf={self.confidence:.2f})"
+
 
 class Response(BaseModel):
     """LLM response to a query."""
@@ -169,6 +182,10 @@ class Response(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc),
         description="Response timestamp",
     )
+
+    def __repr__(self) -> str:
+        """Return concise repr for debugging."""
+        return f"Response({self.model!r}, ${self.cost:.4f}, {self.latency:.2f}s)"
 
 
 class Feedback(BaseModel):

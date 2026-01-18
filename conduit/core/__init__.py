@@ -6,6 +6,12 @@ from conduit.core.config import (
     load_preference_weights,
     settings,
 )
+from conduit.core.config_schema import (
+    ConduitConfig,
+    ConfigValidationError,
+    validate_config_dict,
+    validate_config_file,
+)
 from conduit.core.context_detector import ContextDetector
 from conduit.core.database import Database
 from conduit.core.exceptions import (
@@ -66,6 +72,11 @@ __all__ = [
     "settings",
     "load_context_priors",
     "load_preference_weights",
+    # Config Schema Validation
+    "ConduitConfig",
+    "ConfigValidationError",
+    "validate_config_file",
+    "validate_config_dict",
     # Context Detection
     "ContextDetector",
     # Database

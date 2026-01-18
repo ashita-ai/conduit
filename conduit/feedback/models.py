@@ -99,6 +99,10 @@ class FeedbackEvent(BaseModel):
             return self.idempotency_key
         return f"{self.query_id}:{self.signal_type}"
 
+    def __repr__(self) -> str:
+        """Return concise repr for debugging."""
+        return f"FeedbackEvent({self.query_id[:8]!r}, {self.signal_type!r})"
+
 
 class RewardMapping(BaseModel):
     """Result of converting a feedback signal to a bandit reward.
@@ -179,6 +183,10 @@ class PendingQuery(BaseModel):
         now = datetime.now(timezone.utc)
         elapsed = (now - self.created_at).total_seconds()
         return elapsed > self.ttl_seconds
+
+    def __repr__(self) -> str:
+        """Return concise repr for debugging."""
+        return f"PendingQuery({self.query_id[:8]!r}, {self.model_id!r})"
 
 
 class SessionFeedback(BaseModel):
