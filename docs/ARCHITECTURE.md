@@ -386,8 +386,8 @@ See `docs/HYBRID_ROUTING_ALGORITHMS.md` for detailed hybrid routing documentatio
 ```python
 # 1. Route query
 decision = await router.route(query)
-# → Router.route() [conduit/engines/router.py:226]
-#   → HybridRouter.route() [conduit/engines/hybrid_router.py:83]
+# → Router.route() [conduit/engines/router.py:392]
+#   → HybridRouter.route() [conduit/engines/hybrid_router.py:373]
 #     → LinUCB.select_arm(features) [conduit/engines/bandits/linucb.py:146]
 #       → Compute UCB scores using A_inv and b
 #       → Return arm with highest UCB
@@ -403,8 +403,8 @@ await router.update(
     latency=response.latency,
     features=decision.features  # CRITICAL: pass real features
 )
-# → Router.update() [conduit/engines/router.py:320]
-#   → HybridRouter.update() [conduit/engines/hybrid_router.py:134]
+# → Router.update() [conduit/engines/router.py:517]
+#   → HybridRouter.update() [conduit/engines/hybrid_router.py:510]
 #     → LinUCB.update(feedback, features) [conduit/engines/bandits/linucb.py:195]
 #       → Calculate composite reward
 #       → Update A += x @ x^T
@@ -413,10 +413,10 @@ await router.update(
 ```
 
 **Key files for feedback loop:**
-- `conduit/engines/router.py:226-286` - Router.route() and Router.update()
-- `conduit/engines/hybrid_router.py:83-134` - Phase management and delegation
-- `conduit/engines/bandits/linucb.py:146-193` - LinUCB selection (UCB formula)
-- `conduit/engines/bandits/linucb.py:195-324` - LinUCB update (Sherman-Morrison)
+- `conduit/engines/router.py:392-596` - Router.route() and Router.update()
+- `conduit/engines/hybrid_router.py:373-510` - Phase management and delegation
+- `conduit/engines/bandits/linucb.py:146-195` - LinUCB selection (UCB formula)
+- `conduit/engines/bandits/linucb.py:195-250` - LinUCB update (Sherman-Morrison)
 - `conduit/core/reward_calculation.py` - Composite reward calculation
 
 **Integration tests:**
