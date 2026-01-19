@@ -197,17 +197,17 @@ Look for issues labeled `good first issue` or `difficulty: beginner`:
 ### Running Examples
 
 ```bash
-# Hello world
+# Hello world (minimal 5-line example)
 uv run python examples/hello_world.py
 
-# Basic routing
-uv run python examples/basic_routing.py
+# Routing options (constraints, preferences, algorithms)
+uv run python examples/routing_options.py
 
-# With constraints
-uv run python examples/with_constraints.py
+# Feedback loop (caching, learning, persistence)
+uv run python examples/feedback_loop.py
 
-# Caching
-uv run python examples/caching.py
+# Hybrid routing (no API needed)
+uv run python examples/hybrid_routing.py
 ```
 
 ## Getting Help

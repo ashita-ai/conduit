@@ -16,32 +16,33 @@ export ANTHROPIC_API_KEY="sk-..."
 brew install redis && redis-server
 ```
 
-## Examples (4 Core Files)
+## Core Examples (6 Files)
 
-| File | Description | Run Command |
-|------|-------------|-------------|
-| **quickstart.py** | Basic routing in 10 lines | `uv run python examples/quickstart.py` |
-| **routing_options.py** | Constraints, preferences, algorithms | `uv run python examples/routing_options.py` |
-| **feedback_loop.py** | Caching, learning, state persistence | `uv run python examples/feedback_loop.py` |
-| **litellm_integration.py** | LiteLLM multi-provider routing | `uv run python examples/litellm_integration.py` |
+| File | Description | API Required |
+|------|-------------|--------------|
+| **hello_world.py** | Minimal 5-line example | Yes |
+| **routing_options.py** | Constraints, preferences, algorithms | Yes |
+| **feedback_loop.py** | Caching, learning, state persistence | Yes |
+| **production_feedback.py** | User feedback integration patterns | Yes |
+| **litellm_integration.py** | LiteLLM multi-provider routing | Yes |
+| **hybrid_routing.py** | UCB1 to LinUCB phase transition | No |
 
-### quickstart.py - Basic Routing
+### hello_world.py - Minimal Example
 
-The simplest Conduit usage in 10 lines:
+The simplest Conduit usage in 5 lines:
 
 ```python
 from conduit.core.models import Query
 from conduit.engines.router import Router
 
 router = Router()
-query = Query(text="What is 2+2?")
-decision = await router.route(query)
-print(f"Model: {decision.selected_model}, Confidence: {decision.confidence:.0%}")
+decision = await router.route(Query(text="What is 2+2?"))
+print(f"Route to: {decision.selected_model} (confidence: {decision.confidence:.0%})")
 ```
 
-### routing_options.py - Advanced Routing
+### routing_options.py - All Routing Options
 
-Demonstrates all routing configuration:
+Comprehensive reference for routing configuration:
 
 - **Constraints**: `max_cost`, `max_latency`, `min_quality`, `preferred_provider`
 - **Preferences**: `optimize_for` (balanced, quality, cost, speed)
@@ -55,6 +56,16 @@ Shows how Conduit improves over time:
 1. **Caching** - 10-40x speedup with Redis
 2. **Learning** - Bandit algorithms optimize from feedback
 3. **Persistence** - Save/restore state across restarts
+
+### production_feedback.py - User Feedback Integration
+
+Production patterns for collecting user feedback:
+
+- Delayed feedback (track now, record later)
+- Immediate feedback (automated checks)
+- Multiple signal types (thumbs, ratings, task success)
+- Custom adapter registration
+- Batch feedback processing
 
 ### litellm_integration.py - LiteLLM Integration
 
@@ -73,9 +84,16 @@ router = Router(model_list=model_list)
 strategy = ConduitRoutingStrategy()
 ConduitRoutingStrategy.setup_strategy(router, strategy)
 
-# Conduit automatically routes to optimal model
 response = await router.acompletion(model="llm", messages=[...])
 ```
+
+### hybrid_routing.py - Algorithm Visualization
+
+Demonstrates hybrid routing without API calls:
+
+- Phase 1 (UCB1): Fast exploration, no embeddings
+- Phase 2 (LinUCB): Contextual optimization with features
+- Knowledge transfer between phases
 
 ## Framework Integrations
 
@@ -83,36 +101,10 @@ Located in `integrations/` with separate dependencies:
 
 | Framework | Description | Run |
 |-----------|-------------|-----|
-| **LangChain** | Use Conduit as LangChain LLM - automatic routing in chains | `uv run python examples/integrations/langchain_integration.py` |
-| **LlamaIndex** | Use Conduit in RAG pipelines - intelligent model selection | `uv run python examples/integrations/llamaindex_integration.py` |
-| **FastAPI** | Production REST API with routing, feedback, health checks | `uv run python examples/integrations/fastapi_service.py --demo` |
-| **Gradio** | Interactive web UI for testing routing decisions | `uv run python examples/integrations/gradio_demo.py` |
-
-**FastAPI server mode:**
-```bash
-uv run uvicorn examples.integrations.fastapi_service:app --reload
-# Then open http://127.0.0.1:8000/docs for API documentation
-```
-
-## Additional Examples
-
-All examples are now in the root `examples/` directory:
-
-- **hello_world.py** - Minimal "hello world" example
-- **simple_router.py** - Basic router setup
-- **basic_routing.py** - Routing with different models
-- **with_constraints.py** - Cost and quality constraints
-- **hybrid_routing.py** - Hybrid bandit algorithms
-- **context_specific_priors.py** - Domain-specific priors
-- **caching.py** - Redis caching setup
-- **pca_comparison.py** - Feature dimensionality reduction
-- **state_persistence.py** - Save/load bandit state
-- **basic_usage.py** - LiteLLM basic usage
-- **custom_config.py** - Custom LiteLLM configuration
-- **learning_demo.py** - Learning from feedback
-- **multi_provider.py** - Multi-provider routing
-- **arbiter_quality_measurement.py** - LLM-as-judge quality
-- **explicit_preferences.py** - User preference handling
+| **LangChain** | Use Conduit as LangChain LLM | `uv run python examples/integrations/langchain_integration.py` |
+| **LlamaIndex** | Use Conduit in RAG pipelines | `uv run python examples/integrations/llamaindex_integration.py` |
+| **FastAPI** | Production REST API | `uv run python examples/integrations/fastapi_service.py --demo` |
+| **Gradio** | Interactive web UI | `uv run python examples/integrations/gradio_demo.py` |
 
 ## Key Concepts
 
@@ -129,7 +121,7 @@ Query("Explain ML") -> Router -> RoutingDecision(model="gpt-4o", confidence=0.85
 - **thompson_sampling** (default): Bayesian bandit, best cold-start quality
 - **linucb**: Contextual linear bandit, uses query features
 - **ucb1**: Upper confidence bound, simple exploration
-- **hybrid**: UCB1 -> LinUCB transition (30% faster convergence)
+- **hybrid**: UCB1 to LinUCB transition (30% faster convergence)
 
 ### Configuration
 
@@ -155,14 +147,6 @@ sudo apt-get install redis-server && sudo systemctl start redis
 
 # Docker
 docker run -d -p 6379:6379 redis:alpine
-```
-
-## CLI Alternative
-
-```bash
-conduit run --query "What is 2+2?"
-conduit run --query "Write a poem" --max-cost 0.001
-conduit demo  # Run 10 sample queries
 ```
 
 ## Additional Resources
