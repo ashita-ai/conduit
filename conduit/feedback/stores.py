@@ -445,7 +445,8 @@ class RedisFeedbackStore(FeedbackStore):
 
         try:
             pending = PendingQuery.model_validate_json(data)
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to parse pending query {query_id} for update: {e}")
             return False
 
         # Update fields
@@ -548,7 +549,8 @@ class RedisFeedbackStore(FeedbackStore):
                         pending = PendingQuery.model_validate_json(data)
                         if pending.session_id == session_id:
                             queries.append(pending)
-                    except Exception:
+                    except Exception as e:
+                        logger.debug(f"Failed to parse pending query from {key}: {e}")
                         continue
 
             if cursor == 0:
