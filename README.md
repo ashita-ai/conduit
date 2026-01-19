@@ -34,7 +34,7 @@ There's a better way.
 
 **Try it without API keys first:**
 ```bash
-python examples/00_demo/zero_config_demo.py
+python examples/hybrid_routing.py
 ```
 This demo shows Conduit's learning in action with simulated LLM responses. No setup required.
 
@@ -239,19 +239,18 @@ query = Query(
 # - speed:    Minimize latency (40% quality, 10% cost, 50% latency)
 ```
 
-Customize weights in `conduit.yaml` - see `examples/explicit_preferences.py`.
+Customize weights in `conduit.yaml` - see `examples/routing_options.py`.
 
 ## Examples
 
 ```
 examples/
 ├── hello_world.py           # 5-line minimal example
-├── quickstart.py            # Getting started guide
-├── basic_routing.py         # Core routing patterns
-├── feedback_loop.py         # Implicit feedback (errors, latency)
+├── routing_options.py       # Constraints, preferences, algorithms
+├── feedback_loop.py         # Caching, learning, state persistence
 ├── production_feedback.py   # Explicit feedback (thumbs, ratings)
 ├── litellm_integration.py   # 100+ providers via LiteLLM
-├── explicit_preferences.py  # Per-query optimization control
+├── hybrid_routing.py        # UCB1 to LinUCB transition (no API needed)
 └── integrations/            # LangChain, LlamaIndex, FastAPI, Gradio
 ```
 

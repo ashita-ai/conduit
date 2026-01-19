@@ -145,7 +145,7 @@ uv run black conduit/         # Code formatting
 
 # Examples
 uv run python examples/hello_world.py
-uv run python examples/basic_routing.py
+uv run python examples/routing_options.py
 ```
 
 ---
@@ -197,10 +197,11 @@ conduit/
 │   └── regression/             # Example file regression tests
 ├── examples/                   # Usage examples (READ ONLY)
 │   ├── hello_world.py          # Minimal 5-line example
-│   ├── basic_routing.py        # Core routing patterns
-│   ├── feedback_loop.py        # Implicit feedback (errors, latency)
+│   ├── routing_options.py      # Constraints, preferences, algorithms
+│   ├── feedback_loop.py        # Caching, learning, persistence
 │   ├── production_feedback.py  # Explicit feedback (thumbs, ratings)
 │   ├── litellm_integration.py  # 100+ providers via LiteLLM
+│   ├── hybrid_routing.py       # UCB1 to LinUCB transition (no API)
 │   └── integrations/           # LangChain, FastAPI, Gradio
 ├── docs/                       # Technical documentation
 └── notes/                      # Strategic decisions (dated, READ ONLY)
