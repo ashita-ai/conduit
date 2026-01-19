@@ -3,10 +3,11 @@
 Tests authentication, rate limiting, and request size limits.
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from conduit.api.auth import AuthenticationMiddleware
 from conduit.api.ratelimit import RateLimitMiddleware
@@ -166,9 +167,25 @@ class TestRateLimitMiddleware:
 
     def test_ratelimit_headers_present(self, simple_app):
         """Test rate limit headers added to response."""
-        # This test would require actual Redis connection
-        # Skipping for now as it needs integration with Redis
-        pass
+        simple_app.add_middleware(
+            RateLimitMiddleware, rate_limit=10, window_seconds=60
+        )
+        client = TestClient(simple_app)
+        # Mock rate limit check to avoid Redis dependency
+        with patch(
+            "conduit.api.ratelimit.RateLimitMiddleware._check_rate_limit",
+            new_callable=AsyncMock,
+        ) as mock_check:
+            # allowed=True, current_count=3, retry_after=0
+            mock_check.return_value = (True, 3, 0)
+
+            response = client.get("/test")
+
+            assert response.status_code == 200
+            assert "X-RateLimit-Limit" in response.headers
+            assert "X-RateLimit-Remaining" in response.headers
+            assert "X-RateLimit-Reset" in response.headers
+
 
 
 class TestRequestSizeLimitMiddleware:
