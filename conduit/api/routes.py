@@ -3,6 +3,7 @@
 import logging
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import Response
 
 from conduit.api.service import RoutingService
 from conduit.api.validation import (
@@ -146,6 +147,58 @@ def create_routes(service: RoutingService) -> APIRouter:
             return StatsResponse(**stats_data)
         except Exception as e:
             logger.exception(f"Unexpected error in stats: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error",
+            ) from e
+
+    # GET /metrics - Prometheus metrics endpoint
+    @api_router.get("/metrics")
+    async def metrics() -> Response:
+        """Export metrics in Prometheus format."""
+
+        def _escape_label_value(value: str) -> str:
+            """Escape Prometheus label value per exposition format spec."""
+            return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+        try:
+            stats = await service.get_stats()
+
+            total_queries = stats.get("total_queries", 0)
+            total_cost = stats.get("total_cost", 0.0)
+            avg_latency = stats.get("avg_latency", 0.0)
+            model_distribution = stats.get("model_distribution", {})
+
+            lines: list[str] = []
+
+            lines.append(
+                "# HELP conduit_queries_total Total number of queries processed"
+            )
+            lines.append("# TYPE conduit_queries_total counter")
+            lines.append(f"conduit_queries_total {total_queries}")
+
+            lines.append("# HELP conduit_cost_dollars_total Total cost in dollars")
+            lines.append("# TYPE conduit_cost_dollars_total counter")
+            lines.append(f"conduit_cost_dollars_total {total_cost:.6f}")
+
+            lines.append("# HELP conduit_latency_seconds Average latency in seconds")
+            lines.append("# TYPE conduit_latency_seconds gauge")
+            lines.append(f"conduit_latency_seconds {avg_latency:.6f}")
+
+            lines.append("# HELP conduit_model_queries_total Queries per model")
+            lines.append("# TYPE conduit_model_queries_total counter")
+            for model, count in model_distribution.items():
+                lines.append(
+                    f'conduit_model_queries_total{{model="{_escape_label_value(model)}"}} {count}'
+                )
+
+            return Response(
+                content="\n".join(lines) + "\n",
+                media_type="text/plain; version=0.0.4; charset=utf-8",
+            )
+
+        except Exception as e:
+            logger.exception(f"Unexpected error in metrics endpoint: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error",

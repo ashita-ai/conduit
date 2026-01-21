@@ -4,12 +4,20 @@ Tests all API endpoints with proper authentication, validation,
 and error handling.
 """
 
-import pytest
-from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+from fastapi.testclient import TestClient
+
 from conduit.api.app import create_app
-from conduit.core.models import Query, QueryConstraints, QueryFeatures, Response, RoutingDecision, RoutingResult
+from conduit.core.models import (
+    Query,
+    QueryConstraints,
+    QueryFeatures,
+    Response,
+    RoutingDecision,
+    RoutingResult,
+)
 
 
 @pytest.fixture
@@ -17,6 +25,7 @@ def test_client():
     """Create test client without lifespan events."""
     # Create app without lifespan to avoid database connection
     from fastapi import FastAPI
+
     from conduit.api.middleware import setup_middleware
 
     app = FastAPI(title="Test Conduit")
@@ -245,6 +254,48 @@ class TestStatsEndpoint:
         assert "quality_metrics" in data
 
 
+class TestMetricsEndpoint:
+    """Test /metrics Prometheus endpoint."""
+
+    def test_metrics_endpoint(self, test_client):
+        client, mock_service = test_client
+
+        # Mock stats response (same source as /v1/stats)
+        mock_service.get_stats = AsyncMock(
+            return_value={
+                "total_queries": 1523,
+                "total_cost": 12.45,
+                "avg_latency": 0.234,
+                "model_distribution": {
+                    "gpt-4o-mini": 892,
+                    "claude-3-haiku": 631,
+                },
+            }
+        )
+
+        response = client.get("/metrics")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/plain")
+
+        body = response.text
+
+        assert "conduit_queries_total 1523" in body
+        assert "conduit_cost_dollars_total 12.45" in body
+        assert "conduit_latency_seconds 0.234" in body
+        assert 'conduit_model_queries_total{model="gpt-4o-mini"} 892' in body
+        assert 'conduit_model_queries_total{model="claude-3-haiku"} 631' in body
+
+    def test_metrics_endpoint_error(self, test_client):
+        client, mock_service = test_client
+
+        mock_service.get_stats = AsyncMock(side_effect=RuntimeError("DB error"))
+
+        response = client.get("/metrics")
+
+        assert response.status_code == 500
+
+
 class TestModelsEndpoint:
     """Test /v1/models endpoint."""
 
@@ -263,4 +314,6 @@ class TestModelsEndpoint:
         data = response.json()
         assert "models" in data
         assert len(data["models"]) == 3
-        assert data["default_model"] == "claude-haiku-4-5-20251001"  # First model from conduit.yaml priors
+        assert (
+            data["default_model"] == "claude-haiku-4-5-20251001"
+        )  # First model from conduit.yaml priors
