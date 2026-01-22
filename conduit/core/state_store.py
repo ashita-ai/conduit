@@ -155,18 +155,61 @@ class HybridRouterState(BaseModel):
 class StateStore(ABC):
     """Abstract interface for persisting bandit state.
 
-    Implementations must handle:
-    - Saving and loading BanditState
-    - Saving and loading HybridRouterState
-    - Atomic updates (no partial state corruption)
-    - Version compatibility checks
+    INTERFACE CONTRACT:
+
+    Guarantees:
+        - Atomic Updates: save_*() operations are atomic (all-or-nothing)
+        - Consistency: load_*() returns exactly what was last saved
+        - Isolation: Operations on different router_ids are independent
+        - Durability: Saved state survives process restarts
+
+    Error Handling:
+        - save_*(): Raises StateStoreError on failure, never silently fails
+        - load_*(): Returns None for missing state, raises StateStoreError for errors
+        - delete_state(): Idempotent (safe to call on non-existent state)
+
+    Thread Safety:
+        - All methods MUST be safe for concurrent async calls
+        - Same router_id operations are serialized internally
+        - Different router_ids can be accessed concurrently
+
+    State Invariants:
+        - router_id is immutable once created
+        - version field in state objects must be preserved
+        - updated_at is set by save operations
+
+    Performance Design Goals:
+        - save_*(): Typically completes in <50ms for normal state sizes
+        - load_*(): Typically completes in <20ms for normal state sizes
+        - Actual performance depends on implementation and infrastructure
+
+    Implementations:
+        - PostgresStateStore: Production-grade with connection pooling
+        - InMemoryStateStore: Testing only (not persistent)
+
+    Example:
+        >>> store = PostgresStateStore(pool)
+        >>> # Save state
+        >>> await store.save_hybrid_router_state("router-1", state)
+        >>> # Load state (returns same data)
+        >>> loaded = await store.load_hybrid_router_state("router-1")
+        >>> assert loaded.query_count == state.query_count
+        >>> # Missing state returns None
+        >>> missing = await store.load_hybrid_router_state("nonexistent")
+        >>> assert missing is None
     """
 
     @abstractmethod
     async def save_bandit_state(
         self, router_id: str, bandit_id: str, state: BanditState
     ) -> None:
-        """Save bandit algorithm state.
+        """Save bandit algorithm state atomically.
+
+        Contract Guarantees:
+            - MUST be atomic (either fully saved or not at all)
+            - MUST update state.updated_at timestamp
+            - MUST be idempotent (safe to retry on failure)
+            - MUST be thread-safe for concurrent calls
 
         Args:
             router_id: Unique identifier for the router instance
@@ -174,7 +217,12 @@ class StateStore(ABC):
             state: Bandit state to persist
 
         Raises:
-            StateStoreError: If save fails
+            StateStoreError: If save fails (network, storage, serialization)
+
+        Example:
+            >>> await store.save_bandit_state("router-1", "linucb", state)
+            >>> # Idempotent: safe to call again
+            >>> await store.save_bandit_state("router-1", "linucb", state)
         """
         pass
 
@@ -184,15 +232,29 @@ class StateStore(ABC):
     ) -> BanditState | None:
         """Load bandit algorithm state.
 
+        Contract Guarantees:
+            - MUST return None for non-existent state (not an error)
+            - MUST return exactly what was last saved
+            - MUST be thread-safe for concurrent calls
+            - MUST NOT modify the stored state
+
         Args:
             router_id: Unique identifier for the router instance
             bandit_id: Identifier for the specific bandit
 
         Returns:
-            BanditState if found, None otherwise
+            BanditState if found, None if state doesn't exist
 
         Raises:
-            StateStoreError: If load fails (not for missing state)
+            StateStoreError: If load fails (network, storage, deserialization)
+                            NOT raised for missing state (returns None instead)
+
+        Example:
+            >>> state = await store.load_bandit_state("router-1", "linucb")
+            >>> if state is None:
+            ...     print("No saved state, starting fresh")
+            ... else:
+            ...     bandit.from_state(state)
         """
         pass
 
@@ -202,12 +264,27 @@ class StateStore(ABC):
     ) -> None:
         """Save HybridRouter state including embedded bandit states.
 
+        Contract Guarantees:
+            - MUST be atomic (entire state saved or none)
+            - MUST include embedded phase1_state and phase2_state
+            - MUST update state.updated_at timestamp
+            - MUST be thread-safe for concurrent calls
+
         Args:
             router_id: Unique identifier for the router instance
-            state: HybridRouter state to persist
+            state: HybridRouter state to persist (includes bandit states)
 
         Raises:
             StateStoreError: If save fails
+
+        Example:
+            >>> state = HybridRouterState(
+            ...     query_count=1000,
+            ...     current_phase=RouterPhase.LINUCB,
+            ...     phase1_state=ucb1.to_state(),
+            ...     phase2_state=linucb.to_state(),
+            ... )
+            >>> await store.save_hybrid_router_state("router-1", state)
         """
         pass
 
@@ -217,14 +294,24 @@ class StateStore(ABC):
     ) -> HybridRouterState | None:
         """Load HybridRouter state.
 
+        Contract Guarantees:
+            - MUST return None for non-existent state
+            - MUST return exactly what was last saved
+            - MUST include embedded bandit states if they were saved
+
         Args:
             router_id: Unique identifier for the router instance
 
         Returns:
-            HybridRouterState if found, None otherwise
+            HybridRouterState if found, None if state doesn't exist
 
         Raises:
             StateStoreError: If load fails (not for missing state)
+
+        Example:
+            >>> state = await store.load_hybrid_router_state("router-1")
+            >>> if state:
+            ...     router.from_state(state)
         """
         pass
 
@@ -232,8 +319,18 @@ class StateStore(ABC):
     async def delete_state(self, router_id: str) -> None:
         """Delete all state for a router instance.
 
+        Contract Guarantees:
+            - MUST be idempotent (safe to call on non-existent state)
+            - MUST delete bandit states AND hybrid router state
+            - MUST NOT raise error if state doesn't exist
+
         Args:
             router_id: Unique identifier for the router instance
+
+        Example:
+            >>> await store.delete_state("router-1")
+            >>> # Safe to call again
+            >>> await store.delete_state("router-1")
         """
         pass
 
@@ -241,8 +338,16 @@ class StateStore(ABC):
     async def list_router_ids(self) -> list[str]:
         """List all router IDs with persisted state.
 
+        Contract Guarantees:
+            - MUST return empty list if no state exists
+            - MUST include all router IDs that have any saved state
+
         Returns:
-            List of router IDs
+            List of router IDs (empty if none exist)
+
+        Example:
+            >>> ids = await store.list_router_ids()
+            >>> print(f"Found {len(ids)} routers with saved state")
         """
         pass
 

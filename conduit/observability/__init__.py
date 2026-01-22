@@ -11,6 +11,7 @@ Instrumented Components:
     - Cache hit rates
     - Feedback integration rates
     - Decision audit logging (compliance and debugging)
+    - Structured logging via structlog (JSON/console output)
 """
 
 from conduit.observability.audit import (
@@ -20,6 +21,13 @@ from conduit.observability.audit import (
     InMemoryAuditStore,
     PostgresAuditStore,
     create_audit_entry,
+)
+from conduit.observability.logging import (
+    LogEvents,
+    bind_context,
+    clear_context,
+    configure_logging,
+    get_logger,
 )
 from conduit.observability.metrics import get_meter, record_routing_decision
 from conduit.observability.setup import setup_telemetry, shutdown_telemetry
@@ -40,4 +48,10 @@ __all__ = [
     "PostgresAuditStore",
     "InMemoryAuditStore",
     "create_audit_entry",
+    # Structured logging
+    "configure_logging",
+    "get_logger",
+    "bind_context",
+    "clear_context",
+    "LogEvents",
 ]

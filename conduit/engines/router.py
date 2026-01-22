@@ -1,12 +1,15 @@
 """Routing engine for ML-powered model selection."""
 
-import logging
 import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from conduit.cache import CacheConfig, CacheService
-from conduit.core.config import load_preference_weights, settings
+from conduit.core.config import (
+    get_models_with_fallback,
+    load_preference_weights,
+    settings,
+)
 from conduit.core.models import (
     Query,
     QueryFeatures,
@@ -15,13 +18,14 @@ from conduit.core.models import (
 from conduit.engines.analyzer import QueryAnalyzer
 from conduit.engines.cost_filter import CostFilter
 from conduit.engines.hybrid_router import HybridRouter
+from conduit.observability.logging import LogEvents, get_logger
 
 if TYPE_CHECKING:
     from conduit.core.state_store import StateStore
     from conduit.engines.executor import ExecutionResult
     from conduit.observability.audit import AuditStore
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Router:
@@ -153,9 +157,9 @@ class Router:
             >>> # Saves after every update() call
             >>> # Saves final state on close()
         """
-        # Use default models if not specified
+        # Use default models if not specified (auto-detect from API keys)
         if models is None:
-            models = settings.default_models
+            models = get_models_with_fallback()
 
         # Initialize cache service if enabled
         cache_service: CacheService | None = None
@@ -173,9 +177,9 @@ class Router:
                 circuit_breaker_timeout=settings.redis_circuit_breaker_timeout,
             )
             cache_service = CacheService(cache_config)
-            logger.info("Router initialized with caching enabled")
+            logger.info("router_cache_enabled", redis_url=settings.redis_url)
         else:
-            logger.info("Router initialized with caching disabled")
+            logger.info("router_cache_disabled")
 
         # Initialize analyzer with embedding provider
         embedding_provider_type = embedding_provider_type or settings.embedding_provider
@@ -327,8 +331,9 @@ class Router:
             # Schedule async state loading
             # Note: Can't await in __init__, caller should await _load_initial_state()
             logger.info(
-                f"State persistence enabled for router '{router_id}' "
-                f"(checkpoint every {checkpoint_interval} queries)"
+                "state_persistence_enabled",
+                router_id=router_id,
+                checkpoint_interval=checkpoint_interval,
             )
 
         self.cache = cache_service
@@ -342,12 +347,13 @@ class Router:
         # Audit logging (optional)
         self.audit_store = audit_store
         if audit_store:
-            logger.info("Decision audit logging enabled")
+            logger.info("audit_logging_enabled")
 
         logger.info(
-            f"Router initialized with algorithm='{algorithm}' "
-            f"(switch_threshold={config['switch_threshold']}, "
-            f"feature_dim={feature_dim})"
+            LogEvents.ROUTER_INITIALIZED,
+            algorithm=algorithm,
+            switch_threshold=config["switch_threshold"],
+            feature_dim=feature_dim,
         )
 
     async def __aenter__(self) -> "Router":
@@ -453,8 +459,9 @@ class Router:
 
             if filter_result.was_relaxed:
                 logger.warning(
-                    f"Cost constraint relaxed: budget=${query.constraints.max_cost:.4f}, "
-                    f"using cheapest model {filter_result.cheapest_model}"
+                    "cost_constraint_relaxed",
+                    budget=query.constraints.max_cost,
+                    cheapest_model=filter_result.cheapest_model,
                 )
 
         # Route query with filtered arms
@@ -636,7 +643,7 @@ class Router:
                 latency=0.0,  # No meaningful latency
                 features=features,
             )
-            logger.info(f"Penalized failed model: {failed_model}")
+            logger.info("model_penalized", model_id=failed_model, quality_score=0.0)
 
         # Reward the successful model with actual quality
         await self.update(
@@ -649,8 +656,9 @@ class Router:
 
         if execution_result.was_fallback:
             logger.info(
-                f"Fallback attribution complete: penalized {len(execution_result.failed_models)} "
-                f"failed model(s), rewarded {execution_result.model_used}"
+                LogEvents.FALLBACK_USED,
+                failed_models_count=len(execution_result.failed_models),
+                rewarded_model=execution_result.model_used,
             )
 
     async def _load_initial_state(self) -> None:
@@ -669,21 +677,26 @@ class Router:
 
             if loaded:
                 logger.info(
-                    f"Resumed router '{self.router_id}' from saved state "
-                    f"(query_count={self.hybrid_router.query_count}, "
-                    f"phase={self.hybrid_router.current_phase})"
+                    LogEvents.STATE_LOADED,
+                    router_id=self.router_id,
+                    query_count=self.hybrid_router.query_count,
+                    phase=self.hybrid_router.current_phase,
                 )
             else:
                 logger.info(
-                    f"No saved state found for router '{self.router_id}', starting fresh"
+                    "state_not_found",
+                    router_id=self.router_id,
+                    action="starting_fresh",
                 )
 
             self._state_loaded = True
 
         except Exception as e:
             logger.error(
-                f"Failed to load state for router '{self.router_id}': {e}. "
-                f"Starting with fresh state."
+                LogEvents.STATE_LOAD_FAILED,
+                router_id=self.router_id,
+                error=str(e),
+                action="starting_fresh",
             )
             self._state_loaded = True  # Don't try again
 
@@ -703,14 +716,17 @@ class Router:
         try:
             await self.hybrid_router.save_state(self.state_store, self.router_id)
             logger.debug(
-                f"Saved state for router '{self.router_id}' "
-                f"(query_count={self.hybrid_router.query_count})"
+                LogEvents.STATE_PERSISTED,
+                router_id=self.router_id,
+                query_count=self.hybrid_router.query_count,
             )
 
         except Exception as e:
             logger.error(
-                f"Failed to save state for router '{self.router_id}': {e}. "
-                f"Routing continues normally."
+                LogEvents.PERSISTENCE_FAILED,
+                router_id=self.router_id,
+                error=str(e),
+                action="routing_continues",
             )
 
     async def _log_audit_entry(
@@ -761,10 +777,15 @@ class Router:
             )
 
             await self.audit_store.log_decision(entry)
-            logger.debug(f"Logged audit entry for decision {decision.id}")
+            logger.debug("audit_entry_logged", decision_id=decision.id)
 
         except Exception as e:
-            logger.error(f"Failed to log audit entry: {e}. Routing continues normally.")
+            logger.error(
+                "audit_log_failed",
+                decision_id=decision.id,
+                error=str(e),
+                action="routing_continues",
+            )
 
     async def close(self) -> None:
         """Close resources gracefully (Redis connection, etc.).
@@ -773,7 +794,7 @@ class Router:
         """
         # Save final state before shutdown
         if self.auto_persist:
-            logger.info(f"Saving final state for router '{self.router_id}'...")
+            logger.info("router_shutdown_saving_state", router_id=self.router_id)
             await self._save_state()
 
         # Close cache connection

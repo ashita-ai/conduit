@@ -1,7 +1,6 @@
 """Redis caching service with circuit breaker pattern."""
 
 import hashlib
-import logging
 import re
 import time
 
@@ -11,8 +10,9 @@ from redis.exceptions import ConnectionError, TimeoutError
 
 from conduit.cache.models import CacheConfig, CacheStats
 from conduit.core.models import QueryFeatures
+from conduit.observability.logging import LogEvents, get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CacheCircuitBreaker:
@@ -46,7 +46,7 @@ class CacheCircuitBreaker:
     def on_success(self) -> None:
         """Record successful operation."""
         if self.state == "half_open":
-            logger.info("Circuit breaker recovered, closing circuit")
+            logger.info(LogEvents.CIRCUIT_BREAKER_CLOSED, previous_state="half_open")
             self.state = "closed"
             self.failure_count = 0
 
@@ -57,7 +57,9 @@ class CacheCircuitBreaker:
 
         if self.failure_count >= self.failure_threshold:
             logger.warning(
-                f"Circuit breaker opened after {self.failure_count} failures"
+                LogEvents.CIRCUIT_BREAKER_OPENED,
+                failure_count=self.failure_count,
+                threshold=self.failure_threshold,
             )
             self.state = "open"
 
@@ -76,7 +78,10 @@ class CacheCircuitBreaker:
                 self.last_failure_time
                 and time.time() - self.last_failure_time > self.timeout
             ):
-                logger.info("Circuit breaker timeout expired, entering half-open state")
+                logger.info(
+                    LogEvents.CIRCUIT_BREAKER_HALF_OPEN,
+                    timeout_seconds=self.timeout,
+                )
                 self.state = "half_open"
                 return True
             return False
@@ -130,9 +135,14 @@ class CacheService:
                 max_connections=10,
                 decode_responses=False,  # We handle bytes for msgpack
             )
-            logger.info(f"Cache service initialized with Redis at {config.redis_url}")
+            logger.info(
+                "cache_initialized",
+                redis_url=config.redis_url,
+                ttl_seconds=config.ttl,
+                circuit_breaker_threshold=config.circuit_breaker_threshold,
+            )
         else:
-            logger.info("Cache service disabled by configuration")
+            logger.info("cache_disabled", reason="configuration")
 
     async def get(self, query: str) -> QueryFeatures | None:
         """Retrieve cached QueryFeatures for a query.
@@ -151,7 +161,7 @@ class CacheService:
             return None
 
         if not self.circuit_breaker.can_attempt():
-            logger.debug("Circuit breaker open, skipping cache lookup")
+            logger.debug("cache_skipped", reason="circuit_breaker_open")
             return None
 
         try:
@@ -171,19 +181,29 @@ class CacheService:
             self.stats.hits += 1
             self.stats.update_hit_rate()
             self.circuit_breaker.on_success()
-            logger.debug(f"Cache hit for query hash {cache_key[:8]}")
+            logger.debug(LogEvents.CACHE_HIT, cache_key=cache_key[:16])
 
             return features
 
         except (ConnectionError, TimeoutError) as e:
-            logger.warning(f"Cache lookup failed (connection): {e}")
+            logger.warning(
+                LogEvents.CACHE_ERROR,
+                operation="get",
+                error_type="connection",
+                error=str(e),
+            )
             self.stats.errors += 1
             self.circuit_breaker.on_failure()
             return None
 
         except Exception as e:
             # Catch all other errors (deserialization, etc.)
-            logger.error(f"Cache lookup failed (unexpected): {e}")
+            logger.error(
+                LogEvents.CACHE_ERROR,
+                operation="get",
+                error_type="unexpected",
+                error=str(e),
+            )
             self.stats.errors += 1
             return None
 
@@ -202,7 +222,9 @@ class CacheService:
             return
 
         if not self.circuit_breaker.can_attempt():
-            logger.debug("Circuit breaker open, skipping cache write")
+            logger.debug(
+                "cache_skipped", reason="circuit_breaker_open", operation="set"
+            )
             return
 
         try:
@@ -214,14 +236,26 @@ class CacheService:
 
             await self.redis.set(cache_key, data, ex=self.config.ttl)
             self.circuit_breaker.on_success()
-            logger.debug(f"Cached features for query hash {cache_key[:8]}")
+            logger.debug(
+                "cache_set", cache_key=cache_key[:16], ttl_seconds=self.config.ttl
+            )
 
         except (ConnectionError, TimeoutError) as e:
-            logger.warning(f"Cache write failed (connection): {e}")
+            logger.warning(
+                LogEvents.CACHE_ERROR,
+                operation="set",
+                error_type="connection",
+                error=str(e),
+            )
             self.circuit_breaker.on_failure()
 
         except Exception as e:
-            logger.error(f"Cache write failed (unexpected): {e}")
+            logger.error(
+                LogEvents.CACHE_ERROR,
+                operation="set",
+                error_type="unexpected",
+                error=str(e),
+            )
             # Don't trigger circuit breaker for serialization errors
 
     async def clear(self) -> None:
@@ -247,16 +281,16 @@ class CacheService:
                 if cursor == 0:
                     break
 
-            logger.info("Cache cleared successfully")
+            logger.info(LogEvents.CACHE_CLEARED)
 
         except Exception as e:
-            logger.error(f"Cache clear failed: {e}")
+            logger.error(LogEvents.CACHE_ERROR, operation="clear", error=str(e))
 
     async def close(self) -> None:
         """Close Redis connection gracefully."""
         if self.redis:
             await self.redis.close()
-            logger.info("Cache service closed")
+            logger.info("cache_closed")
 
     def get_stats(self) -> CacheStats:
         """Get current cache statistics.
