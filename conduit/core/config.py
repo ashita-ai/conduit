@@ -1350,7 +1350,9 @@ def detect_available_models() -> list[str]:
 
     # Mistral models
     if settings.mistral_api_key:
-        available.extend(["mistral/mistral-large-latest", "mistral/mistral-small-latest"])
+        available.extend(
+            ["mistral/mistral-large-latest", "mistral/mistral-small-latest"]
+        )
 
     return available
 
