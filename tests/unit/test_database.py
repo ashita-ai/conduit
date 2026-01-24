@@ -428,8 +428,8 @@ class TestModelPricingOperations:
         return db, mock_conn
 
     @pytest.mark.asyncio
-    async def test_get_model_prices_success(self, mock_db):
-        """Test successful retrieval of model prices."""
+    async def test_get_latest_pricing_success(self, mock_db):
+        """Test successful retrieval of latest model pricing."""
         db, mock_conn = mock_db
         mock_conn.fetch.return_value = [
             {
@@ -442,15 +442,15 @@ class TestModelPricingOperations:
             }
         ]
 
-        prices = await db.get_model_prices()
+        prices = await db.get_latest_pricing()
 
         assert "gpt-4o-mini" in prices
         assert prices["gpt-4o-mini"].input_cost_per_million == 0.15
         assert prices["gpt-4o-mini"].output_cost_per_million == 0.60
 
     @pytest.mark.asyncio
-    async def test_get_model_prices_without_cached_cost(self, mock_db):
-        """Test prices without cached input cost."""
+    async def test_get_latest_pricing_without_cached_cost(self, mock_db):
+        """Test pricing without cached input cost."""
         db, mock_conn = mock_db
         mock_conn.fetch.return_value = [
             {
@@ -463,19 +463,19 @@ class TestModelPricingOperations:
             }
         ]
 
-        prices = await db.get_model_prices()
+        prices = await db.get_latest_pricing()
 
         assert "gpt-4o" in prices
         assert prices["gpt-4o"].cached_input_cost_per_million is None
 
     @pytest.mark.asyncio
-    async def test_get_model_prices_without_connection(self):
-        """Test get prices raises error when not connected."""
+    async def test_get_latest_pricing_without_connection(self):
+        """Test get pricing raises error when not connected."""
         db = Database(database_url="postgresql://user:pass@localhost/test")
         db.pool = None
 
         with pytest.raises(DatabaseError) as exc_info:
-            await db.get_model_prices()
+            await db.get_latest_pricing()
 
         assert "Database not connected" in str(exc_info.value)
 
