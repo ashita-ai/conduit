@@ -12,7 +12,7 @@ try:
         SentenceTransformer,  # type: ignore[import-untyped,unused-ignore]
     )
 except ImportError:
-    SentenceTransformer = None  # type: ignore
+    SentenceTransformer = None  # type: ignore[misc,assignment,unused-ignore]  # optional import fallback
 
 
 class SentenceTransformersEmbeddingProvider(EmbeddingProvider):

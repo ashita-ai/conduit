@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 try:
     from openai import AsyncOpenAI
 except ImportError:
-    AsyncOpenAI = None  # type: ignore
+    AsyncOpenAI = None  # type: ignore[misc,assignment]  # optional import fallback
 
 
 class OpenAIEmbeddingProvider(EmbeddingProvider):

@@ -191,7 +191,7 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
             sampled_rewards[model_id] = expected_reward
 
         # Select arm with highest sampled reward
-        selected_id = max(sampled_rewards, key=sampled_rewards.get)  # type: ignore
+        selected_id = max(sampled_rewards, key=sampled_rewards.get)  # type: ignore[arg-type]  # dict.get returns Optional but all keys exist
         selected_arm = self.arms[selected_id]
 
         # Track queries

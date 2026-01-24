@@ -149,7 +149,7 @@ class ThompsonSamplingBandit(BanditAlgorithm):
         samples = dict(zip(arm_ids, sample_array))
 
         # Select arm with highest sample
-        selected_id = max(samples, key=samples.get)  # type: ignore
+        selected_id = max(samples, key=samples.get)  # type: ignore[arg-type]  # dict.get returns Optional but all keys exist
         selected_arm = self.arms[selected_id]
 
         # Track total queries only (arm_pulls incremented by update())
