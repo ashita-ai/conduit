@@ -42,21 +42,28 @@ from pydantic import BaseModel, Field
 from conduit.core.models import Query, QueryConstraints, UserPreferences
 from conduit.engines.executor import ModelExecutor
 from conduit.engines.router import Router
+from conduit.feedback import FeedbackCollector, FeedbackEvent, InMemoryFeedbackStore
 
-# Global router and executor (initialized in lifespan)
+# Global router, executor, and feedback collector (initialized in lifespan)
 router: Router | None = None
 executor: ModelExecutor | None = None
+collector: FeedbackCollector | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize and cleanup resources."""
-    global router, executor
+    global router, executor, collector
 
     print("Initializing Conduit router...")
     router = Router()
     executor = ModelExecutor()
-    print("Conduit router ready")
+
+    # Initialize feedback collector with in-memory store
+    # For production, use RedisFeedbackStore or PostgresFeedbackStore
+    store = InMemoryFeedbackStore()
+    collector = FeedbackCollector(router, store=store)
+    print("Conduit router ready with feedback collection")
 
     yield
 
@@ -106,13 +113,21 @@ class QueryResponse(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
-    """Request model for feedback endpoint."""
+    """Request model for feedback endpoint.
+
+    Supports pluggable signal types via the signal_type + payload pattern.
+    See docs/FEEDBACK_INTEGRATION.md for available signal types.
+    """
 
     query_id: str = Field(..., description="Query ID to provide feedback for")
-    model_id: str = Field(..., description="Model that was used")
-    quality_score: float = Field(..., description="Quality rating 0.0-1.0", ge=0.0, le=1.0)
-    met_expectations: bool = Field(default=True, description="Whether response met expectations")
-    comments: str | None = Field(None, description="Optional feedback comments")
+    signal_type: str = Field(
+        default="thumbs",
+        description="Feedback type: thumbs, rating, task_success, quality_score",
+    )
+    payload: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Signal-specific data (e.g., {'value': 'up'} for thumbs)",
+    )
 
 
 class HealthResponse(BaseModel):
@@ -190,8 +205,12 @@ async def route_query(request: QueryRequest) -> QueryResponse:
         response_data = json.loads(response.text)
         response_text = response_data.get("text", response.text)
 
+        # Track query for delayed feedback
+        if collector:
+            await collector.track(decision, cost=response.cost, latency=response.latency)
+
         return QueryResponse(
-            query_id=query.id,
+            query_id=decision.query_id,  # Use decision.query_id for feedback tracking
             model_used=decision.selected_model,
             response=response_text,
             confidence=decision.confidence,
@@ -209,21 +228,39 @@ async def route_query(request: QueryRequest) -> QueryResponse:
 
 
 @app.post("/feedback")
-async def submit_feedback(request: FeedbackRequest) -> dict[str, str]:
+async def submit_feedback(request: FeedbackRequest) -> dict[str, Any]:
     """Submit feedback to improve Conduit's routing decisions.
 
     Feedback helps Conduit learn which models work best for different
-    query types. Both explicit ratings and implicit signals are used.
-    """
-    if not router:
-        raise HTTPException(status_code=503, detail="Router not initialized")
+    query types. Supported signal types:
 
-    # For now, just acknowledge the feedback
-    # In production, this would update the bandit algorithm
-    return {
-        "status": "received",
-        "message": f"Feedback for query {request.query_id} recorded",
-    }
+    - thumbs: {"value": "up"} or {"value": "down"}
+    - rating: {"rating": 1-5}
+    - task_success: {"success": true/false}
+    - quality_score: {"score": 0.0-1.0}
+    """
+    if not collector:
+        raise HTTPException(status_code=503, detail="Feedback collector not initialized")
+
+    event = FeedbackEvent(
+        query_id=request.query_id,
+        signal_type=request.signal_type,
+        payload=request.payload,
+    )
+
+    try:
+        result = await collector.record(event)
+        return {
+            "status": "recorded",
+            "query_id": request.query_id,
+            "signal_type": request.signal_type,
+            "reward": result.reward if result.reward is not None else None,
+            "message": result.message if hasattr(result, "message") else "Feedback recorded",
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to record feedback: {e}") from e
 
 
 @app.get("/health", response_model=HealthResponse)

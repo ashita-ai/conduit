@@ -1,9 +1,15 @@
 """Unit tests for configuration management."""
 
+from unittest.mock import patch
+
 import pytest
 from pydantic import ValidationError
 
-from conduit.core.config import Settings
+from conduit.core.config import (
+    Settings,
+    detect_available_models,
+    get_models_with_fallback,
+)
 
 
 class TestSettings:
@@ -112,3 +118,103 @@ class TestSettings:
                 database_url="postgresql://localhost/test",
                 api_port=0  # Too low
             )
+
+
+class TestModelAutoDetection:
+    """Tests for auto-detection of available models from API keys."""
+
+    def test_detect_openai_models(self):
+        """Test detection of OpenAI models when API key is set."""
+        with patch("conduit.core.config.settings") as mock_settings:
+            mock_settings.openai_api_key = "sk-test-key"
+            mock_settings.anthropic_api_key = None
+            mock_settings.google_api_key = None
+            mock_settings.groq_api_key = None
+            mock_settings.mistral_api_key = None
+
+            models = detect_available_models()
+
+            assert "gpt-4o-mini" in models
+            assert "gpt-4o" in models
+            assert len(models) == 2
+
+    def test_detect_anthropic_models(self):
+        """Test detection of Anthropic models when API key is set."""
+        with patch("conduit.core.config.settings") as mock_settings:
+            mock_settings.openai_api_key = None
+            mock_settings.anthropic_api_key = "sk-ant-test-key"
+            mock_settings.google_api_key = None
+            mock_settings.groq_api_key = None
+            mock_settings.mistral_api_key = None
+
+            models = detect_available_models()
+
+            assert "claude-3-5-sonnet-20241022" in models
+            assert "claude-3-haiku-20240307" in models
+            assert len(models) == 2
+
+    def test_detect_multiple_providers(self):
+        """Test detection when multiple API keys are set."""
+        with patch("conduit.core.config.settings") as mock_settings:
+            mock_settings.openai_api_key = "sk-test-key"
+            mock_settings.anthropic_api_key = "sk-ant-test-key"
+            mock_settings.google_api_key = None
+            mock_settings.groq_api_key = None
+            mock_settings.mistral_api_key = None
+
+            models = detect_available_models()
+
+            assert "gpt-4o-mini" in models
+            assert "claude-3-5-sonnet-20241022" in models
+            assert len(models) == 4
+
+    def test_detect_no_api_keys(self):
+        """Test detection returns empty list when no API keys set."""
+        with patch("conduit.core.config.settings") as mock_settings:
+            mock_settings.openai_api_key = None
+            mock_settings.anthropic_api_key = None
+            mock_settings.google_api_key = None
+            mock_settings.groq_api_key = None
+            mock_settings.mistral_api_key = None
+
+            models = detect_available_models()
+
+            assert models == []
+
+    def test_get_models_with_fallback_uses_configured(self):
+        """Test fallback uses configured models when available."""
+        with patch("conduit.core.config.settings") as mock_settings:
+            mock_settings.default_models = ["custom-model-1", "custom-model-2"]
+
+            models = get_models_with_fallback()
+
+            assert models == ["custom-model-1", "custom-model-2"]
+
+    def test_get_models_with_fallback_uses_detection(self):
+        """Test fallback uses auto-detection when no configured models."""
+        with patch("conduit.core.config.settings") as mock_settings:
+            mock_settings.default_models = []
+            mock_settings.openai_api_key = "sk-test-key"
+            mock_settings.anthropic_api_key = None
+            mock_settings.google_api_key = None
+            mock_settings.groq_api_key = None
+            mock_settings.mistral_api_key = None
+
+            models = get_models_with_fallback()
+
+            assert "gpt-4o-mini" in models
+            assert "gpt-4o" in models
+
+    def test_get_models_with_fallback_ultimate_fallback(self):
+        """Test fallback returns hardcoded default when nothing available."""
+        with patch("conduit.core.config.settings") as mock_settings:
+            mock_settings.default_models = []
+            mock_settings.openai_api_key = None
+            mock_settings.anthropic_api_key = None
+            mock_settings.google_api_key = None
+            mock_settings.groq_api_key = None
+            mock_settings.mistral_api_key = None
+
+            models = get_models_with_fallback()
+
+            assert models == ["gpt-4o-mini"]

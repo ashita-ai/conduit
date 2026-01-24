@@ -42,11 +42,10 @@ This demo shows Conduit's learning in action with simulated LLM responses. No se
 ```python
 # Just 5 lines to start saving money
 import asyncio
-from conduit.engines.router import Router
-from conduit.core.models import Query
+from conduit import Router, Query
 
 async def main():
-    router = Router()
+    router = Router()  # Auto-detects models from your API keys
     decision = await router.route(Query(text="What is 2+2?"))
     print(f"Route to: {decision.selected_model} (confidence: {decision.confidence:.0%})")
 
@@ -219,6 +218,35 @@ LOG_LEVEL=INFO
 ./migrate.sh  # or: psql $DATABASE_URL < migrations/001_initial_schema.sql
 ```
 
+## Using with LiteLLM
+
+Access 100+ LLM providers through LiteLLM with Conduit's ML-powered routing:
+
+```python
+from litellm import Router
+from conduit_litellm import ConduitRoutingStrategy
+
+# Configure LiteLLM with your models
+router = Router(
+    model_list=[
+        {"model_name": "gpt-4", "litellm_params": {"model": "gpt-4o-mini"}},
+        {"model_name": "claude-3", "litellm_params": {"model": "claude-3-haiku-20240307"}},
+    ]
+)
+
+# Add Conduit's ML routing (replaces rule-based routing)
+strategy = ConduitRoutingStrategy(use_hybrid=True)
+ConduitRoutingStrategy.setup_strategy(router, strategy)
+
+# LiteLLM now uses Conduit's learning-based model selection
+response = await router.acompletion(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+```
+
+Conduit learns which model performs best for each query type, automatically optimizing cost while maintaining quality. See `docs/LITELLM_INTEGRATION.md` for full configuration options.
+
 ## User Preferences
 
 Control optimization per query with 4 presets:
@@ -365,18 +393,21 @@ For production, Redis recommended for embedding caching.
 
 ### Can I use my own quality evaluation?
 
-Yes. Provide explicit feedback:
+Yes. Provide explicit feedback via `router.update()`:
 
 ```python
-from conduit.engines.bandits import BanditFeedback
+# After executing a query
+decision = await router.route(Query(text="What is 2+2?"))
+response = await execute_llm_call(decision.selected_model, "What is 2+2?")
 
-feedback = BanditFeedback(
-    model_id="gpt-4o-mini",
+# Provide your quality evaluation
+await router.update(
+    model_id=decision.selected_model,
     cost=response.cost,
     quality_score=0.95,  # Your evaluation (0.0-1.0)
-    latency=response.latency
+    latency=response.latency,
+    features=decision.features,
 )
-await router.hybrid_router.give_feedback(feedback, features)
 ```
 
 Or use the built-in Arbiter (LLM-as-judge) for automatic evaluation.

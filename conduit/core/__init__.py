@@ -2,6 +2,8 @@
 
 from conduit.core.config import (
     Settings,
+    detect_available_models,
+    get_models_with_fallback,
     load_context_priors,
     load_preference_weights,
     settings,
@@ -72,6 +74,8 @@ __all__ = [
     "settings",
     "load_context_priors",
     "load_preference_weights",
+    "detect_available_models",
+    "get_models_with_fallback",
     # Config Schema Validation
     "ConduitConfig",
     "ConfigValidationError",
