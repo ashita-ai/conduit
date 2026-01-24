@@ -25,7 +25,9 @@ class TestSettings:
         assert settings.redis_url.startswith("redis://")  # Accept any valid redis URL
         assert settings.redis_cache_ttl == 86400  # 24 hours default
         # embedding_model may be set by conduit.yaml or None (provider default)
-        assert settings.embedding_model is None or isinstance(settings.embedding_model, str)
+        assert settings.embedding_model is None or isinstance(
+            settings.embedding_model, str
+        )
         assert settings.exploration_rate == 0.1
         assert settings.api_rate_limit == 100
         assert settings.api_host == "0.0.0.0"
@@ -43,11 +45,16 @@ class TestSettings:
         assert settings.reward_weight_quality == 0.5
         assert settings.reward_weight_cost == 0.3
         assert settings.reward_weight_latency == 0.2
-        assert sum([
-            settings.reward_weight_quality,
-            settings.reward_weight_cost,
-            settings.reward_weight_latency
-        ]) == 1.0
+        assert (
+            sum(
+                [
+                    settings.reward_weight_quality,
+                    settings.reward_weight_cost,
+                    settings.reward_weight_latency,
+                ]
+            )
+            == 1.0
+        )
 
     def test_reward_weights_validation_success(self):
         """Test reward weights validation passes when sum is 1.0."""
@@ -55,7 +62,7 @@ class TestSettings:
             database_url="postgresql://localhost/test",
             reward_weight_quality=0.4,
             reward_weight_cost=0.4,
-            reward_weight_latency=0.2
+            reward_weight_latency=0.2,
         )
         assert settings.reward_weight_quality == 0.4
         assert settings.reward_weight_cost == 0.4
@@ -68,7 +75,7 @@ class TestSettings:
                 database_url="postgresql://localhost/test",
                 reward_weight_quality=0.6,
                 reward_weight_cost=0.3,
-                reward_weight_latency=0.3  # Sum = 1.2
+                reward_weight_latency=0.3,  # Sum = 1.2
             )
 
     def test_reward_weights_property(self):
@@ -84,14 +91,12 @@ class TestSettings:
     def test_is_production_property(self):
         """Test is_production property."""
         dev_settings = Settings(
-            database_url="postgresql://localhost/test",
-            environment="development"
+            database_url="postgresql://localhost/test", environment="development"
         )
         assert dev_settings.is_production is False
 
         prod_settings = Settings(
-            database_url="postgresql://localhost/test",
-            environment="production"
+            database_url="postgresql://localhost/test", environment="production"
         )
         assert prod_settings.is_production is True
 
@@ -110,14 +115,11 @@ class TestSettings:
         with pytest.raises(ValidationError):
             Settings(
                 database_url="postgresql://localhost/test",
-                api_port=70000  # Out of range
+                api_port=70000,  # Out of range
             )
 
         with pytest.raises(ValidationError):
-            Settings(
-                database_url="postgresql://localhost/test",
-                api_port=0  # Too low
-            )
+            Settings(database_url="postgresql://localhost/test", api_port=0)  # Too low
 
 
 class TestModelAutoDetection:
@@ -125,7 +127,7 @@ class TestModelAutoDetection:
 
     def test_detect_openai_models(self):
         """Test detection of OpenAI models when API key is set."""
-        with patch("conduit.core.config.settings") as mock_settings:
+        with patch("conduit.core.config.settings.settings") as mock_settings:
             mock_settings.openai_api_key = "sk-test-key"
             mock_settings.anthropic_api_key = None
             mock_settings.google_api_key = None
@@ -140,7 +142,7 @@ class TestModelAutoDetection:
 
     def test_detect_anthropic_models(self):
         """Test detection of Anthropic models when API key is set."""
-        with patch("conduit.core.config.settings") as mock_settings:
+        with patch("conduit.core.config.settings.settings") as mock_settings:
             mock_settings.openai_api_key = None
             mock_settings.anthropic_api_key = "sk-ant-test-key"
             mock_settings.google_api_key = None
@@ -155,7 +157,7 @@ class TestModelAutoDetection:
 
     def test_detect_multiple_providers(self):
         """Test detection when multiple API keys are set."""
-        with patch("conduit.core.config.settings") as mock_settings:
+        with patch("conduit.core.config.settings.settings") as mock_settings:
             mock_settings.openai_api_key = "sk-test-key"
             mock_settings.anthropic_api_key = "sk-ant-test-key"
             mock_settings.google_api_key = None
@@ -170,7 +172,7 @@ class TestModelAutoDetection:
 
     def test_detect_no_api_keys(self):
         """Test detection returns empty list when no API keys set."""
-        with patch("conduit.core.config.settings") as mock_settings:
+        with patch("conduit.core.config.settings.settings") as mock_settings:
             mock_settings.openai_api_key = None
             mock_settings.anthropic_api_key = None
             mock_settings.google_api_key = None
@@ -183,7 +185,7 @@ class TestModelAutoDetection:
 
     def test_get_models_with_fallback_uses_configured(self):
         """Test fallback uses configured models when available."""
-        with patch("conduit.core.config.settings") as mock_settings:
+        with patch("conduit.core.config.settings.settings") as mock_settings:
             mock_settings.default_models = ["custom-model-1", "custom-model-2"]
 
             models = get_models_with_fallback()
@@ -192,7 +194,7 @@ class TestModelAutoDetection:
 
     def test_get_models_with_fallback_uses_detection(self):
         """Test fallback uses auto-detection when no configured models."""
-        with patch("conduit.core.config.settings") as mock_settings:
+        with patch("conduit.core.config.settings.settings") as mock_settings:
             mock_settings.default_models = []
             mock_settings.openai_api_key = "sk-test-key"
             mock_settings.anthropic_api_key = None
@@ -207,7 +209,7 @@ class TestModelAutoDetection:
 
     def test_get_models_with_fallback_ultimate_fallback(self):
         """Test fallback returns hardcoded default when nothing available."""
-        with patch("conduit.core.config.settings") as mock_settings:
+        with patch("conduit.core.config.settings.settings") as mock_settings:
             mock_settings.default_models = []
             mock_settings.openai_api_key = None
             mock_settings.anthropic_api_key = None
