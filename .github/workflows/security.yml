@@ -44,7 +44,8 @@ jobs:
           echo "Scanning for known vulnerabilities in dependencies..."
           # --local: only audit packages in local environment (not system)
           # Skip editable installs (local dev packages not on PyPI)
-          uv run pip-audit --progress-spinner=off --local --skip-editable
+          # --ignore-vuln: Skip CVEs without available fixes (protobuf CVE-2026-0994 has no fix yet)
+          uv run pip-audit --progress-spinner=off --local --skip-editable --ignore-vuln CVE-2026-0994
         continue-on-error: false
 
       - name: Summary
