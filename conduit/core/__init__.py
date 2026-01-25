@@ -27,6 +27,12 @@ from conduit.core.exceptions import (
     RoutingError,
     ValidationError,
 )
+from conduit.core.lifecycle import (
+    LifecycleManager,
+    ShutdownPhase,
+    ShutdownState,
+    create_lifecycle_manager,
+)
 from conduit.core.models import (
     MAX_QUERY_TEXT_BYTES,
     Feedback,
@@ -131,4 +137,9 @@ __all__ = [
     "list_to_numpy",
     "serialize_bandit_matrices",
     "deserialize_bandit_matrices",
+    # Lifecycle Management
+    "LifecycleManager",
+    "ShutdownPhase",
+    "ShutdownState",
+    "create_lifecycle_manager",
 ]

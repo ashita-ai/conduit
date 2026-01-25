@@ -45,6 +45,7 @@ class TestLifespan:
         from conduit.api.app import lifespan
 
         mock_app = MagicMock(spec=FastAPI)
+        mock_app.state = MagicMock()
 
         with patch("conduit.api.app.Database") as MockDatabase:
             mock_db = AsyncMock()
@@ -88,6 +89,7 @@ class TestLifespan:
         from conduit.api.app import lifespan
 
         mock_app = MagicMock(spec=FastAPI)
+        mock_app.state = MagicMock()
 
         with patch("conduit.api.app.Database") as MockDatabase:
             mock_db = AsyncMock()
@@ -118,6 +120,7 @@ class TestLifespan:
         from conduit.api.app import lifespan
 
         mock_app = MagicMock(spec=FastAPI)
+        mock_app.state = MagicMock()
 
         with patch("conduit.api.app.Database") as MockDatabase:
             mock_db = AsyncMock()
