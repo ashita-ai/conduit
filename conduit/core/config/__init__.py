@@ -1,29 +1,20 @@
 """Configuration management for Conduit.
 
-This module re-exports all configuration from the config/ package
-for backward compatibility with existing imports.
+This package provides centralized configuration loading from environment
+variables with validation and type safety.
 
-All configuration is now organized in:
-- conduit/core/config/settings.py: Settings class
-- conduit/core/config/loaders.py: YAML configuration loaders
-- conduit/core/config/utils.py: Helper utilities
-- conduit/core/config/models.py: Model detection utilities
+All exports are re-exported here for backward compatibility with existing
+imports from `conduit.core.config`.
 """
 
-# Re-export everything from the config package
-from conduit.core.config import (
-    Settings,
-    detect_available_models,
-    get_arbiter_model,
-    get_fallback_model,
-    get_models_with_fallback,
+# Settings class and global instance
+# YAML configuration loaders
+from conduit.core.config.loaders import (
     load_algorithm_config,
     load_arbiter_config,
     load_cache_config,
     load_context_priors,
     load_cost_config,
-    load_default_models,
-    load_embeddings_config,
     load_feature_dimensions,
     load_feedback_config,
     load_hybrid_routing_config,
@@ -31,8 +22,22 @@ from conduit.core.config import (
     load_preference_weights,
     load_quality_estimation_config,
     load_routing_config,
+)
+
+# Model detection utilities
+from conduit.core.config.models import (
+    detect_available_models,
+    get_arbiter_model,
+    get_fallback_model,
+    get_models_with_fallback,
+)
+from conduit.core.config.settings import Settings, settings
+
+# Utility functions
+from conduit.core.config.utils import (
+    load_default_models,
+    load_embeddings_config,
     parse_env_value,
-    settings,
 )
 
 __all__ = [

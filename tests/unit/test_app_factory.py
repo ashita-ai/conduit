@@ -3,8 +3,9 @@
 Tests for FastAPI application factory and lifespan.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from fastapi import FastAPI
 
 
@@ -90,7 +91,7 @@ class TestLifespan:
 
         with patch("conduit.api.app.Database") as MockDatabase:
             mock_db = AsyncMock()
-            mock_db.get_model_prices.return_value = {"model-a": 0.01}
+            mock_db.get_latest_pricing.return_value = {"model-a": 0.01}
             MockDatabase.return_value = mock_db
 
             with patch("conduit.api.app.Router"):
@@ -107,7 +108,7 @@ class TestLifespan:
 
                                 async with lifespan(mock_app):
                                     # Verify model prices were loaded
-                                    mock_db.get_model_prices.assert_called_once()
+                                    mock_db.get_latest_pricing.assert_called_once()
                                     # Verify executor was created (pricing handled by LiteLLM)
                                     MockExecutor.assert_called_once_with()
 
@@ -120,7 +121,7 @@ class TestLifespan:
 
         with patch("conduit.api.app.Database") as MockDatabase:
             mock_db = AsyncMock()
-            mock_db.get_model_prices.side_effect = Exception("DB error")
+            mock_db.get_latest_pricing.side_effect = Exception("DB error")
             MockDatabase.return_value = mock_db
 
             with patch("conduit.api.app.Router"):

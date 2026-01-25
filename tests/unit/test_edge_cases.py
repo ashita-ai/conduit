@@ -40,16 +40,24 @@ class TestQueryValidation:
         query = Query(text="  hello world  ")
         assert query.text == "hello world"
 
+    def test_extremely_long_query_rejected(self):
+        """Queries over 100KB should be rejected with ValidationError."""
+        # Create 1M character query (well over 100KB limit)
+        long_text = "a" * 1_000_000
+
+        with pytest.raises(ValidationError, match="Query text exceeds maximum size"):
+            Query(text=long_text)
+
     @pytest.mark.asyncio
-    async def test_extremely_long_query(self):
-        """Router should handle extremely long queries without crashing."""
+    async def test_query_at_size_limit(self):
+        """Queries at or just under 100KB should be accepted."""
         router = Router()
 
-        # Create 1M character query
-        long_text = "a" * 1_000_000
-        query = Query(text=long_text)
+        # Create query just under 100KB limit (99,900 bytes leaves room for encoding)
+        text = "a" * 99_900
+        query = Query(text=text)
 
-        # Should not crash, may truncate in embedding service
+        # Should not crash
         decision = await router.route(query)
 
         assert decision is not None

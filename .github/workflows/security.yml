@@ -1,0 +1,60 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Monday at midnight UTC
+    - cron: '0 0 * * 1'
+
+permissions:
+  contents: read
+
+env:
+  UV_CACHE_DIR: /tmp/.uv-cache
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  dependency-audit:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv with cache
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Install pip-audit
+        run: uv pip install pip-audit
+
+      - name: Run pip-audit
+        run: |
+          echo "Scanning for known vulnerabilities in dependencies..."
+          # --local: only audit packages in local environment (not system)
+          # Skip editable installs (local dev packages not on PyPI)
+          # --ignore-vuln: Skip CVEs without available fixes (protobuf CVE-2026-0994 has no fix yet)
+          uv run pip-audit --progress-spinner=off --local --skip-editable --ignore-vuln CVE-2026-0994
+        continue-on-error: false
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "No known vulnerabilities found in dependencies." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Vulnerabilities detected. Please review and update affected packages." >> $GITHUB_STEP_SUMMARY
+          fi

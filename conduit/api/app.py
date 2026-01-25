@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Load pricing information (if available) and pass to executor.
     # If loading fails, the executor will fall back to built-in pricing.
     try:
-        model_prices = await database.get_model_prices()
+        model_prices = await database.get_latest_pricing()
         logger.info(f"Loaded {len(model_prices)} model prices from database")
     except Exception as e:
         logger.warning(f"Failed to load model prices, using fallback pricing: {e}")

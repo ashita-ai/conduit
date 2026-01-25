@@ -7,6 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from conduit.core.models import (
+    MAX_QUERY_TEXT_BYTES,
     Feedback,
     ModelState,
     Query,
@@ -14,7 +15,9 @@ from conduit.core.models import (
     QueryFeatures,
     Response,
     RoutingDecision,
-    RoutingResult)
+    RoutingResult,
+)
+
 
 class TestQueryConstraints:
     """Tests for QueryConstraints model."""
@@ -45,6 +48,7 @@ class TestQueryConstraints:
         with pytest.raises(ValidationError):
             QueryConstraints(min_quality=-0.1)
 
+
 class TestQuery:
     """Tests for Query model."""
 
@@ -58,7 +62,9 @@ class TestQuery:
 
     def test_empty_text_validation(self):
         """Test empty text is rejected."""
-        with pytest.raises(ValidationError, match="String should have at least 1 character"):
+        with pytest.raises(
+            ValidationError, match="String should have at least 1 character"
+        ):
             Query(text="")
 
     def test_whitespace_stripped(self):
@@ -73,6 +79,59 @@ class TestQuery:
         assert query.constraints is not None
         assert query.constraints.max_cost == 0.01
 
+    def test_text_size_limit_exceeded(self):
+        """Test query text exceeding 100KB limit is rejected."""
+        # Create text just over the limit (100KB + 1 byte)
+        large_text = "a" * (MAX_QUERY_TEXT_BYTES + 1)
+        with pytest.raises(ValidationError, match="exceeds maximum size"):
+            Query(text=large_text)
+
+    def test_text_at_size_limit_accepted(self):
+        """Test query text exactly at 100KB limit is accepted."""
+        # Create text exactly at the limit
+        max_text = "a" * MAX_QUERY_TEXT_BYTES
+        query = Query(text=max_text)
+        assert len(query.text.encode("utf-8")) == MAX_QUERY_TEXT_BYTES
+
+    def test_null_bytes_removed(self):
+        """Test null bytes are stripped from query text."""
+        query = Query(text="Hello\x00World")
+        assert "\x00" not in query.text
+        assert query.text == "HelloWorld"
+
+    def test_control_characters_removed(self):
+        """Test C0 control characters (except tab/newline) are removed."""
+        # \x01 (SOH), \x02 (STX), \x1f (US) should be removed
+        # \x09 (tab), \x0a (LF), \x0d (CR) should be kept
+        query = Query(text="Hello\x01\x02World\x09Tab\x0aNewline\x0dCR\x1fEnd")
+        assert "\x01" not in query.text
+        assert "\x02" not in query.text
+        assert "\x1f" not in query.text
+        assert "\x09" in query.text  # Tab preserved
+        assert "\x0a" in query.text  # Newline preserved
+        assert "\x0d" in query.text  # CR preserved
+        assert query.text == "HelloWorld\tTab\nNewline\rCREnd"
+
+    def test_whitespace_only_rejected(self):
+        """Test whitespace-only text is rejected after stripping."""
+        with pytest.raises(ValidationError, match="cannot be empty"):
+            Query(text="   \t\n   ")
+
+    def test_unicode_text_accepted(self):
+        """Test valid Unicode text is accepted."""
+        query = Query(text="Hello 世界 🌍 مرحبا")
+        assert query.text == "Hello 世界 🌍 مرحبا"
+
+    def test_multibyte_unicode_size_limit(self):
+        """Test size limit is enforced in bytes, not characters."""
+        # Each emoji is 4 bytes in UTF-8
+        # 25,001 emojis = 100,004 bytes > 100KB limit
+        emoji_count = (MAX_QUERY_TEXT_BYTES // 4) + 1
+        large_emoji_text = "🌍" * emoji_count
+        with pytest.raises(ValidationError, match="exceeds maximum size"):
+            Query(text=large_emoji_text)
+
+
 class TestQueryFeatures:
     """Tests for QueryFeatures model."""
 
@@ -80,9 +139,7 @@ class TestQueryFeatures:
         """Test valid feature creation."""
         embedding = [0.1] * 384
         features = QueryFeatures(
-            embedding=embedding,
-            token_count=10,
-            complexity_score=0.5
+            embedding=embedding, token_count=10, complexity_score=0.5
         )
         assert len(features.embedding) == 384
         assert features.token_count == 10
@@ -94,14 +151,14 @@ class TestQueryFeatures:
         features_small = QueryFeatures(
             embedding=[0.1] * 100,  # Small embedding (e.g., distilbert)
             token_count=10,
-            complexity_score=0.5
+            complexity_score=0.5,
         )
         assert len(features_small.embedding) == 100
 
         features_large = QueryFeatures(
             embedding=[0.1] * 768,  # Large embedding (e.g., BERT)
             token_count=10,
-            complexity_score=0.5
+            complexity_score=0.5,
         )
         assert len(features_large.embedding) == 768
 
@@ -115,6 +172,7 @@ class TestQueryFeatures:
                 complexity_score=1.5,  # Out of range
             )
 
+
 class TestRoutingDecision:
     """Tests for RoutingDecision model."""
 
@@ -122,20 +180,20 @@ class TestRoutingDecision:
         """Test valid routing decision creation."""
         embedding = [0.1] * 384
         features = QueryFeatures(
-            embedding=embedding,
-            token_count=10,
-            complexity_score=0.5
+            embedding=embedding, token_count=10, complexity_score=0.5
         )
         decision = RoutingDecision(
             query_id="query123",
             selected_model="gpt-4o-mini",
             confidence=0.87,
             features=features,
-            reasoning="Simple query, low cost model selected")
+            reasoning="Simple query, low cost model selected",
+        )
         assert decision.query_id == "query123"
         assert decision.selected_model == "gpt-4o-mini"
         assert decision.confidence == 0.87
         assert decision.features == features
+
 
 class TestResponse:
     """Tests for Response model."""
@@ -148,7 +206,8 @@ class TestResponse:
             text='{"answer": "Paris"}',
             cost=0.0002,
             latency=1.2,
-            tokens=15)
+            tokens=15,
+        )
         assert response.query_id == "query123"
         assert response.model == "gpt-4o-mini"
         assert response.cost == 0.0002
@@ -164,7 +223,9 @@ class TestResponse:
                 text="result",
                 cost=-0.01,  # Invalid
                 latency=1.0,
-                tokens=10)
+                tokens=10,
+            )
+
 
 class TestFeedback:
     """Tests for Feedback model."""
@@ -176,7 +237,8 @@ class TestFeedback:
             quality_score=0.95,
             user_rating=5,
             met_expectations=True,
-            comments="Perfect answer")
+            comments="Perfect answer",
+        )
         assert feedback.response_id == "resp123"
         assert feedback.quality_score == 0.95
         assert feedback.user_rating == 5
@@ -198,7 +260,9 @@ class TestFeedback:
                 response_id="resp123",
                 quality_score=0.8,
                 user_rating=6,  # Out of range
-                met_expectations=True)
+                met_expectations=True,
+            )
+
 
 class TestModelState:
     """Tests for ModelState model."""
@@ -211,7 +275,8 @@ class TestModelState:
             beta=5.2,
             total_requests=100,
             total_cost=1.25,
-            avg_quality=0.87)
+            avg_quality=0.87,
+        )
         assert state.model_id == "gpt-4o-mini"
         assert state.alpha == 10.5
         assert state.beta == 5.2
@@ -241,6 +306,7 @@ class TestModelState:
         expected_variance = (10.0 * 5.0) / (ab * ab * (ab + 1))
         assert state.variance == pytest.approx(expected_variance)
 
+
 class TestRoutingResult:
     """Tests for RoutingResult model."""
 
@@ -254,21 +320,21 @@ class TestRoutingResult:
             text='{"answer": "Paris", "confidence": 0.99}',
             cost=0.0002,
             latency=1.2,
-            tokens=15)
+            tokens=15,
+        )
 
         # Create routing decision
         embedding = [0.1] * 384
         features = QueryFeatures(
-            embedding=embedding,
-            token_count=10,
-            complexity_score=0.3
+            embedding=embedding, token_count=10, complexity_score=0.3
         )
         routing = RoutingDecision(
             query_id="query123",
             selected_model="gpt-4o-mini",
             confidence=0.87,
             features=features,
-            reasoning="Simple query")
+            reasoning="Simple query",
+        )
 
         # Create result
         result = RoutingResult.from_response(response, routing)

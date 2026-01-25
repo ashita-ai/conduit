@@ -184,7 +184,7 @@ class LinUCBBandit(BanditAlgorithm):
             ucb_values[model_id] = float(ucb)
 
         # Select arm with highest UCB
-        selected_id = max(ucb_values, key=ucb_values.get)  # type: ignore
+        selected_id = max(ucb_values, key=ucb_values.get)  # type: ignore[arg-type]  # dict.get returns Optional but all keys exist
         selected_arm = self.arms[selected_id]
 
         # Track queries
