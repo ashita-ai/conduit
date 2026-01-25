@@ -5,11 +5,15 @@ responses, feedback, and ML model state.
 """
 
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, computed_field, field_validator
+
+# Input validation constants
+MAX_QUERY_TEXT_BYTES = 100_000  # 100KB max query text size
 
 
 class UserPreferences(BaseModel):
@@ -71,11 +75,46 @@ class Query(BaseModel):
 
     @field_validator("text")
     @classmethod
-    def text_not_empty(cls, v: str) -> str:
-        """Validate text is not empty or whitespace."""
-        if not v.strip():
+    def validate_text(cls, v: str) -> str:
+        """Validate and sanitize query text.
+
+        Performs:
+        1. Strips leading/trailing whitespace
+        2. Rejects empty text
+        3. Enforces size limit (100KB)
+        4. Removes null bytes and other problematic characters
+
+        Args:
+            v: Raw query text
+
+        Returns:
+            Sanitized query text
+
+        Raises:
+            ValueError: If text is empty, too large, or invalid
+        """
+        # Strip whitespace first
+        v = v.strip()
+
+        # Check not empty
+        if not v:
             raise ValueError("Query text cannot be empty")
-        return v.strip()
+
+        # Check size limit (in bytes for accurate limit)
+        text_bytes = len(v.encode("utf-8"))
+        if text_bytes > MAX_QUERY_TEXT_BYTES:
+            raise ValueError(
+                f"Query text exceeds maximum size: {text_bytes:,} bytes > "
+                f"{MAX_QUERY_TEXT_BYTES:,} bytes (100KB limit)"
+            )
+
+        # Sanitize problematic characters:
+        # - Null bytes (can cause string termination issues in C libraries)
+        # - Other C0 control characters except tab, newline, carriage return
+        # Pattern matches control chars \x00-\x1f except \x09 (tab), \x0a (LF), \x0d (CR)
+        v = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", v)
+
+        return v
 
     def __repr__(self) -> str:
         """Return concise repr for debugging."""

@@ -28,6 +28,7 @@ from conduit.core.exceptions import (
     ValidationError,
 )
 from conduit.core.models import (
+    MAX_QUERY_TEXT_BYTES,
     Feedback,
     ModelState,
     Query,
@@ -96,6 +97,7 @@ __all__ = [
     "CircuitBreakerOpenError",
     "RateLimitError",
     # Models
+    "MAX_QUERY_TEXT_BYTES",
     "Query",
     "QueryConstraints",
     "QueryFeatures",
