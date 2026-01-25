@@ -68,6 +68,12 @@ from conduit.core.state_store import (
     numpy_to_list,
     serialize_bandit_matrices,
 )
+from conduit.core.lifecycle import (
+    LifecycleManager,
+    ShutdownPhase,
+    ShutdownState,
+    create_lifecycle_manager,
+)
 
 __all__ = [
     # Config
@@ -131,4 +137,9 @@ __all__ = [
     "list_to_numpy",
     "serialize_bandit_matrices",
     "deserialize_bandit_matrices",
+    # Lifecycle Management
+    "LifecycleManager",
+    "ShutdownPhase",
+    "ShutdownState",
+    "create_lifecycle_manager",
 ]
