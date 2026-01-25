@@ -45,13 +45,35 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
 
 def setup_cors(app: FastAPI) -> None:
-    """Configure CORS middleware."""
+    """Configure CORS middleware.
+
+    Security Note:
+        - Production: No CORS allowed (API-only, no browser access)
+        - Development: Explicit localhost origins only (no wildcards)
+
+    To customize allowed origins, set CORS_ALLOWED_ORIGINS environment variable
+    as a comma-separated list of origins.
+    """
+    if settings.is_production:
+        # Production: No CORS - API should be accessed via backend, not browser
+        allowed_origins: list[str] = []
+    else:
+        # Development: Allow common localhost ports only (never wildcard)
+        allowed_origins = [
+            "http://localhost:3000",  # React/Next.js dev server
+            "http://localhost:8000",  # FastAPI docs
+            "http://localhost:8080",  # Alternative dev server
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:8000",
+            "http://127.0.0.1:8080",
+        ]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"] if not settings.is_production else [],
+        allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
     )
 
 
