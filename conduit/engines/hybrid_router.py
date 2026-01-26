@@ -13,6 +13,7 @@ Supports 4 configurable algorithm combinations and state persistence via StateSt
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import TYPE_CHECKING, Any
 
 from conduit.core.models import Query, QueryFeatures, RoutingDecision
@@ -649,6 +650,11 @@ class HybridRouter:
 
         Deprecated: Use phase1_bandit instead.
         """
+        warnings.warn(
+            "ucb1 is deprecated, use phase1_bandit instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.phase1_bandit
 
     @property
@@ -657,6 +663,11 @@ class HybridRouter:
 
         Deprecated: Use phase2_bandit instead.
         """
+        warnings.warn(
+            "linucb is deprecated, use phase2_bandit instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.phase2_bandit
 
     def reset(self) -> None:
@@ -798,12 +809,22 @@ class HybridRouter:
             if hasattr(state, "phase1_state") and state.phase1_state is not None:
                 self.phase1_bandit.from_state(state.phase1_state)
             elif hasattr(state, "ucb1_state") and state.ucb1_state is not None:
+                warnings.warn(
+                    "ucb1_state is deprecated, use phase1_bandit instead",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
                 self.phase1_bandit.from_state(state.ucb1_state)
 
             # Restore phase2 state (prefer phase2_state, fall back to linucb_state for backward compat)
             if hasattr(state, "phase2_state") and state.phase2_state is not None:
                 self.phase2_bandit.from_state(state.phase2_state)
             elif hasattr(state, "linucb_state") and state.linucb_state is not None:
+                warnings.warn(
+                    "linucb_state is deprecated, use phase2_bandit instead",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
                 self.phase2_bandit.from_state(state.linucb_state)
 
         elif allow_conversion:

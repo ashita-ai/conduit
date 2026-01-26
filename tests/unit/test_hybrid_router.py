@@ -82,7 +82,7 @@ async def test_linucb_phase_routing(hybrid_router):
     assert hybrid_router.current_phase == "linucb"
 
     # Route additional queries in LinUCB phase
-    for i in range(5):
+    for _i in range(5):
         decision = await hybrid_router.route(query)
 
         assert decision.selected_model in hybrid_router.models
@@ -248,7 +248,7 @@ async def test_confidence_calculation_ucb1_phase(hybrid_router):
 
     # Complete exploration phase by routing to all 3 models
     decisions = []
-    for i in range(3):
+    for _i in range(3):
         decision = await hybrid_router.route(query)
         decisions.append(decision)
         # Give feedback to complete exploration
@@ -358,3 +358,12 @@ async def test_reward_weights_propagation(test_models):
 
     assert router.ucb1.reward_weights == custom_weights
     assert router.linucb.reward_weights == custom_weights
+
+def test_ucb1_property_emits_deprecation_warning(hybrid_router):
+    with pytest.warns(DeprecationWarning, match="phase1_bandit"):
+        _ = hybrid_router.ucb1
+
+
+def test_linucb_property_emits_deprecation_warning(hybrid_router):
+    with pytest.warns(DeprecationWarning, match="phase2_bandit"):
+        _ = hybrid_router.linucb
