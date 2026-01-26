@@ -183,8 +183,13 @@ class ContextualThompsonSamplingBandit(BanditAlgorithm):
                 z = np.random.randn(self.feature_dim, 1)
                 theta_hat = mu + L @ z
             except np.linalg.LinAlgError:
-                # If Sigma is not positive definite, use mu directly (no sampling)
-                theta_hat = mu
+                # If Sigma is not positive definite (rare numerical instability),
+                # preserve exploration by adding regularization noise instead of
+                # falling back to deterministic selection (which removes exploration entirely).
+                # Use mu plus small Gaussian noise scaled by exploration parameter.
+                exploration_scale = 0.01  # Small noise to maintain exploration
+                noise = exploration_scale * np.random.randn(self.feature_dim, 1)
+                theta_hat = mu + noise
 
             # Compute expected reward: r = theta^T @ x
             expected_reward = float((theta_hat.T @ x)[0, 0])

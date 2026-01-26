@@ -472,6 +472,126 @@ class TestDuelingFeedback:
         assert feedback.confidence == 1.0
 
 
+class TestDuelingBanditSingleArmValidation:
+    """Tests for single-arm validation (P0 fix)."""
+
+    @pytest.mark.asyncio
+    async def test_select_pair_requires_two_arms(self, test_features):
+        """Test select_pair raises ValueError with only 1 arm."""
+        from conduit.engines.bandits.base import ModelArm
+
+        single_arm = [
+            ModelArm(
+                model_id="only-model",
+                model_name="only-model",
+                provider="test",
+                cost_per_input_token=0.001,
+                cost_per_output_token=0.002,
+                expected_quality=0.8,
+            )
+        ]
+
+        bandit = DuelingBandit(single_arm, feature_dim=386)
+
+        with pytest.raises(ValueError, match="at least 2 arms"):
+            await bandit.select_pair(test_features)
+
+    @pytest.mark.asyncio
+    async def test_select_pair_with_two_arms_succeeds(self, test_features):
+        """Test select_pair works with exactly 2 arms."""
+        from conduit.engines.bandits.base import ModelArm
+
+        two_arms = [
+            ModelArm(
+                model_id="model-a",
+                model_name="model-a",
+                provider="test",
+                cost_per_input_token=0.001,
+                cost_per_output_token=0.002,
+                expected_quality=0.8,
+            ),
+            ModelArm(
+                model_id="model-b",
+                model_name="model-b",
+                provider="test",
+                cost_per_input_token=0.001,
+                cost_per_output_token=0.002,
+                expected_quality=0.8,
+            ),
+        ]
+
+        bandit = DuelingBandit(two_arms, feature_dim=386)
+        arm_a, arm_b = await bandit.select_pair(test_features)
+
+        assert arm_a.model_id != arm_b.model_id
+        assert arm_a.model_id in ["model-a", "model-b"]
+        assert arm_b.model_id in ["model-a", "model-b"]
+
+
+class TestDuelingBanditGradientClipping:
+    """Tests for gradient clipping (P0 fix to prevent unbounded weight growth)."""
+
+    @pytest.mark.asyncio
+    async def test_gradient_clipping_prevents_extreme_weights(self, test_arms, test_features):
+        """Test gradient clipping prevents unbounded weight growth."""
+        bandit = DuelingBandit(
+            test_arms,
+            feature_dim=386,
+            learning_rate=10.0,  # Extremely high learning rate
+            max_gradient_norm=1.0,  # Clipping enabled
+        )
+
+        # Apply many strong updates
+        for _ in range(100):
+            feedback = DuelingFeedback(
+                model_a_id="o4-mini",
+                model_b_id="gpt-5.1",
+                preference=1.0,  # Maximum preference
+                confidence=1.0,
+            )
+            await bandit.update(feedback, test_features)
+
+        # Check weights are bounded (not exploding)
+        for weights in bandit.preference_weights.values():
+            weight_norm = np.linalg.norm(weights)
+            # With clipping, weights should stay reasonable
+            # Without clipping at lr=10, they would be huge
+            assert weight_norm < 500  # Reasonable upper bound
+
+    @pytest.mark.asyncio
+    async def test_clip_gradient_method(self, test_arms):
+        """Test _clip_gradient method clips large gradients."""
+        bandit = DuelingBandit(test_arms, feature_dim=386, max_gradient_norm=1.0)
+
+        # Large gradient
+        large_gradient = np.ones((386, 1)) * 10.0  # Norm >> 1.0
+        clipped = bandit._clip_gradient(large_gradient)
+
+        # Should be clipped to norm = 1.0
+        assert abs(np.linalg.norm(clipped) - 1.0) < 0.01
+
+    @pytest.mark.asyncio
+    async def test_clip_gradient_preserves_small_gradients(self, test_arms):
+        """Test _clip_gradient preserves gradients within norm."""
+        bandit = DuelingBandit(test_arms, feature_dim=386, max_gradient_norm=1.0)
+
+        # Small gradient
+        small_gradient = np.ones((386, 1)) * 0.001  # Norm << 1.0
+        original_norm = np.linalg.norm(small_gradient)
+        clipped = bandit._clip_gradient(small_gradient)
+
+        # Should be unchanged
+        np.testing.assert_array_almost_equal(clipped, small_gradient)
+
+    def test_max_gradient_norm_in_stats(self, test_arms):
+        """Test max_gradient_norm is included in stats."""
+        bandit = DuelingBandit(test_arms, feature_dim=386, max_gradient_norm=2.5)
+        stats = bandit.get_stats()
+
+        assert "max_gradient_norm" in stats
+        assert stats["max_gradient_norm"] == 2.5
+
+
 class TestDuelingBanditUpdateValidation:
     """Tests for update validation errors."""
 

@@ -60,6 +60,7 @@ class DuelingBandit(BanditAlgorithm):
     - Samples preference scores with Gaussian noise
     - Selects top 2 arms for comparison
     - Updates weights via gradient descent on preference outcomes
+    - Applies gradient clipping to prevent unbounded weight growth
 
     Attributes:
         name: Algorithm identifier
@@ -67,6 +68,7 @@ class DuelingBandit(BanditAlgorithm):
         feature_dim: Dimensionality of context features
         exploration_weight: Exploration parameter (sigma)
         learning_rate: Gradient descent step size
+        max_gradient_norm: Maximum L2 norm for gradient clipping (prevents unbounded growth)
         preference_weights: Weight matrices for each arm (d × 1)
         preference_counts: Number of comparisons per arm pair
     """
@@ -78,6 +80,7 @@ class DuelingBandit(BanditAlgorithm):
         exploration_weight: float = 0.1,
         learning_rate: float = 0.01,
         random_seed: int | None = None,
+        max_gradient_norm: float = 1.0,
     ) -> None:
         """Initialize Dueling Bandit algorithm.
 
@@ -87,6 +90,8 @@ class DuelingBandit(BanditAlgorithm):
             exploration_weight: Thompson sampling exploration parameter (sigma)
             learning_rate: Gradient descent learning rate
             random_seed: Random seed for reproducibility
+            max_gradient_norm: Maximum L2 norm for gradient clipping (default 1.0).
+                Prevents unbounded weight growth which can destabilize learning.
 
         Example:
             >>> arms = [
@@ -105,6 +110,7 @@ class DuelingBandit(BanditAlgorithm):
         self.feature_dim: int = feature_dim
         self.exploration_weight = exploration_weight
         self.learning_rate = learning_rate
+        self.max_gradient_norm = max_gradient_norm
 
         # Initialize preference weights for each arm (d × 1 vectors)
         # Start with zero vectors (no initial preference)
@@ -153,11 +159,21 @@ class DuelingBandit(BanditAlgorithm):
         Returns:
             Tuple of (arm_a, arm_b) for comparison
 
+        Raises:
+            ValueError: If fewer than 2 arms are available (dueling requires pairs)
+
         Example:
             >>> features = QueryFeatures(embedding=[0.1]*384, ...)
             >>> arm_a, arm_b = await bandit.select_pair(features)
             >>> print(f"Comparing {arm_a.model_id} vs {arm_b.model_id}")
         """
+        # Validate we have enough arms for pairwise comparison
+        if len(self.arms) < 2:
+            raise ValueError(
+                f"Dueling bandit requires at least 2 arms, but only {len(self.arms)} available. "
+                "Use a single-arm bandit algorithm for single model routing."
+            )
+
         # Extract feature vector (d × 1)
         x = self._extract_features(features)
 
@@ -261,20 +277,42 @@ class DuelingBandit(BanditAlgorithm):
         # Gradient magnitude scaled by preference and confidence
         gradient_scale = preference * confidence
 
+        # Compute raw gradients
+        gradient_a = self.learning_rate * gradient_scale * x
+        gradient_b = -self.learning_rate * gradient_scale * x
+
+        # Apply gradient clipping to prevent unbounded weight growth
+        gradient_a = self._clip_gradient(gradient_a)
+        gradient_b = self._clip_gradient(gradient_b)
+
         # Update weights for both arms
         # Winner gets positive gradient, loser gets negative
 
         # Update arm A: move in direction of preference
-        self.preference_weights[model_a_id] += self.learning_rate * gradient_scale * x
+        self.preference_weights[model_a_id] += gradient_a
 
         # Update arm B: move opposite direction
-        self.preference_weights[model_b_id] -= self.learning_rate * gradient_scale * x
+        self.preference_weights[model_b_id] += gradient_b
 
         # Track comparison count (always use sorted tuple for consistency)
         sorted_ids = sorted([model_a_id, model_b_id])
         pair_key: tuple[str, str] = (sorted_ids[0], sorted_ids[1])
         # Always increment (pair should exist from init, but handle gracefully)
         self.preference_counts[pair_key] = self.preference_counts.get(pair_key, 0) + 1
+
+    def _clip_gradient(self, gradient: np.ndarray) -> np.ndarray:
+        """Clip gradient to maximum L2 norm to prevent unbounded weight growth.
+
+        Args:
+            gradient: Raw gradient vector (d × 1)
+
+        Returns:
+            Clipped gradient with L2 norm <= max_gradient_norm
+        """
+        grad_norm = float(np.linalg.norm(gradient))
+        if grad_norm > self.max_gradient_norm:
+            return gradient * (self.max_gradient_norm / grad_norm)
+        return gradient
 
     def reset(self) -> None:
         """Reset algorithm to initial state.
@@ -317,6 +355,7 @@ class DuelingBandit(BanditAlgorithm):
             "weight_norms": weight_norms,
             "exploration_weight": self.exploration_weight,
             "learning_rate": self.learning_rate,
+            "max_gradient_norm": self.max_gradient_norm,
         }
 
     def get_preference_matrix(self) -> dict[tuple[str, str], float]:

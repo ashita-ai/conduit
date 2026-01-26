@@ -1,17 +1,25 @@
 """Feedback system for behavior-based and explicit learning.
 
-This module implements both implicit and explicit feedback collection:
+This module implements both implicit and explicit feedback collection with
+automatic blending using the documented 70/30 formula:
 
-Implicit Feedback (behavior-based):
+    final_reward = 0.70 * explicit_score + 0.30 * implicit_score
+
+Implicit Feedback (behavior-based, 30% weight):
     - Error detection: Capture model failures and quality issues
     - Latency tracking: Monitor response times and user patience
     - Retry detection: Identify repeated queries indicating dissatisfaction
 
-Explicit Feedback (user-provided):
+Explicit Feedback (user-provided, 70% weight):
     - Thumbs up/down: Binary approval signals
     - Ratings: Numeric quality scores (1-5 stars, etc.)
     - Task success: Objective completion indicators
     - Quality score: Direct scores from human reviewers or evaluators (Arbiter)
+
+Blending Functions:
+    - blend_feedback(): Combine explicit and implicit scores
+    - compute_implicit_score(): Convert ImplicitFeedback to [0,1] score
+    - compute_blended_confidence(): Determine confidence for blended feedback
 
 Strategic Rationale:
     Dual feedback approach reduces dependency on explicit user feedback
@@ -72,7 +80,6 @@ Usage - Explicit Feedback:
     ... ))
 """
 
-# Implicit feedback (behavior-based)
 # Feedback adapters
 from conduit.feedback.adapters import (
     CompletionTimeAdapter,
@@ -82,6 +89,14 @@ from conduit.feedback.adapters import (
     RegenerationAdapter,
     TaskSuccessAdapter,
     ThumbsAdapter,
+)
+
+# Feedback blending (70/30 explicit/implicit)
+from conduit.feedback.blending import (
+    blend_feedback,
+    compute_blended_confidence,
+    compute_implicit_score,
+    load_blending_weights,
 )
 
 # Feedback collector
@@ -112,6 +127,11 @@ from conduit.feedback.stores import (
 )
 
 __all__ = [
+    # Feedback Blending (70/30)
+    "blend_feedback",
+    "compute_implicit_score",
+    "compute_blended_confidence",
+    "load_blending_weights",
     # Implicit Feedback
     "ImplicitFeedbackDetector",
     "QueryHistoryTracker",
