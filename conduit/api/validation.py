@@ -15,10 +15,26 @@ class ContextMetadata(BaseModel):
     All fields are optional to maximize flexibility.
     """
 
-    source: str | None = Field(None, description="Request source identifier")
-    session_id: str | None = Field(None, description="Session identifier")
-    request_id: str | None = Field(None, description="External request ID")
-    tags: list[str] | None = Field(None, description="Optional tags for categorization")
+    source: str | None = Field(
+        None,
+        description="Request source identifier",
+        json_schema_extra={"example": "web_app"},
+    )
+    session_id: str | None = Field(
+        None,
+        description="Session identifier",
+        json_schema_extra={"example": "session_123"},
+    )
+    request_id: str | None = Field(
+        None,
+        description="External request ID",
+        json_schema_extra={"example": "req_456"},
+    )
+    tags: list[str] | None = Field(
+        None,
+        description="Optional tags for categorization",
+        json_schema_extra={"example": ["beta-user", "experimentation"]},
+    )
 
     model_config = {"extra": "allow"}
 
@@ -26,24 +42,54 @@ class ContextMetadata(BaseModel):
 class CompleteRequest(BaseModel):
     """Request schema for POST /v1/complete."""
 
-    prompt: str = Field(..., description="User query/prompt", min_length=1)
+    prompt: str = Field(
+        ...,
+        description="User query/prompt",
+        min_length=1,
+        json_schema_extra={"example": "What is quantum computing?"},
+    )
     result_type: str | None = Field(
-        None, description="Pydantic model name for structured output (optional)"
+        None,
+        description="Pydantic model name for structured output (optional)",
+        json_schema_extra={"example": "AnswerSchema"},
     )
     constraints: QueryConstraints | None = Field(
         None,
         description="Optional routing constraints (max_cost, max_latency, min_quality, preferred_provider)",
+        json_schema_extra={
+            "example": {
+                "max_cost": 0.01,
+                "min_quality": 0.8,
+                "preferred_provider": "gpt-4o",
+            },
+        },
     )
-    user_id: str | None = Field(None, description="User identifier for tracking")
+    user_id: str | None = Field(
+        None,
+        description="User identifier for tracking",
+        json_schema_extra={"example": "user_12334"},
+    )
     context: ContextMetadata | None = Field(
-        None, description="Additional context metadata"
+        None,
+        description="Additional context metadata",
+        json_schema_extra={
+            "example": {
+                "source": "web_app",
+                "session_id": "session_123",
+                "tags": ["beta-user"],
+            }
+        },
     )
 
 
 class CompleteResponse(BaseModel):
     """Response schema for POST /v1/complete."""
 
-    id: str = Field(..., description="Response ID")
+    id: str = Field(
+        ...,
+        description="Response ID",
+        json_schema_extra={"example": "resp_789"},
+    )
     query_id: str = Field(..., description="Query ID")
     model: str = Field(..., description="Model used for completion")
     data: dict[str, Any] = Field(..., description="Structured response data")
@@ -56,23 +102,45 @@ class CompleteResponse(BaseModel):
 class FeedbackRequest(BaseModel):
     """Request schema for POST /v1/feedback."""
 
-    response_id: str = Field(..., description="Response ID to provide feedback for")
+    response_id: str = Field(
+        ...,
+        description="Response ID to provide feedback for",
+        json_schema_extra={"example": "response_456"},
+    )
     quality_score: float = Field(
-        ..., description="Quality score (0.0-1.0)", ge=0.0, le=1.0
+        ...,
+        description="Quality score (0.0-1.0)",
+        ge=0.0,
+        le=1.0,
+        json_schema_extra={"example": 0.92},
     )
     user_rating: int | None = Field(
-        None, description="User rating (1-5 stars)", ge=1, le=5
+        None,
+        description="User rating (1-5 stars)",
+        ge=1,
+        le=5,
+        json_schema_extra={"example": 5},
     )
     met_expectations: bool = Field(
-        ..., description="Whether response met user expectations"
+        ...,
+        description="Whether response met user expectations",
+        json_schema_extra={"example": True},
     )
-    comments: str | None = Field(None, description="Optional user comments")
+    comments: str | None = Field(
+        None,
+        description="Optional user comments",
+        json_schema_extra={"example": "Clear and insightful feedback."},
+    )
 
 
 class FeedbackResponse(BaseModel):
     """Response schema for POST /v1/feedback."""
 
-    id: str = Field(..., description="Feedback ID")
+    id: str = Field(
+        ...,
+        description="Feedback ID",
+        json_schema_extra={"example": "feedback_568"},
+    )
     response_id: str = Field(..., description="Response ID")
     message: str = Field(..., description="Confirmation message")
 
