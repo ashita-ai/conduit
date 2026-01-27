@@ -1,6 +1,5 @@
 """Edge case tests for signal detection logic in feedback/signals.py."""
 
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -66,6 +65,16 @@ class TestSignalDetectorEdgeCases:
         assert signal.occurred is True
         assert signal.error_type == "empty_response"
 
+    def test_detect_error_exact_boundary(self) -> None:
+        """Test detect_error at exact 10-char boundary (len < 10 triggers error)."""
+        signal = SignalDetector.detect_error(
+            response_text="0123456789",
+            execution_status="success",
+            execution_error=None,
+            model_id="test-model",
+        )
+        assert signal.occurred is False
+
     @pytest.mark.parametrize("error_phrase", [
         "Error: Something went wrong",
         "Exception: NullPointer",
@@ -91,8 +100,17 @@ class TestSignalDetectorEdgeCases:
         (100.0, 100.001, 0.001),  # Micro latency
         (100.0, 160.0, 60.0),     # High latency
     ])
-    def test_detect_latency_calculations(self, start: float, end: float, expected_latency: float) -> None:
+    @patch("conduit.feedback.signals.load_feedback_config")
+    def test_detect_latency_calculations(
+        self, mock_load_config: MagicMock, start: float, end: float, expected_latency: float
+    ) -> None:
         """Test latency calculation accuracy."""
+        mock_load_config.return_value = {
+            "latency_detection": {
+                "high_tolerance_max": 10.0,
+                "medium_tolerance_max": 30.0,
+            }
+        }
         signal = SignalDetector.detect_latency(start, end)
         assert signal.actual_latency_seconds == pytest.approx(expected_latency)
         assert signal.accepted is True
@@ -124,6 +142,8 @@ class TestSignalDetectorEdgeCases:
         # Case 4: Just above boundary (30.0001) -> Should be low
         s4 = LatencySignal(actual_latency_seconds=30.0001, accepted=True).categorize_tolerance()
         assert s4.tolerance_level == "low"
+
+        mock_load_config.assert_called()
 
     # --- detect_retry tests ---
 
