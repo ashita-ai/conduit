@@ -1,8 +1,9 @@
 """Unit tests for API routes."""
 
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from conduit.api.app import create_app
 from conduit.api.service import RoutingService
@@ -24,6 +25,7 @@ def mock_service():
 def client(mock_service):
     """Create test client with mocked service."""
     from fastapi import FastAPI
+
     from conduit.api.routes import create_routes
 
     # Create a minimal FastAPI app without the complex lifespan
@@ -121,10 +123,14 @@ class TestCompleteEndpoint:
         mock_service.complete = AsyncMock(side_effect=RoutingError("Routing failed"))
 
         response = client.post(
-            "/v1/complete", json={"prompt": "Test"},
+            "/v1/complete",
+            json={"prompt": "Test"},
         )
 
         assert response.status_code == 400  # RoutingError returns Bad Request
+        data = response.json()["detail"]
+        assert data["code"] == "ROUTING_FAILED"
+        assert data["error"] == "Routing failed"
 
     def test_complete_execution_error(self, client, mock_service):
         """Test handling of execution errors."""
@@ -134,11 +140,12 @@ class TestCompleteEndpoint:
             side_effect=ExecutionError("Model API failed")
         )
 
-        response = client.post(
-            "/v1/complete", json={"prompt": "Test"}
-        )
+        response = client.post("/v1/complete", json={"prompt": "Test"})
 
         assert response.status_code == 500
+        data = response.json()["detail"]
+        assert data["code"] == "EXECUTION_FAILED"
+        assert data["error"] == "LLM execution failed"
 
 
 class TestFeedbackEndpoint:
@@ -317,25 +324,24 @@ class TestErrorHandling:
         """Test complete endpoint handles unexpected exceptions."""
         mock_service.complete = AsyncMock(side_effect=RuntimeError("Unexpected error"))
 
-        response = client.post(
-            "/v1/complete",
-            json={"prompt": "Test query"}
-        )
+        response = client.post("/v1/complete", json={"prompt": "Test query"})
 
         assert response.status_code == 500
         assert "Internal server error" in response.json()["detail"]
 
     def test_feedback_unexpected_error(self, client, mock_service):
         """Test feedback endpoint handles unexpected exceptions."""
-        mock_service.submit_feedback = AsyncMock(side_effect=RuntimeError("Unexpected error"))
+        mock_service.submit_feedback = AsyncMock(
+            side_effect=RuntimeError("Unexpected error")
+        )
 
         response = client.post(
             "/v1/feedback",
             json={
                 "response_id": "test-id",
                 "quality_score": 0.9,
-                "met_expectations": True
-            }
+                "met_expectations": True,
+            },
         )
 
         assert response.status_code == 500

@@ -85,7 +85,7 @@ def create_routes(service: RoutingService) -> APIRouter:
                 detail={
                     "error": e.message,
                     "code": e.code,
-                    "detail": e.details or None,
+                    "context": e.details or None,
                 },
             ) from e
         except ExecutionError as e:
@@ -95,7 +95,7 @@ def create_routes(service: RoutingService) -> APIRouter:
                 detail={
                     "error": "LLM execution failed",
                     "code": e.code,
-                    "detail": e.details or None,
+                    "context": e.details or None,
                 },
             ) from e
         except Exception as e:

@@ -175,8 +175,8 @@ class ErrorResponse(BaseModel):
     """Error response schema."""
 
     error: str = Field(..., description="Error message")
-    detail: str | None = Field(None, description="Error details")
     code: str | None = Field(None, description="Error code")
+    context: dict[str, Any] | None = Field(None, description="Additional error context")
 
 
 # Audit API schemas

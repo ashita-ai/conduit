@@ -21,46 +21,46 @@ class ConduitError(Exception):
 class AnalysisError(ConduitError):
     """Query analysis failed (embedding, complexity, domain classification)."""
 
-    code = "ANALYSIS_FAILED"
+    code: str = "ANALYSIS_FAILED"
 
 
 class RoutingError(ConduitError):
     """Model selection failed (Thompson Sampling, constraint satisfaction)."""
 
-    code = "ROUTING_FAILED"
+    code: str = "ROUTING_FAILED"
 
 
 class ExecutionError(ConduitError):
     """LLM execution failed (API call, timeout, parsing)."""
 
-    code = "EXECUTION_FAILED"
+    code: str = "EXECUTION_FAILED"
 
 
 class DatabaseError(ConduitError):
     """Database operation failed (connection, query, transaction)."""
 
-    code = "DATABASE_ERROR"
+    code: str = "DATABASE_ERROR"
 
 
 class ValidationError(ConduitError):
     """Input validation failed (Pydantic, constraints, schema)."""
 
-    code = "VALIDATION_ERROR"
+    code: str = "VALIDATION_ERROR"
 
 
 class ConfigurationError(ConduitError):
     """Configuration error (missing env vars, invalid settings)."""
 
-    code = "CONFIGURATION_ERROR"
+    code: str = "CONFIGURATION_ERROR"
 
 
 class CircuitBreakerOpenError(ConduitError):
     """Circuit breaker is open, preventing execution."""
 
-    code = "CIRCUIT_BREAKER_OPEN"
+    code: str = "CIRCUIT_BREAKER_OPEN"
 
 
 class RateLimitError(ConduitError):
     """Rate limit exceeded for user or API."""
 
-    code = "RATE_LIMIT_EXCEEDED"
+    code: str = "RATE_LIMIT_EXCEEDED"
