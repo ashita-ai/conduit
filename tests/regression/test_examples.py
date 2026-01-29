@@ -164,10 +164,11 @@ def test_litellm_integration():
 def test_hybrid_routing():
     """Test examples/hybrid_routing.py runs successfully.
 
-    This example uses mock embeddings and does not require API keys.
+    This example uses local embeddings (FastEmbed or sentence-transformers)
+    and does not require API keys. First run may download model files (~100MB).
     """
     example = EXAMPLES_DIR / "hybrid_routing.py"
-    exit_code, stdout, stderr = run_example(example, timeout=60)
+    exit_code, stdout, stderr = run_example(example, timeout=180)
 
     assert exit_code == 0, f"Example failed with stderr: {stderr}"
 
