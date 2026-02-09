@@ -397,6 +397,74 @@ def create_routes(service: RoutingService) -> APIRouter:
                 detail="Internal server error",
             ) from e
 
+    # GET /health - Service health with component statuses
+    @api_router.get(
+        "/health",
+        response_model=HealthResponse,
+        status_code=status.HTTP_200_OK,
+    )
+    async def health() -> HealthResponse:
+        """Service health endpoint with component-level checks.
+
+        Returns overall service health and detailed component status,
+        including embedding provider availability.
+        """
+        import asyncio
+        from datetime import datetime, timezone
+
+        components: dict[str, dict[str, str]] = {}
+        overall_status = "healthy"
+
+        # Database health check
+        try:
+            if service.database.pool:
+                await service.database.get_model_states()
+                components["database"] = {"status": "healthy"}
+            else:
+                raise RuntimeError("Database pool not initialized")
+        except Exception as e:
+            logger.error(f"Database health check failed: {e}")
+            components["database"] = {"status": "unhealthy"}
+            overall_status = "degraded"
+
+        # Embedding provider health check
+        try:
+            analyzer = service.router.analyzer
+            provider = analyzer.embedding_provider
+
+            if provider is None:
+                components["embedding"] = {
+                    "status": "unhealthy",
+                    "detail": "embedding provider not configured",
+                }
+                overall_status = "degraded"
+            else:
+                await asyncio.wait_for(
+                    provider.embed("health-check"),
+                    timeout=5.0,
+                )
+                components["embedding"] = {
+                    "status": "healthy",
+                    "provider": provider.provider_name,
+                }
+        except asyncio.TimeoutError:
+            logger.error("Embedding health check timed out")
+            components["embedding"] = {
+                "status": "unhealthy",
+                "detail": "timeout",
+            }
+            overall_status = "degraded"
+
+        except Exception as e:
+            logger.error(f"Embedding health check failed; {e}")
+            components["embedding"] = {"status": "unhealthy"}
+            overall_status = "degraded"
+        return HealthResponse(
+            status=overall_status,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            components=components,
+        )
+
     # GET /v1/audit/{decision_id} - Get specific audit entry
     @api_router.get(
         "/v1/audit/{decision_id}",
