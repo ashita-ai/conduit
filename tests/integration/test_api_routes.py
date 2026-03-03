@@ -49,6 +49,8 @@ def test_client():
         )
     )
 
+    mock_service.check_database_health = AsyncMock(return_value={"ok": True})
+    mock_service.check_embedding_health = AsyncMock(return_value={"ok": True})
     # Import and configure routes with mock service
     from conduit.api.routes import create_routes
 
@@ -86,7 +88,9 @@ class TestHealthEndpoints:
         client, mock_service = test_client
 
         # Mock database client as None (not connected)
-        mock_service.database.client = None
+        mock_service.check_database_health = AsyncMock(
+            return_value={"ok": False, "reason": "not_connected"}
+        )
 
         response = client.get("/health/ready")
 

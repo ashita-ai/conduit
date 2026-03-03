@@ -18,6 +18,7 @@ def mock_service():
     service.database = MagicMock()
     service.database.client = MagicMock()
     service.database.get_model_states = AsyncMock(return_value={})
+    service.check_database_health = AsyncMock(return_value={"ok": True})
     return service
 
 
@@ -299,6 +300,79 @@ class TestHealthEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
+
+    def test_health_overall_healthy(self, client, mock_service):
+        """Test /health when all components are healthy."""
+        mock_service.check_database_health = AsyncMock(return_value={"ok": True})
+        mock_service.check_embedding_health = AsyncMock(
+            return_value={"ok": True, "provider": "openai"}
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"
+        assert data["components"]["database"]["status"] == "healthy"
+        assert data["components"]["embedding"]["status"] == "healthy"
+        assert data["components"]["embedding"]["provider"] == "openai"
+
+    def test_health_degraded_embedding_failure(self, client, mock_service):
+        """Test /health when embedding provider fails."""
+        mock_service.check_database_health = AsyncMock(return_value={"ok": True})
+        mock_service.check_embedding_health = AsyncMock(
+            return_value={"ok": False, "provider": "openai"}
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "degraded"
+        assert data["components"]["embedding"]["status"] == "unhealthy"
+
+    def test_health_degraded_database_failure(self, client, mock_service):
+        """Test /health when database check fails."""
+        mock_service.check_database_health = AsyncMock(return_value={"ok": False})
+        mock_service.check_embedding_health = AsyncMock(
+            return_value={"ok": True, "provider": "openai"}
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "degraded"
+        assert data["components"]["database"]["status"] == "unhealthy"
+
+    def test_health_embedding_timeout(self, client, mock_service):
+        """Test /health when embedding check times out."""
+        mock_service.check_database_health = AsyncMock(return_value={"ok": True})
+        mock_service.check_embedding_health = AsyncMock(
+            return_value={"ok": False, "provider": "openai"}
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "degraded"
+        assert data["components"]["embedding"]["status"] == "unhealthy"
+
+    def test_health_embedding_not_configured(self, client, mock_service):
+        """Test /health when embedding provider is not configured."""
+        mock_service.check_database_health = AsyncMock(return_value={"ok": True})
+        mock_service.check_embedding_health = AsyncMock(
+            return_value={"ok": False, "provider": None}
+        )
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "degraded"
+        assert data["components"]["embedding"]["status"] == "unhealthy"
+        assert data["components"]["embedding"]["provider"] is None
 
 
 class TestErrorHandling:
