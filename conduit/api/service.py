@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
@@ -49,6 +50,10 @@ class RoutingService:
         self.executor = executor
         self.default_result_type = default_result_type
         self.evaluator = evaluator
+
+        # Internal TTL cache for embedding health
+        self._embedding_health_cache: dict[str, Any] | None = None
+        self._last_embedding_check: float = 0.0
 
     async def complete(
         self,
@@ -231,6 +236,71 @@ class RoutingService:
             "model_distribution": {},
             "quality_metrics": {"avg_quality": 0.0, "success_rate": 0.0},
         }
+
+    async def check_database_health(self) -> dict[str, Any]:
+        """Check database health with structured result."""
+        try:
+            if not self.database.pool:
+                return {"ok": False, "reason": "not_connected"}
+
+            await self.database.get_model_states()
+            return {"ok": True}
+
+        except Exception as e:
+            logger.error(f"Database health check failed: {e}")
+            return {
+                "ok": False,
+                "reason": "error",
+                "detail": str(e),
+            }
+
+    async def check_embedding_health(self) -> dict[str, Any]:
+        """Checking embedding provider health with TTL caching"""
+        ttl_seconds = 60
+        now = time.time()
+
+        # Return cached result if within TTL
+        if (
+            self._embedding_health_cache is not None
+            and now - self._last_embedding_check < ttl_seconds
+        ):
+            return self._embedding_health_cache
+
+        provider = None
+
+        try:
+            router = getattr(self, "router", None)
+            analyzer = getattr(router, "analyzer", None)
+            provider = getattr(analyzer, "embedding_provider", None)
+
+            if provider is None:
+                result = {"ok": False, "provider": None}
+            else:
+                await asyncio.wait_for(
+                    provider.embed("health-check"),
+                    timeout=5.0,
+                )
+                result = {
+                    "ok": True,
+                    "provider": getattr(provider, "provider_name", None),
+                }
+
+        except asyncio.TimeoutError:
+            result = {
+                "ok": False,
+                "provider": getattr(provider, "provider_name", None),
+            }
+        except Exception as e:
+            logger.error(f"Embedding health check failed: {e}")
+            result = {
+                "ok": False,
+                "provider": getattr(provider, "provider_name", None),
+            }
+
+        self._embedding_health_cache = result
+        self._last_embedding_check = now
+
+        return result
 
     async def get_models(self) -> list[str]:
         """Get available models.

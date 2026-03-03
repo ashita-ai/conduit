@@ -261,22 +261,18 @@ def create_routes(service: RoutingService) -> APIRouter:
         """
         from datetime import datetime, timezone
 
-        # Check database connectivity
-        try:
-            if service.database.pool:
-                # Simple database check - attempt to fetch model states
-                await service.database.get_model_states()
+        db_health = await service.check_database_health()
+
+        if not db_health["ok"]:
+            if db_health.get("reason") == "not_connected":
+                detail = "Database not connected"
             else:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Database not connected",
-                )
-        except Exception as e:
-            logger.error(f"Database health check failed: {e}")
+                detail = f"Database unhealthy: {db_health.get('detail', '')}"
+
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Database unhealthy: {str(e)}",
-            ) from e
+                detail=detail,
+            )
 
         return HealthResponse(
             status="healthy",
@@ -296,6 +292,57 @@ def create_routes(service: RoutingService) -> APIRouter:
         return HealthResponse(
             status="healthy",
             timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+
+    # GET /health - Service health with component statuses
+    @api_router.get(
+        "/health",
+        response_model=HealthResponse,
+        status_code=status.HTTP_200_OK,
+    )
+    async def health() -> HealthResponse:
+        """Service health endpoint with component-level checks.
+
+        Returns overall service health and detailed component status,
+        including embedding provider availability.
+
+        Always returns HTTP 200. A degraded state is reported in the
+        response body to avoid removing the service from rotation due to
+        transient embedding failures.
+        """
+        from datetime import datetime, timezone
+
+        components: dict[str, dict[str, str | None]] = {}
+        overall_status = "healthy"
+
+        # Database health check
+        db_health = await service.check_database_health()
+
+        if db_health["ok"]:
+            components["database"] = {"status": "healthy"}
+        else:
+            components["database"] = {"status": "unhealthy"}
+            overall_status = "degraded"
+
+        # Embedding provider health check
+        embedding_health = await service.check_embedding_health()
+
+        if embedding_health["ok"]:
+            components["embedding"] = {
+                "status": "healthy",
+                "provider": embedding_health["provider"],
+            }
+        else:
+            components["embedding"] = {
+                "status": "unhealthy",
+                "provider": embedding_health["provider"],
+            }
+            overall_status = "degraded"
+
+        return HealthResponse(
+            status=overall_status,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            components=components,
         )
 
     # GET /v1/audit - Query audit log

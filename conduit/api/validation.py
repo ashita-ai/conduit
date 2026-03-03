@@ -167,8 +167,11 @@ class ModelsResponse(BaseModel):
 class HealthResponse(BaseModel):
     """Response schema for health endpoints."""
 
-    status: str = Field(..., description="Health status (healthy, unhealthy)")
+    status: str = Field(..., description="Health status (healthy, unhealthy, degraded)")
     timestamp: str = Field(..., description="ISO timestamp")
+    components: dict[str, Any] | None = Field(
+        default=None, description="Component health statuses"
+    )
 
 
 class ErrorResponse(BaseModel):
