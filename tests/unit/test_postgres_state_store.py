@@ -284,7 +284,11 @@ class TestSaveBanditState:
         # Mock _ensure_table_exists to pass, then fail on pool.acquire
         with patch.object(store, "_ensure_table_exists", new_callable=AsyncMock):
             mock_pool.acquire.return_value.__aenter__.side_effect = Exception("DB error")
-            with pytest.raises(StateStoreError, match="Failed to save state"):
+            with pytest.raises(
+                StateStoreError,
+                match=r"Failed to save state during save operation for router "
+                r"'router-1' and bandit 'ucb1': DB error",
+            ):
                 await store.save_bandit_state("router-1", "ucb1", state)
 
 
@@ -334,7 +338,11 @@ class TestLoadBanditState:
 
         with patch.object(store, "_ensure_table_exists", new_callable=AsyncMock):
             mock_pool.acquire.return_value.__aenter__.side_effect = Exception("DB error")
-            with pytest.raises(StateStoreError, match="Failed to load state"):
+            with pytest.raises(
+                StateStoreError,
+                match=r"Failed to load state during load operation for router "
+                r"'router-1' and bandit 'ucb1': DB error",
+            ):
                 await store.load_bandit_state("router-1", "ucb1")
 
 
@@ -430,6 +438,38 @@ class TestLoadHybridRouterState:
 
         assert state is None
 
+    @pytest.mark.asyncio
+    async def test_load_hybrid_router_state_raises_on_error(self, mock_pool):
+        """Test loading hybrid router state includes router and bandit context."""
+        store = PostgresStateStore(pool=mock_pool)
+
+        with patch.object(store, "_ensure_table_exists", new_callable=AsyncMock):
+            mock_pool.acquire.return_value.__aenter__.side_effect = Exception("DB error")
+            with pytest.raises(
+                StateStoreError,
+                match=r"Failed to load state during load operation for router "
+                r"'router-1' and bandit 'hybrid_router': DB error",
+            ):
+                await store.load_hybrid_router_state("router-1")
+
+
+class TestSaveHybridRouterStateErrors:
+    """Tests for hybrid router error message context."""
+
+    @pytest.mark.asyncio
+    async def test_save_hybrid_router_state_raises_on_error(self, mock_pool, sample_hybrid_state):
+        """Test saving hybrid router state includes router and bandit context."""
+        store = PostgresStateStore(pool=mock_pool)
+
+        with patch.object(store, "_ensure_table_exists", new_callable=AsyncMock):
+            mock_pool.acquire.return_value.__aenter__.side_effect = Exception("DB error")
+            with pytest.raises(
+                StateStoreError,
+                match=r"Failed to save state during save operation for router "
+                r"'router-1' and bandit 'hybrid_router': DB error",
+            ):
+                await store.save_hybrid_router_state("router-1", sample_hybrid_state)
+
 
 class TestDeleteState:
     """Tests for deleting state."""
@@ -455,7 +495,11 @@ class TestDeleteState:
 
         with patch.object(store, "_ensure_table_exists", new_callable=AsyncMock):
             mock_pool.acquire.return_value.__aenter__.side_effect = Exception("DB error")
-            with pytest.raises(StateStoreError, match="Failed to delete state"):
+            with pytest.raises(
+                StateStoreError,
+                match=r"Failed to delete state during delete operation for router "
+                r"'router-1': DB error",
+            ):
                 await store.delete_state("router-1")
 
 

@@ -257,8 +257,14 @@ class PostgresStateStore(StateStore):
             except StateVersionConflictError:
                 raise
             except Exception as e:
-                logger.error(f"Failed to save bandit state: {e}")
-                raise StateStoreError(f"Failed to save state: {e}") from e
+                logger.error(
+                    f"Failed to save bandit state for router {router_id} "
+                    f"and bandit {bandit_id}: {e}"
+                )
+                raise StateStoreError(
+                    f"Failed to save state during save operation for router "
+                    f"'{router_id}' and bandit '{bandit_id}': {e}"
+                ) from e
 
     async def load_bandit_state(
         self, router_id: str, bandit_id: str
@@ -297,8 +303,14 @@ class PostgresStateStore(StateStore):
             return state
 
         except Exception as e:
-            logger.error(f"Failed to load bandit state: {e}")
-            raise StateStoreError(f"Failed to load state: {e}") from e
+            logger.error(
+                f"Failed to load bandit state for router {router_id} "
+                f"and bandit {bandit_id}: {e}"
+            )
+            raise StateStoreError(
+                f"Failed to load state during load operation for router "
+                f"'{router_id}' and bandit '{bandit_id}': {e}"
+            ) from e
 
     async def save_hybrid_router_state(
         self, router_id: str, state: HybridRouterState
@@ -389,8 +401,14 @@ class PostgresStateStore(StateStore):
             except StateVersionConflictError:
                 raise
             except Exception as e:
-                logger.error(f"Failed to save hybrid router state: {e}")
-                raise StateStoreError(f"Failed to save state: {e}") from e
+                logger.error(
+                    f"Failed to save hybrid router state for router {router_id} "
+                    f"and bandit {bandit_id}: {e}"
+                )
+                raise StateStoreError(
+                    f"Failed to save state during save operation for router "
+                    f"'{router_id}' and bandit '{bandit_id}': {e}"
+                ) from e
 
     async def load_hybrid_router_state(
         self, router_id: str
@@ -428,8 +446,13 @@ class PostgresStateStore(StateStore):
             return state
 
         except Exception as e:
-            logger.error(f"Failed to load hybrid router state: {e}")
-            raise StateStoreError(f"Failed to load state: {e}") from e
+            logger.error(
+                f"Failed to load hybrid router state for router {router_id}: {e}"
+            )
+            raise StateStoreError(
+                f"Failed to load state during load operation for router "
+                f"'{router_id}' and bandit 'hybrid_router': {e}"
+            ) from e
 
     async def delete_state(self, router_id: str) -> None:
         """Delete all state for a router instance.
@@ -448,8 +471,11 @@ class PostgresStateStore(StateStore):
                 await conn.execute(delete_sql, router_id)
             logger.debug(f"Deleted all state for {router_id}")
         except Exception as e:
-            logger.error(f"Failed to delete state: {e}")
-            raise StateStoreError(f"Failed to delete state: {e}") from e
+            logger.error(f"Failed to delete state for router {router_id}: {e}")
+            raise StateStoreError(
+                f"Failed to delete state during delete operation for router "
+                f"'{router_id}': {e}"
+            ) from e
 
     async def list_router_ids(self) -> list[str]:
         """List all router IDs with persisted state.
